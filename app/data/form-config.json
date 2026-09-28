@@ -1,0 +1,35 @@
+{
+  "title": "Boda de María & Alejandro",
+  "subtitle": "Por favor confirma tu asistencia a nuestro evento",
+  "questions": [
+    {
+      "id": "nombre",
+      "type": "text",
+      "title": "¿Cuál es tu nombre completo?",
+      "placeholder": "Ej. Juan Pérez",
+      "required": true
+    },
+    {
+      "id": "asistencia",
+      "type": "choice",
+      "title": "¿Nos acompañarás en nuestro gran día?",
+      "options": ["¡Sí, ahí estaré!", "Lamentablemente no podré ir"],
+      "required": true
+    },
+    {
+      "id": "pases",
+      "type": "number",
+      "title": "¿Cuántos pases confirmas?",
+      "min": 1,
+      "max": 5,
+      "required": true
+    },
+    {
+      "id": "diet",
+      "type": "choice",
+      "title": "¿Tienes alguna restricción alimentaria?",
+      "options": ["Ninguna", "Vegetariano / Vegano", "Alergia / Gluten Free"],
+      "required": false
+    }
+  ]
+}
