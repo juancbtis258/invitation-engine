@@ -3,147 +3,155 @@
 import { useState } from "react";
 import formData from "../data/form-config.json";
 
-// Tu URL de Google Apps Script:
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwZ4jQVBC_Puii6O4pMMuPZr-8VnUzSo0tqnOdAyPFoEglrfPQJqRBdIR9zChCtyEOOmA/exec";
-
 export default function FormEngine() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [isFinished, setIsFinished] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const currentQuestion = formData.questions[currentIndex];
-  const progress = ((currentIndex + 1) / formData.questions.length) * 100;
+  const questions = formData.questions;
+  const currentQ = questions[currentIndex];
 
-  const handleInputChange = (value: any) => {
-    setAnswers((prev) => ({ ...prev, [currentQuestion.id]: value }));
-  };
+  const handleNext = async (value: any) => {
+    const updatedAnswers = { ...answers, [currentQ.id]: value };
+    setAnswers(updatedAnswers);
 
-  const handleNext = async () => {
-    if (currentIndex < formData.questions.length - 1) {
-      setCurrentIndex((prev) => prev + 1);
+    if (currentIndex < questions.length - 1) {
+      setCurrentIndex(currentIndex + 1);
     } else {
-      setIsSubmitting(true);
+      setSubmitting(true);
       try {
-        await fetch(GOOGLE_SCRIPT_URL, {
+        await fetch("/api/responses", {
           method: "POST",
-          mode: "no-cors",
-          headers: {
-            "Content-Type": "text/plain",
-          },
-          body: JSON.stringify(answers),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updatedAnswers),
         });
-      } catch (err) {
-        console.error("Error al enviar la respuesta:", err);
-      } finally {
-        setIsSubmitting(false);
-        setIsFinished(true);
+      } catch (e) {
+        console.error(e);
       }
+      setSubmitting(false);
+      setIsFinished(true);
     }
   };
 
+  const generateWhatsAppUrl = () => {
+    const nombre = answers["nombre"] || answers["pregunta_1"] || "Un invitado";
+    const text = `¡Hola! Soy *${nombre}*. Acabo de confirmar mi asistencia.`;
+    return `https://wa.me/528100000000?text=${encodeURIComponent(text)}`;
+  };
+
+  if (submitting) {
+    return <div className="text-center py-6 text-sm text-slate-600 font-medium">Enviando respuestas...</div>;
+  }
+
   if (isFinished) {
     return (
-      <div className="text-center p-8 bg-slate-800 rounded-2xl border border-amber-400/30 max-w-md w-full shadow-2xl animate-fade-in">
-        <div className="w-16 h-16 bg-amber-400/10 text-amber-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-amber-400/20">
-          <svg
-            className="w-8 h-8"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M5 13l4 4L19 7"
-            />
-          </svg>
-        </div>
-        <h2 className="text-2xl font-bold text-amber-300 mb-2">
-          ¡Gracias por confirmar!
-        </h2>
-        <p className="text-slate-300 text-sm leading-relaxed">
-          Hemos registrado tus respuestas. ¡Nos alegra mucho contar contigo en este día tan especial!
-        </p>
+      <div className="text-center space-y-4 py-4">
+        <div className="text-3xl">🎉</div>
+        <h2 className="text-lg font-bold text-slate-800">¡Respuesta registrada!</h2>
+        <a
+          href={generateWhatsAppUrl()}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition text-sm shadow"
+        >
+          📲 Enviar Confirmación por WhatsApp
+        </a>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-lg bg-slate-800 p-6 rounded-2xl shadow-xl border border-slate-700">
-      {/* Barra de progreso */}
-      <div className="w-full bg-slate-700 h-2 rounded-full mb-6 overflow-hidden">
-        <div
-          className="bg-amber-400 h-full transition-all duration-300"
-          style={{ width: `${progress}%` }}
-        />
+    <div className="space-y-4">
+      {/* Indicador discreto */}
+      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-right">
+        Paso {currentIndex + 1} de {questions.length}
       </div>
 
-      <span className="text-xs text-amber-400 font-semibold tracking-wider uppercase">
-        Pregunta {currentIndex + 1} de {formData.questions.length}
-      </span>
+      <label className="block text-sm font-semibold text-slate-800">
+        {currentQ.title} {currentQ.required && <span className="text-red-500">*</span>}
+      </label>
 
-      <h2 className="text-xl font-bold text-white mt-2 mb-4">
-        {currentQuestion.title}
-      </h2>
-
-      {/* Renderizado dinámico de tipos de pregunta */}
-      <div className="mb-6">
-        {currentQuestion.type === "text" && (
+      {currentQ.type === "text" && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const val = (e.currentTarget.elements.namedItem("answer") as HTMLInputElement).value;
+            if (val) handleNext(val);
+          }}
+          className="space-y-3"
+        >
           <input
+            name="answer"
             type="text"
-            placeholder={currentQuestion.placeholder}
-            value={answers[currentQuestion.id] || ""}
-            onChange={(e) => handleInputChange(e.target.value)}
-            className="w-full p-3 bg-slate-900 border border-slate-600 rounded-xl text-white focus:outline-none focus:border-amber-400"
+            required={currentQ.required}
+            placeholder={currentQ.placeholder}
+            className="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:border-slate-800"
           />
-        )}
+          <button type="submit" className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl text-sm transition">
+            Siguiente →
+          </button>
+        </form>
+      )}
 
-        {currentQuestion.type === "number" && (
+      {currentQ.type === "choice" && (
+        <div className="space-y-2">
+          {currentQ.options?.map((opt: string) => (
+            <button
+              key={opt}
+              onClick={() => handleNext(opt)}
+              className="w-full text-left p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-800 text-sm font-medium transition"
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {currentQ.type === "number" && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const val = (e.currentTarget.elements.namedItem("answer") as HTMLInputElement).value;
+            if (val) handleNext(val);
+          }}
+          className="space-y-3"
+        >
           <input
+            name="answer"
             type="number"
-            min={currentQuestion.min}
-            max={currentQuestion.max}
-            value={answers[currentQuestion.id] ?? 1}
-            onChange={(e) => handleInputChange(Number(e.target.value))}
-            className="w-full p-3 bg-slate-900 border border-slate-600 rounded-xl text-white focus:outline-none focus:border-amber-400"
+            min={1}
+            max={10}
+            defaultValue={1}
+            required={currentQ.required}
+            className="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-center font-bold text-lg focus:outline-none focus:border-slate-800"
           />
-        )}
+          <button type="submit" className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl text-sm transition">
+            Siguiente →
+          </button>
+        </form>
+      )}
 
-        {currentQuestion.type === "choice" && (
-          <div className="space-y-2">
-            {currentQuestion.options?.map((option) => (
-              <button
-                key={option}
-                onClick={() => handleInputChange(option)}
-                className={`w-full text-left p-3 rounded-xl border transition ${
-                  answers[currentQuestion.id] === option
-                    ? "bg-amber-500/20 border-amber-400 text-amber-200"
-                    : "bg-slate-900 border-slate-700 text-slate-300 hover:border-slate-500"
-                }`}
-              >
-                {option}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <button
-        onClick={handleNext}
-        disabled={
-          isSubmitting ||
-          (currentQuestion.required && !answers[currentQuestion.id])
-        }
-        className="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-bold py-3 rounded-xl transition flex items-center justify-center"
-      >
-        {isSubmitting
-          ? "Enviando..."
-          : currentIndex === formData.questions.length - 1
-          ? "Enviar Respuesta"
-          : "Siguiente →"}
-      </button>
+      {currentQ.type === "textarea" && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const val = (e.currentTarget.elements.namedItem("answer") as HTMLTextAreaElement).value;
+            handleNext(val || "Sin mensaje");
+          }}
+          className="space-y-3"
+        >
+          <textarea
+            name="answer"
+            rows={3}
+            placeholder={currentQ.placeholder}
+            className="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:border-slate-800"
+          />
+          <button type="submit" className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl text-sm transition">
+            Finalizar →
+          </button>
+        </form>
+      )}
     </div>
   );
 }

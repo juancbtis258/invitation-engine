@@ -1,34 +1,55 @@
 {
-  "title": "Boda de María & Alejandro",
-  "subtitle": "Por favor confirma tu asistencia a nuestro evento",
+  "title": "Boda María & Alejandro",
+  "subtitle": "Confirmación de Asistencia Digital",
+  "eventDate": "2026-11-20T18:00:00",
+  "locationName": "Jardín de Eventos Las Luces",
+  "locationUrl": "https://maps.google.com",
+  "theme": "emerald",
   "questions": [
     {
       "id": "nombre",
-      "type": "text",
       "title": "¿Cuál es tu nombre completo?",
+      "type": "text",
       "placeholder": "Ej. Juan Pérez",
       "required": true
     },
     {
       "id": "asistencia",
-      "type": "choice",
       "title": "¿Nos acompañarás en nuestro gran día?",
-      "options": ["¡Sí, ahí estaré!", "Lamentablemente no podré ir"],
-      "required": true
+      "type": "choice",
+      "options": [
+        "¡Sí, ahí estaré!",
+        "Lamentablemente no podré asistir"
+      ],
+      "required": true,
+      "skipToIf": {
+        "Lamentablemente no podré asistir": "FIN"
+      }
     },
     {
       "id": "pases",
+      "title": "¿Cuántos pases confirmarás?",
       "type": "number",
-      "title": "¿Cuántos pases confirmas?",
       "min": 1,
       "max": 5,
       "required": true
     },
     {
       "id": "diet",
+      "title": "¿Tienes alguna restricción alimenticia o alergia?",
       "type": "choice",
-      "title": "¿Tienes alguna restricción alimentaria?",
-      "options": ["Ninguna", "Vegetariano / Vegano", "Alergia / Gluten Free"],
+      "options": [
+        "Ninguna",
+        "Vegetariano / Vegano",
+        "Intolerancia al gluten / Lactosa"
+      ],
+      "required": true
+    },
+    {
+      "id": "mensaje",
+      "title": "¿Quieres dejarle un mensaje o felicitación a los novios?",
+      "type": "textarea",
+      "placeholder": "Escribe aquí tus buenos deseos...",
       "required": false
     }
   ]
