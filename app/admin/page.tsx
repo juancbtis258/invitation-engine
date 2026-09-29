@@ -60,6 +60,11 @@ export default function AdminDashboard() {
   const [newCollabEmail, setNewCollabEmail] = useState("");
   const [newCollabRole, setNewCollabRole] = useState<"collaborator" | "client">("client");
 
+  // Estado para edición de usuario
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+
   const [activeTab, setActiveTab] = useState<"list" | "builder" | "responses" | "users">("list");
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -190,6 +195,35 @@ export default function AdminDashboard() {
     setNewCollabName("");
     setNewCollabEmail("");
     alert(`¡Colaborador/Cliente "${newCollab.name}" registrado correctamente!`);
+  };
+
+  // Iniciar modo de edición
+  const startEditingUser = (user: Collaborator) => {
+    setEditingUserId(user.id);
+    setEditName(user.name);
+    setEditEmail(user.email);
+  };
+
+  // Guardar cambios del usuario editado
+  const saveUserEdit = (id: string) => {
+    if (!editName.trim() || !editEmail.trim()) {
+      alert("El nombre y correo no pueden estar vacíos.");
+      return;
+    }
+
+    setCollaborators(collaborators.map((c) => {
+      if (c.id === id) {
+        return { ...c, name: editName, email: editEmail };
+      }
+      return c;
+    }));
+
+    setEditingUserId(null);
+  };
+
+  // Cancelar edición
+  const cancelUserEdit = () => {
+    setEditingUserId(null);
   };
 
   // Cambiar estado de usuario (Activo / Inactivo)
@@ -325,7 +359,7 @@ export default function AdminDashboard() {
                   : "bg-slate-800 text-slate-300 hover:bg-slate-700"
               }`}
             >
-              🛠️️ Diseñador
+              🛠 Diseñador
             </button>
             <button
               onClick={() => setActiveTab("responses")}
@@ -689,46 +723,110 @@ export default function AdminDashboard() {
                       <th className="p-3 font-semibold">Nombre</th>
                       <th className="p-3 font-semibold">Correo</th>
                       <th className="p-3 font-semibold">Rol</th>
-                      <th className="p-3 font-semibold">Estado (Haz clic para cambiar)</th>
+                      <th className="p-3 font-semibold">Estado</th>
                       <th className="p-3 font-semibold text-right">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800">
-                    {collaborators.map((c) => (
-                      <tr key={c.id} className="hover:bg-slate-800/30 transition-all">
-                        <td className="p-3 font-bold text-white">{c.name}</td>
-                        <td className="p-3 font-mono text-slate-400">{c.email}</td>
-                        <td className="p-3 uppercase font-extrabold text-[10px]">
-                          <span className={`px-2 py-0.5 rounded-md ${
-                            c.role === "admin" ? "bg-amber-500/20 text-amber-400" : "bg-blue-500/20 text-blue-400"
-                          }`}>
-                            {c.role === "admin" ? "Administrador" : c.role === "client" ? "Cliente" : "Colaborador"}
-                          </span>
-                        </td>
-                        <td className="p-3">
-                          <button
-                            onClick={() => toggleCollaboratorStatus(c.id)}
-                            className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider transition-all cursor-pointer ${
-                              c.status === "activo"
-                                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30"
-                                : "bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30"
-                            }`}
-                          >
-                            {c.status === "activo" ? "● Activo" : "○ Inactivo"}
-                          </button>
-                        </td>
-                        <td className="p-3 text-right">
-                          {c.role !== "admin" && (
+                    {collaborators.map((c) => {
+                      const isEditing = editingUserId === c.id;
+
+                      return (
+                        <tr key={c.id} className="hover:bg-slate-800/30 transition-all">
+                          {/* Campo Nombre */}
+                          <td className="p-3">
+                            {isEditing ? (
+                              <input
+                                type="text"
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                className="bg-slate-950 border border-amber-500 rounded-lg px-2.5 py-1 text-xs font-bold text-white w-full focus:outline-none"
+                              />
+                            ) : (
+                              <span className="font-bold text-white">{c.name}</span>
+                            )}
+                          </td>
+
+                          {/* Campo Correo */}
+                          <td className="p-3">
+                            {isEditing ? (
+                              <input
+                                type="email"
+                                value={editEmail}
+                                onChange={(e) => setEditEmail(e.target.value)}
+                                className="bg-slate-950 border border-amber-500 rounded-lg px-2.5 py-1 text-xs font-mono text-slate-200 w-full focus:outline-none"
+                              />
+                            ) : (
+                              <span className="font-mono text-slate-400">{c.email}</span>
+                            )}
+                          </td>
+
+                          {/* Rol */}
+                          <td className="p-3 uppercase font-extrabold text-[10px]">
+                            <span className={`px-2 py-0.5 rounded-md ${
+                              c.role === "admin" ? "bg-amber-500/20 text-amber-400" : "bg-blue-500/20 text-blue-400"
+                            }`}>
+                              {c.role === "admin" ? "Administrador" : c.role === "client" ? "Cliente" : "Colaborador"}
+                            </span>
+                          </td>
+
+                          {/* Estado */}
+                          <td className="p-3">
                             <button
-                              onClick={() => removeCollaborator(c.id, c.name, c.role)}
-                              className="text-red-400 hover:text-red-300 font-bold text-[11px] bg-red-500/10 hover:bg-red-500/20 px-2 py-1 rounded-lg transition-all"
+                              onClick={() => toggleCollaboratorStatus(c.id)}
+                              className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider transition-all cursor-pointer ${
+                                c.status === "activo"
+                                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30"
+                                  : "bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30"
+                              }`}
                             >
-                              Eliminar
+                              {c.status === "activo" ? "● Activo" : "○ Inactivo"}
                             </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+
+                          {/* Acciones */}
+                          <td className="p-3 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {isEditing ? (
+                                <>
+                                  <button
+                                    onClick={() => saveUserEdit(c.id)}
+                                    className="bg-emerald-500 text-slate-950 font-bold text-[11px] px-2.5 py-1 rounded-lg hover:bg-emerald-400 transition-all"
+                                  >
+                                    Guardar
+                                  </button>
+                                  <button
+                                    onClick={cancelUserEdit}
+                                    className="bg-slate-800 text-slate-300 font-bold text-[11px] px-2 py-1 rounded-lg hover:bg-slate-700 transition-all"
+                                  >
+                                    Cancelar
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => startEditingUser(c)}
+                                    className="text-amber-400 hover:text-amber-300 font-bold text-[11px] bg-amber-500/10 hover:bg-amber-500/20 px-2 py-1 rounded-lg transition-all"
+                                    title="Editar nombre y correo"
+                                  >
+                                    ✏️ Editar
+                                  </button>
+
+                                  {c.role !== "admin" && (
+                                    <button
+                                      onClick={() => removeCollaborator(c.id, c.name, c.role)}
+                                      className="text-red-400 hover:text-red-300 font-bold text-[11px] bg-red-500/10 hover:bg-red-500/20 px-2 py-1 rounded-lg transition-all"
+                                    >
+                                      Eliminar
+                                    </button>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
