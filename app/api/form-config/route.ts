@@ -2,51 +2,51 @@ import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 
-// Ruta al archivo local JSON de almacenamiento
 const dataFilePath = path.join(process.cwd(), "form-config.json");
 
-// Helper para leer los datos del JSON
+// Datos base por defecto si no hay JSON
+const defaultEventData = {
+  title: "Boda María & Alejandro",
+  targetDate: "2026-10-15",
+  plan: "plus",
+  responses: []
+};
+
 function getStoredData() {
-  if (!fs.existsSync(dataFilePath)) {
-    // Estructura inicial con un evento por defecto
-    const initialData = {
-      events: {
-        "demo": {
-          title: "Boda María & Alejandro",
-          targetDate: "2026-10-15",
-          plan: "plus",
-          responses: []
-        }
-      }
-    };
-    fs.writeFileSync(dataFilePath, JSON.stringify(initialData, null, 2));
-    return initialData;
+  try {
+    if (!fs.existsSync(dataFilePath)) {
+      return { events: { "demo": defaultEventData } };
+    }
+    const fileContent = fs.readFileSync(dataFilePath, "utf8");
+    return JSON.parse(fileContent);
+  } catch (e) {
+    return { events: { "demo": defaultEventData } };
   }
-  const fileContent = fs.readFileSync(dataFilePath, "utf8");
-  return JSON.parse(fileContent);
 }
 
-// Helper para guardar
 function saveData(data: any) {
-  fs.writeFileSync(dataFilePath, JSON.stringify(data, null, 2));
+  try {
+    fs.writeFileSync(dataFilePath, JSON.stringify(data, null, 2));
+  } catch (e) {
+    console.error("Error guardando en archivo local:", e);
+  }
 }
 
-// GET: /api/form-config?event=boda-maria
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const eventSlug = searchParams.get("event") || "demo";
   const data = getStoredData();
 
-  const eventData = data.events[eventSlug] || null;
+  // Si se busca "demo" o un evento no registrado, devuelve los datos base para que no marque "Evento no encontrado"
+  const eventData = data.events?.[eventSlug] || defaultEventData;
 
   return NextResponse.json({
     eventSlug,
     data: eventData,
-    allEvents: Object.keys(data.events || {})
+    allEvents: Object.keys(data.events || { demo: true })
   });
 }
 
-// POST: Guarda cambios de un evento o registra una respuesta
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -56,10 +56,9 @@ export async function POST(request: Request) {
 
     if (!data.events) data.events = {};
 
-    // CASO 1: Guardar una respuesta enviada por un invitado
     if (action === "add_response") {
       if (!data.events[currentSlug]) {
-        return NextResponse.json({ error: "Evento no encontrado" }, { status: 404 });
+        data.events[currentSlug] = { ...defaultEventData, responses: [] };
       }
       if (!data.events[currentSlug].responses) {
         data.events[currentSlug].responses = [];
@@ -76,7 +75,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, response: newResponse });
     }
 
-    // CASO 2: Crear o actualizar un evento desde el Panel de Admin
     if (action === "save_event") {
       data.events[currentSlug] = {
         ...(data.events[currentSlug] || { responses: [] }),
