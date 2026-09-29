@@ -192,6 +192,32 @@ export default function AdminDashboard() {
     alert(`¡Colaborador/Cliente "${newCollab.name}" registrado correctamente!`);
   };
 
+  // Cambiar estado de usuario (Activo / Inactivo)
+  const toggleCollaboratorStatus = (id: string) => {
+    setCollaborators(collaborators.map((c) => {
+      if (c.id === id) {
+        if (c.role === "admin") {
+          alert("No puedes desactivar la cuenta del Administrador principal.");
+          return c;
+        }
+        const nextStatus = c.status === "activo" ? "inactivo" : "activo";
+        return { ...c, status: nextStatus };
+      }
+      return c;
+    }));
+  };
+
+  // Eliminar usuario
+  const removeCollaborator = (id: string, name: string, role: string) => {
+    if (role === "admin") {
+      alert("No se puede eliminar al Administrador principal.");
+      return;
+    }
+    if (confirm(`¿Estás seguro de que deseas eliminar a "${name}"?`)) {
+      setCollaborators(collaborators.filter((c) => c.id !== id));
+    }
+  };
+
   // Cerrar Sesión
   const handleLogout = () => {
     if (confirm("¿Estás seguro de que deseas cerrar sesión?")) {
@@ -299,7 +325,7 @@ export default function AdminDashboard() {
                   : "bg-slate-800 text-slate-300 hover:bg-slate-700"
               }`}
             >
-              🛠️ Diseñador
+              🛠️️ Diseñador
             </button>
             <button
               onClick={() => setActiveTab("responses")}
@@ -663,12 +689,13 @@ export default function AdminDashboard() {
                       <th className="p-3 font-semibold">Nombre</th>
                       <th className="p-3 font-semibold">Correo</th>
                       <th className="p-3 font-semibold">Rol</th>
-                      <th className="p-3 font-semibold">Estado</th>
+                      <th className="p-3 font-semibold">Estado (Haz clic para cambiar)</th>
+                      <th className="p-3 font-semibold text-right">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800">
                     {collaborators.map((c) => (
-                      <tr key={c.id} className="hover:bg-slate-800/30">
+                      <tr key={c.id} className="hover:bg-slate-800/30 transition-all">
                         <td className="p-3 font-bold text-white">{c.name}</td>
                         <td className="p-3 font-mono text-slate-400">{c.email}</td>
                         <td className="p-3 uppercase font-extrabold text-[10px]">
@@ -679,7 +706,26 @@ export default function AdminDashboard() {
                           </span>
                         </td>
                         <td className="p-3">
-                          <span className="text-emerald-400 text-[10px] font-bold uppercase">● {c.status}</span>
+                          <button
+                            onClick={() => toggleCollaboratorStatus(c.id)}
+                            className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider transition-all cursor-pointer ${
+                              c.status === "activo"
+                                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30"
+                                : "bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30"
+                            }`}
+                          >
+                            {c.status === "activo" ? "● Activo" : "○ Inactivo"}
+                          </button>
+                        </td>
+                        <td className="p-3 text-right">
+                          {c.role !== "admin" && (
+                            <button
+                              onClick={() => removeCollaborator(c.id, c.name, c.role)}
+                              className="text-red-400 hover:text-red-300 font-bold text-[11px] bg-red-500/10 hover:bg-red-500/20 px-2 py-1 rounded-lg transition-all"
+                            >
+                              Eliminar
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
