@@ -1,263 +1,200 @@
-"use client"; // Le indica a Next.js que este componente se ejecuta en el navegador (para manejar botones, inputs y estados)
-export const dynamic = 'force-dynamic'; // Desactiva la caché estática y fuerza a Vercel a renderizar siempre la versión más actualizada
+"use client";
 
 import { useEffect, useState } from "react";
 
-export default function AdminPage() {
-  // ==========================================
-  // 1. ESTADOS (Manejo de variables locales)
-  // ==========================================
-  const [isAuthenticated, setIsAuthenticated] = useState(false); // // Controla si el usuario ya inició sesión o sigue en el formulario de login
-  const [password, setPassword] = useState("");                  // // Guarda lo que escribe el usuario en la casilla de contraseña
-  const [config, setConfig] = useState<any>(null);               // // Almacena la configuración completa del formulario (título, fecha, preguntas)
-  const [loading, setLoading] = useState(true);                  // // Muestra una pantalla de "Cargando..." mientras se leen los datos del backend
-  const [saving, setSaving] = useState(false);                   // // Desactiva el botón de guardar mientras se envía la información a la API
+export default function AdminDashboard() {
+  const [events, setEvents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // // Contraseña hardcodeada para proteger el acceso
-  const ADMIN_PASSWORD = "admin"; 
+  // Formulario para crear un nuevo evento
+  const [title, setTitle] = useState("");
+  const [slug, setSlug] = useState("");
+  const [targetDate, setTargetDate] = useState("");
+  const [plan, setPlan] = useState("plus");
+  const [creating, setCreating] = useState(false);
 
-  // ==========================================
-  // 2. LECTURA DE DATOS AL CARGAR LA PÁGINA
-  // ==========================================
-  useEffect(() => {
-    // // Solicita a nuestra API (/api/form-config) el JSON con las preguntas y títulos actuales
-    fetch("/api/form-config")
-      .then((res) => res.json())
-      .then((data) => {
-        setConfig(data);
-        setLoading(false); // // Una vez obtenidos los datos, quitamos la pantalla de carga
-      })
-      .catch((err) => {
-        console.error("Error cargando configuración:", err);
-        setLoading(false);
-      });
-  }, []);
+  // Evento seleccionado para ver sus respuestas
+  const [selectedEvent, setSelectedEvent] = useState<any>(null);
 
-  // ==========================================
-  // 3. FUNCIONES DE AUTENTICACIÓN Y GUARDADO
-  // ==========================================
-  // // Verifica si la contraseña ingresada coincide con "admin"
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password === ADMIN_PASSWORD) {
-      setIsAuthenticated(true); // // Da acceso al panel principal
-    } else {
-      alert("Contraseña incorrecta");
-    }
-  };
-
-  // // Envía los datos modificados del formulario a la API mediante un método POST
-  const handleSave = async () => {
-    setSaving(true);
+  const fetchEvents = async () => {
     try {
-      const res = await fetch("/api/form-config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(config), // // Convierte el objeto de configuración a formato JSON
-      });
-      if (res.ok) {
-        alert("¡Configuración guardada exitosamente!");
-      } else {
-        alert("Error al guardar la configuración.");
+      const res = await fetch("/api/form-config?event=all");
+      const data = await res.json();
+      if (data.data) {
+        setEvents([data.data]);
+        setSelectedEvent(data.data);
       }
     } catch (err) {
       console.error(err);
-      alert("Ocurrió un error.");
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
 
-  // ==========================================
-  // 4. FUNCIONES PARA EDITAR PREGUNTAS (TALLY)
-  // ==========================================
-  // // Agrega un nuevo objeto de pregunta al arreglo dentro de `config`
-  const addQuestion = () => {
-    const newQuestions = [
-      ...(config.questions || []),
-      {
-        id: `q_${Date.now()}`, // // Genera un ID único con base en la fecha y hora exacta
-        label: "Nueva Pregunta",
-        type: "text",
-        placeholder: "Escribe aquí...",
-        required: true,
-      },
-    ];
-    setConfig({ ...config, questions: newQuestions });
+  useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  const handleCreateEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title || !slug) {
+      alert("Por favor ingresa el título y la URL/Slug.");
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const formattedSlug = slug.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-0-]/g, "");
+      
+      const response = await fetch("/api/form-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "save_event",
+          eventSlug: formattedSlug,
+          eventConfig: {
+            title,
+            targetDate,
+            plan,
+            responses: [],
+          },
+        }),
+      });
+
+      if (response.ok) {
+        alert(`¡Evento "${title}" creado exitosamente!`);
+        setTitle("");
+        setSlug("");
+        setTargetDate("");
+        fetchEvents();
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Error al crear el evento.");
+    } finally {
+      setCreating(false);
+    }
   };
 
-  // // Actualiza un campo específico (texto, tipo, placeholder) de una pregunta determinada por su índice
-  const updateQuestion = (index: number, field: string, value: any) => {
-    const updated = [...config.questions];
-    updated[index] = { ...updated[index], [field]: value };
-    setConfig({ ...config, questions: updated });
-  };
-
-  // // Elimina una pregunta de la lista según su posición
-  const deleteQuestion = (index: number) => {
-    const updated = config.questions.filter((_: any, i: number) => i !== index);
-    setConfig({ ...config, questions: updated });
-  };
-
-  // ==========================================
-  // 5. VISTA 1: FORMULARIO DE LOGIN (SI NO ESTÁ AUTENTICADO)
-  // ==========================================
-  if (!isAuthenticated) {
-    return (
-      <main className="min-h-screen bg-[#0b192c] text-white flex items-center justify-center p-4">
-        <form onSubmit={handleLogin} className="bg-[#1e293b] p-8 rounded-xl border border-slate-700 w-full max-w-md space-y-4">
-          <h1 className="text-2xl font-bold text-amber-400 text-center">Panel de Administración</h1>
-          <p className="text-slate-400 text-sm text-center">Introduce tu contraseña para continuar</p>
-          
-          {/* // Campo para ingresar la contraseña */}
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Contraseña"
-            className="w-full p-3 rounded-lg bg-slate-800 border border-slate-700 text-white focus:outline-none focus:border-amber-400"
-          />
-          
-          <button type="submit" className="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold p-3 rounded-lg transition-colors">
-            Ingresar
-          </button>
-        </form>
-      </main>
-    );
-  }
-
-  // ==========================================
-  // 6. VISTA 2: MENSAJE DE CARGA
-  // ==========================================
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#0b192c] text-white flex items-center justify-center">
-        <p className="text-amber-400">Cargando panel...</p>
+      <main className="min-h-screen bg-slate-900 text-white flex items-center justify-center">
+        <p className="text-sm font-medium">Cargando panel de administración...</p>
       </main>
     );
   }
 
-  // ==========================================
-  // 7. VISTA 3: PANEL DE CONTROL COMPLETO
-  // ==========================================
   return (
-    <main className="min-h-screen bg-[#0b192c] text-white p-6 sm:p-10">
-      <div className="max-w-4xl mx-auto space-y-8">
+    <main className="min-h-screen bg-slate-950 text-slate-100 p-6">
+      <div className="max-w-5xl mx-auto space-y-8">
         
-        {/* // Encabezado superior con botón hacia la vista de respuestas */}
-        <div className="flex justify-between items-center border-b border-slate-700 pb-4">
+        {/* Encabezado */}
+        <div className="flex justify-between items-center border-b border-slate-800 pb-4">
           <div>
-            <h1 className="text-3xl font-bold text-amber-400">Creador & Configuración de Invitación</h1>
-            <p className="text-slate-400 text-sm">Diseña preguntas y gestiona tus clientes tipo Tally</p>
+            <h1 className="text-2xl font-bold">Panel de Administración</h1>
+            <p className="text-xs text-slate-400">Gestor de eventos e invitaciones digitales</p>
           </div>
-          <a
-            href="/admin/respuestas"
-            className="bg-slate-800 hover:bg-slate-700 text-amber-400 font-semibold px-4 py-2 rounded-lg border border-slate-700 text-sm transition-colors"
-          >
-            Ver Respuestas →
-          </a>
         </div>
 
-        {config && (
-          <>
-            {/* // SECCIÓN 1: Ajustes Generales del Evento (Título y Fecha) */}
-            <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-700 space-y-4">
-              <h2 className="text-xl font-bold text-amber-300">1. Ajustes del Evento</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1">Título del Evento / Cliente</label>
-                  <input
-                    type="text"
-                    value={config.title || ""}
-                    onChange={(e) => setConfig({ ...config, title: e.target.value })}
-                    className="w-full p-2.5 rounded-lg bg-slate-800 border border-slate-700 text-white text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1">Fecha Objetivo</label>
-                  <input
-                    type="text"
-                    value={config.targetDate || ""}
-                    onChange={(e) => setConfig({ ...config, targetDate: e.target.value })}
-                    className="w-full p-2.5 rounded-lg bg-slate-800 border border-slate-700 text-white text-sm"
-                    placeholder="Ej: 2026-10-15"
-                  />
-                </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          
+          {/* Formulario Crear Evento */}
+          <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-4">
+            <h2 className="text-base font-bold text-white">Crear Nuevo Evento</h2>
+            
+            <form onSubmit={handleCreateEvent} className="space-y-3">
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Nombre del Evento *</label>
+                <input
+                  type="text"
+                  placeholder="Ej. Boda Sofía & Mateo"
+                  value={title}
+                  onChange={(e) => {
+                    setTitle(e.target.value);
+                    setSlug(e.target.value.toLowerCase().replace(/\s+/g, "-"));
+                  }}
+                  className="w-full p-2.5 rounded-lg bg-slate-800 border border-slate-700 text-sm focus:outline-none focus:border-slate-500"
+                />
               </div>
-            </div>
 
-            {/* // SECCIÓN 2: Editor Dinámico de Preguntas (Estilo Tally) */}
-            <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-700 space-y-6">
-              <div className="flex justify-between items-center">
-                <h2 className="text-xl font-bold text-amber-300">2. Preguntas del Formulario</h2>
-                
-                {/* // Botón para añadir una nueva pregunta */}
-                <button
-                  onClick={addQuestion}
-                  className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors"
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">URL / Slug *</label>
+                <input
+                  type="text"
+                  placeholder="boda-sofia-y-mateo"
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value)}
+                  className="w-full p-2.5 rounded-lg bg-slate-800 border border-slate-700 text-xs font-mono text-slate-300 focus:outline-none focus:border-slate-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Fecha del Evento</label>
+                <input
+                  type="date"
+                  value={targetDate}
+                  onChange={(e) => setTargetDate(e.target.value)}
+                  className="w-full p-2.5 rounded-lg bg-slate-800 border border-slate-700 text-sm text-slate-300 focus:outline-none focus:border-slate-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Plan Contratado</label>
+                <select
+                  value={plan}
+                  onChange={(e) => setPlan(e.target.value)}
+                  className="w-full p-2.5 rounded-lg bg-slate-800 border border-slate-700 text-sm text-slate-300 focus:outline-none focus:border-slate-500"
                 >
-                  + Agregar Pregunta
-                </button>
+                  <option value="plus">Plan Plus (Formulario dinámico)</option>
+                  <option value="basico">Plan Básico (WhatsApp directo)</option>
+                </select>
               </div>
 
-              {/* // Lista mapeada de preguntas existentes */}
-              <div className="space-y-4">
-                {config.questions && config.questions.map((q: any, index: number) => (
-                  <div key={q.id || index} className="p-4 rounded-lg bg-slate-800/60 border border-slate-700 space-y-3 relative">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-bold text-slate-400">Paso {index + 1}</span>
-                      
-                      {/* // Botón para eliminar esta pregunta específica */}
-                      <button
-                        onClick={() => deleteQuestion(index)}
-                        className="text-red-400 hover:text-red-300 text-xs font-semibold"
-                      >
-                        Eliminar
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-xs text-slate-400 block mb-1">Pregunta / Texto</label>
-                        {/* // Input para editar la etiqueta/pregunta */}
-                        <input
-                          type="text"
-                          value={q.label || ""}
-                          onChange={(e) => updateQuestion(index, "label", e.target.value)}
-                          className="w-full p-2 rounded bg-slate-900 border border-slate-700 text-white text-xs"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs text-slate-400 block mb-1">Tipo de Campo</label>
-                        {/* // Selector para alternar entre tipo Texto, Opciones (Sí/No) o Número */}
-                        <select
-                          value={q.type || "text"}
-                          onChange={(e) => updateQuestion(index, "type", e.target.value)}
-                          className="w-full p-2 rounded bg-slate-900 border border-slate-700 text-white text-xs"
-                        >
-                          <option value="text">Texto corto</option>
-                          <option value="radio">Selección única (Sí/No)</option>
-                          <option value="number">Número</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* // SECCIÓN 3: Botón para guardar todos los cambios en el backend */}
-            <div className="flex justify-end pt-2">
               <button
-                onClick={handleSave}
-                disabled={saving}
-                className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-8 py-3 rounded-xl transition-colors text-base shadow-lg"
+                type="submit"
+                disabled={creating}
+                className="w-full bg-white text-slate-900 font-bold text-xs py-2.5 rounded-lg hover:bg-slate-200 transition-all mt-2"
               >
-                {saving ? "Guardando..." : "Guardar Todos los Cambios"}
+                {creating ? "Creando..." : "+ Crear Evento"}
               </button>
+            </form>
+          </div>
+
+          {/* Lista de Eventos y Vista Previa */}
+          <div className="md:col-span-2 bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-4">
+            <h2 className="text-base font-bold text-white">Eventos Activos</h2>
+
+            <div className="space-y-3">
+              {events.map((evt, idx) => (
+                <div key={idx} className="p-4 bg-slate-800/60 border border-slate-700/50 rounded-xl space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="text-sm font-bold text-white">{evt.title}</h3>
+                      <p className="text-xs text-slate-400">Fecha: {evt.targetDate || "Sin fecha"}</p>
+                    </div>
+                    <span className="text-[10px] uppercase tracking-wider font-bold bg-slate-700 text-slate-300 px-2 py-0.5 rounded">
+                      {evt.plan || "Plus"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1 border-t border-slate-700/40">
+                    <span className="text-xs text-slate-400 font-mono">Enlace:</span>
+                    <a
+                      href={`/demo`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-blue-400 hover:underline font-mono truncate"
+                    >
+                      /demo
+                    </a>
+                  </div>
+                </div>
+              ))}
             </div>
-          </>
-        )}
+          </div>
+
+        </div>
+
       </div>
     </main>
   );
