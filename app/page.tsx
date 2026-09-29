@@ -1,48 +1,19 @@
 import FormEngine from "./components/FormEngine";
-import Countdown from "./components/Countdown";
 import formData from "./data/form-config.json";
 
 export default function Home() {
-  const theme = formData.theme || "gold";
-
-  const themeStyles = {
-    gold: "bg-slate-950 text-slate-100",
-    romantic: "bg-rose-950 text-rose-50",
-    emerald: "bg-emerald-950 text-emerald-50",
-  };
-
-  const selectedTheme =
-    themeStyles[theme as keyof typeof themeStyles] || themeStyles.gold;
-
   return (
-    <main
-      className={`min-h-screen flex flex-col items-center justify-center p-4 md:p-8 ${selectedTheme} transition-colors duration-500`}
-    >
-      <div className="w-full max-w-lg text-center mb-6">
-        <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-2">
-          {formData.title}
+    <main className="min-h-screen bg-[#0b192c] text-white flex flex-col items-center justify-center p-2 sm:p-4">
+      <div className="w-full max-w-md bg-[#1e293b] rounded-2xl shadow-xl border border-slate-700 p-6 md:p-8">
+        <h1 className="text-xl md:text-2xl font-bold text-amber-400 text-center mb-1">
+          {formData.title || "Confirma tu asistencia"}
         </h1>
-        <p className="text-sm font-medium opacity-80 uppercase tracking-widest mb-4">
-          {formData.subtitle}
+        <p className="text-xs text-slate-300 text-center mb-6">
+          {formData.subtitle || "Completa la siguiente información para reservar tus lugares"}
         </p>
 
-        {/* Cuenta Regresiva */}
-        {formData.eventDate && <Countdown targetDate={formData.eventDate} />}
-
-        {/* Ubicación */}
-        {formData.locationName && (
-          <a
-            href={formData.locationUrl || "#"}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-xs font-semibold bg-slate-800/80 hover:bg-slate-800 text-amber-300 px-4 py-2 rounded-full border border-slate-700 transition mt-2"
-          >
-            📍 {formData.locationName} (Ver Mapa)
-          </a>
-        )}
+        <FormEngine />
       </div>
-
-      <FormEngine />
     </main>
   );
 }
