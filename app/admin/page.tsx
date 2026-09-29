@@ -252,10 +252,14 @@ export default function AdminDashboard() {
     }
   };
 
-  // Cerrar Sesión
+  // Cerrar Sesión y redirigir al Login
   const handleLogout = () => {
     if (confirm("¿Estás seguro de que deseas cerrar sesión?")) {
-      window.location.href = "/";
+      if (typeof window !== "undefined") {
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.href = "/login";
+      }
     }
   };
 
@@ -385,8 +389,8 @@ export default function AdminDashboard() {
             {/* Botón de Cerrar Sesión */}
             <button
               onClick={handleLogout}
-              className="px-3 py-2 text-xs font-bold rounded-xl bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/30 transition-all ml-1"
-              title="Cerrar sesión"
+              className="px-3 py-2 text-xs font-bold rounded-xl bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/30 transition-all ml-1 cursor-pointer"
+              title="Cerrar sesión e ir al login"
             >
               🚪 Salir
             </button>
@@ -809,7 +813,7 @@ export default function AdminDashboard() {
                                     className="text-amber-400 hover:text-amber-300 font-bold text-[11px] bg-amber-500/10 hover:bg-amber-500/20 px-2 py-1 rounded-lg transition-all"
                                     title="Editar nombre y correo"
                                   >
-                                    ✏️ Editar
+                                    ✏️️ Editar
                                   </button>
 
                                   {c.role !== "admin" && (
