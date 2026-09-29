@@ -46,7 +46,7 @@ export default function AdminDashboard() {
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Cargar lista de eventos y evento individual
+  // Cargar datos
   const loadEventData = (slugToLoad: string) => {
     fetch(`/api/form-config?event=${slugToLoad}`)
       .then((res) => res.json())
@@ -69,14 +69,54 @@ export default function AdminDashboard() {
     loadEventData(eventSlug);
   }, [eventSlug]);
 
-  // Selección de evento desde la lista
   const handleSelectEvent = (slug: string) => {
     setEventSlug(slug);
     loadEventData(slug);
     setActiveTab("builder");
   };
 
-  // Alternar estado Activo / Inactivo de un evento
+  // FUNCIÓN PARA DUPLICAR EVENTO
+  const handleDuplicateEvent = async (originalSlug: string, originalConfig: EventConfig) => {
+    const newTitle = prompt("Ingresa el título del nuevo evento:", `${originalConfig.title || "Evento"} (Copia)`);
+    if (!newTitle) return;
+
+    const baseSlug = newTitle.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+    const newSlug = `${baseSlug}-${Math.floor(100 + Math.random() * 900)}`;
+
+    const duplicatedConfig: EventConfig = {
+      title: newTitle,
+      targetDate: originalConfig.targetDate || "2026-12-31",
+      plan: originalConfig.plan || "plus",
+      active: true,
+      questions: JSON.parse(JSON.stringify(originalConfig.questions || questions)), // Copia limpia de preguntas
+      responses: [], // Reinicia respuestas a cero
+    };
+
+    try {
+      const res = await fetch("/api/form-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "save_event",
+          eventSlug: newSlug,
+          eventConfig: duplicatedConfig,
+        }),
+      });
+
+      if (res.ok) {
+        setAllEvents((prev) => ({
+          ...prev,
+          [newSlug]: duplicatedConfig,
+        }));
+        alert(`¡Evento duplicado exitosamente como "/${newSlug}"!`);
+        handleSelectEvent(newSlug);
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error al duplicar el evento.");
+    }
+  };
+
   const toggleEventStatus = async (slug: string, currentStatus: boolean) => {
     const updatedEvents = { ...allEvents };
     if (updatedEvents[slug]) {
@@ -173,7 +213,7 @@ export default function AdminDashboard() {
     <main className="min-h-screen bg-[#0f172a] text-slate-100 p-4 md:p-8">
       <div className="max-w-5xl mx-auto space-y-6">
 
-        {/* Encabezado Principal */}
+        {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
           <div>
             <h1 className="text-2xl font-extrabold text-amber-500">
@@ -218,7 +258,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* PESTAÑA 1: LISTA GENERAL DE EVENTOS */}
+        {/* CATÁLOGO DE EVENTOS */}
         {activeTab === "list" && (
           <div className="space-y-4">
             <div className="flex justify-between items-center bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
@@ -252,7 +292,6 @@ export default function AdminDashboard() {
                       <p className="text-xs font-mono text-amber-400/80 mt-0.5">/{slug}</p>
                     </div>
                     
-                    {/* Badge de Estado Activo/Inactivo */}
                     <button
                       onClick={() => toggleEventStatus(slug, item.active)}
                       className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider transition-all ${
@@ -270,13 +309,23 @@ export default function AdminDashboard() {
                     <p>📦 Plan: <span className="text-slate-200 uppercase">{item.plan || "plus"}</span></p>
                   </div>
 
+                  {/* Acciones de Tarjeta con Duplicar */}
                   <div className="flex gap-2 pt-2 border-t border-slate-800">
                     <button
                       onClick={() => handleSelectEvent(slug)}
                       className="flex-1 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold py-2 rounded-xl transition-all"
                     >
-                      ⚙️ Editar Evento
+                      ⚙️ Editar
                     </button>
+                    
+                    <button
+                      onClick={() => handleDuplicateEvent(slug, item)}
+                      className="px-3 py-2 bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-amber-400 text-xs font-bold rounded-xl transition-all"
+                      title="Duplicar estructura de este evento"
+                    >
+                      📋 Duplicar
+                    </button>
+
                     <a
                       href={`/${slug}`}
                       target="_blank"
@@ -292,10 +341,9 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* PESTAÑA 2: DISEÑADOR DEL EVENTO */}
+        {/* DISEÑADOR */}
         {activeTab === "builder" && (
           <>
-            {/* Barra de URL del evento actual */}
             <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-2xl flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Cliente / Slug:</span>
@@ -320,14 +368,12 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Ajustes Generales */}
             <div className="bg-slate-900/60 border border-slate-800/80 p-5 rounded-2xl space-y-4">
               <div className="flex justify-between items-center">
                 <h2 className="text-sm font-bold text-amber-500 uppercase tracking-wider">
                   1. Ajustes del Evento
                 </h2>
                 
-                {/* Switch de Activación Individual */}
                 <label className="flex items-center gap-2 cursor-pointer text-xs font-bold">
                   <span className={active ? "text-emerald-400" : "text-red-400"}>
                     {active ? "Evento Activo" : "Evento Desactivado"}
@@ -368,7 +414,6 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Constructor de Preguntas */}
             <div className="bg-slate-900/60 border border-slate-800/80 p-5 rounded-2xl space-y-4">
               <div className="flex justify-between items-center">
                 <h2 className="text-sm font-bold text-amber-500 uppercase tracking-wider">
@@ -447,7 +492,7 @@ export default function AdminDashboard() {
           </>
         )}
 
-        {/* PESTAÑA 3: RESPUESTAS */}
+        {/* RESPUESTAS */}
         {activeTab === "responses" && (
           <div className="bg-slate-900/60 border border-slate-800/80 p-5 rounded-2xl space-y-4">
             <h2 className="text-sm font-bold text-amber-500 uppercase tracking-wider">
