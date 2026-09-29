@@ -34,9 +34,7 @@ export default function AdminDashboard() {
   const [plan, setPlan] = useState("plus");
   const [active, setActive] = useState(true);
   const [questions, setQuestions] = useState<Question[]>([
-    { id: "q1", label: "Ingresa tu nombre", type: "text" },
-    { id: "q2", label: "Ingresa tu número de WhatsApp", type: "text" },
-    { id: "q3", label: "¿Asistirás al evento?", type: "choice", options: ["Sí", "No"] },
+    { id: "q1", label: "¿Tienen alguna restricción alimenticia?", type: "text" },
   ]);
   
   const [responses, setResponses] = useState<any[]>([]);
@@ -51,7 +49,6 @@ export default function AdminDashboard() {
     }
   });
 
-  // Estado para gestión de colaboradores
   const [collaborators, setCollaborators] = useState<Collaborator[]>([
     { id: "u1", name: "Alejandro Mejía (Tú)", username: "admin", password: "123", role: "admin", status: "activo" },
     { id: "u2", name: "Cliente Demo", username: "cliente", password: "123", role: "client", status: "activo" }
@@ -62,17 +59,16 @@ export default function AdminDashboard() {
   const [newCollabPassword, setNewCollabPassword] = useState("");
   const [newCollabRole, setNewCollabRole] = useState<"collaborator" | "client">("client");
 
-  // Estado para edición de usuario
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editUsername, setEditUsername] = useState("");
   const [editPassword, setEditPassword] = useState("");
 
+  const [testPases, setTestPases] = useState<number>(3);
   const [activeTab, setActiveTab] = useState<"list" | "builder" | "responses" | "users">("list");
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Cargar catálogo completo de eventos al inicio
   useEffect(() => {
     fetch("/api/form-config?action=get_all_events")
       .then((res) => res.json())
@@ -84,7 +80,6 @@ export default function AdminDashboard() {
       .catch((err) => console.error("Error al cargar lista de eventos:", err));
   }, []);
 
-  // Cargar datos de un evento específico
   const loadEventData = (slugToLoad: string) => {
     fetch(`/api/form-config?event=${slugToLoad}`)
       .then((res) => res.json())
@@ -113,7 +108,6 @@ export default function AdminDashboard() {
     setActiveTab("builder");
   };
 
-  // FUNCIÓN PARA DUPLICAR EVENTO
   const handleDuplicateEvent = async (originalSlug: string, originalConfig: EventConfig) => {
     const newTitle = prompt("Ingresa el título del nuevo evento:", `${originalConfig.title || "Evento"} (Copia)`);
     if (!newTitle) return;
@@ -181,7 +175,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // Agregar Colaborador / Cliente
   const handleAddCollaborator = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCollabName || !newCollabUsername || !newCollabPassword) return;
@@ -202,7 +195,6 @@ export default function AdminDashboard() {
     alert(`¡Cliente "${newCollab.name}" registrado con el usuario "${newCollab.username}"!`);
   };
 
-  // Iniciar modo de edición
   const startEditingUser = (user: Collaborator) => {
     setEditingUserId(user.id);
     setEditName(user.name);
@@ -210,7 +202,6 @@ export default function AdminDashboard() {
     setEditPassword(user.password || "");
   };
 
-  // Guardar cambios del usuario editado
   const saveUserEdit = (id: string) => {
     if (!editName.trim() || !editUsername.trim() || !editPassword.trim()) {
       alert("Los campos no pueden estar vacíos.");
@@ -227,12 +218,10 @@ export default function AdminDashboard() {
     setEditingUserId(null);
   };
 
-  // Cancelar edición
   const cancelUserEdit = () => {
     setEditingUserId(null);
   };
 
-  // Cambiar estado de usuario (Activo / Inactivo)
   const toggleCollaboratorStatus = (id: string) => {
     setCollaborators(collaborators.map((c) => {
       if (c.id === id) {
@@ -247,7 +236,6 @@ export default function AdminDashboard() {
     }));
   };
 
-  // Eliminar usuario
   const removeCollaborator = (id: string, name: string, role: string) => {
     if (role === "admin") {
       alert("No se puede eliminar al Administrador principal.");
@@ -258,7 +246,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // Cerrar Sesión y redirigir al Login
   const handleLogout = () => {
     if (confirm("¿Estás seguro de que deseas cerrar sesión?")) {
       if (typeof window !== "undefined") {
@@ -325,12 +312,14 @@ export default function AdminDashboard() {
     }
   };
 
-  const currentUrl = typeof window !== "undefined"
+  const baseUrl = typeof window !== "undefined"
     ? `${window.location.origin}/${eventSlug}`
     : `https://invitation-engine-nine.vercel.app/${eventSlug}`;
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(currentUrl);
+  const currentUrlWithPases = `${baseUrl}?pases=${testPases}`;
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -392,18 +381,16 @@ export default function AdminDashboard() {
               👥 Colaboradores
             </button>
 
-            {/* Botón de Cerrar Sesión */}
             <button
               onClick={handleLogout}
               className="px-3 py-2 text-xs font-bold rounded-xl bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/30 transition-all ml-1 cursor-pointer"
-              title="Cerrar sesión e ir al login"
             >
               🚪 Salir
             </button>
           </div>
         </div>
 
-        {/* CATÁLOGO DE EVENTOS */}
+        {/* MIS EVENTOS */}
         {activeTab === "list" && (
           <div className="space-y-4">
             <div className="flex justify-between items-center bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
@@ -454,7 +441,6 @@ export default function AdminDashboard() {
                     <p>📦 Plan: <span className="text-slate-200 uppercase">{item.plan || "plus"}</span></p>
                   </div>
 
-                  {/* Acciones */}
                   <div className="flex gap-2 pt-2 border-t border-slate-800">
                     <button
                       onClick={() => handleSelectEvent(slug)}
@@ -466,18 +452,17 @@ export default function AdminDashboard() {
                     <button
                       onClick={() => handleDuplicateEvent(slug, item)}
                       className="px-3 py-2 bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-amber-400 text-xs font-bold rounded-xl transition-all"
-                      title="Duplicar estructura de este evento"
                     >
                       📋 Duplicar
                     </button>
 
                     <a
-                      href={`/${slug}`}
+                      href={`/${slug}?pases=2`}
                       target="_blank"
                       rel="noreferrer"
                       className="px-3 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-bold rounded-xl transition-all"
                     >
-                      🔗 Ver Demo
+                      🔗 Ver Demo (2 pases)
                     </a>
                   </div>
                 </div>
@@ -489,6 +474,7 @@ export default function AdminDashboard() {
         {/* DISEÑADOR */}
         {activeTab === "builder" && (
           <>
+            {/* Generador y Generador de Enlaces con Pases Dinámicos */}
             <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-2xl flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Cliente / Slug:</span>
@@ -500,12 +486,22 @@ export default function AdminDashboard() {
                 />
               </div>
 
+              {/* Selector interactivo para probar links con pases */}
               <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-xl">
-                <span className="text-xs font-mono text-slate-400 truncate max-w-[220px]">
-                  {currentUrl}
+                <span className="text-xs font-bold text-slate-400">Pases en Link:</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={testPases}
+                  onChange={(e) => setTestPases(parseInt(e.target.value, 10) || 1)}
+                  className="w-12 bg-slate-900 border border-slate-700 text-amber-400 font-bold text-center text-xs py-1 rounded-md"
+                />
+                <span className="text-xs font-mono text-slate-400 truncate max-w-[180px]">
+                  {currentUrlWithPases}
                 </span>
                 <button
-                  onClick={copyToClipboard}
+                  onClick={() => copyToClipboard(currentUrlWithPases)}
                   className="text-xs font-bold bg-slate-800 hover:bg-slate-700 text-amber-400 px-2.5 py-1 rounded-lg transition-all"
                 >
                   {copied ? "¡Copiado! ✓" : "Copiar Link"}
@@ -562,7 +558,7 @@ export default function AdminDashboard() {
             <div className="bg-slate-900/60 border border-slate-800/80 p-5 rounded-2xl space-y-4">
               <div className="flex justify-between items-center">
                 <h2 className="text-sm font-bold text-amber-500 uppercase tracking-wider">
-                  2. Preguntas del Formulario
+                  2. Preguntas Adicionales del Formulario
                 </h2>
                 <button
                   onClick={addQuestion}
@@ -580,9 +576,9 @@ export default function AdminDashboard() {
                   >
                     <div className="flex justify-between items-center">
                       <span className="text-[11px] font-bold text-slate-500 uppercase">
-                        Paso {index + 1}
+                        Pregunta {index + 1}
                       </span>
-                      {questions.length > 1 && (
+                      {questions.length > 0 && (
                         <button
                           onClick={() => removeQuestion(q.id)}
                           className="text-xs font-bold text-red-400 hover:text-red-300"
@@ -595,7 +591,7 @@ export default function AdminDashboard() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <div className="md:col-span-2">
                         <label className="block text-[11px] text-slate-400 mb-1">
-                          Pregunta / Texto
+                          Texto de la pregunta
                         </label>
                         <input
                           type="text"
@@ -631,7 +627,7 @@ export default function AdminDashboard() {
                 disabled={saving}
                 className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-sm px-6 py-3 rounded-xl shadow-lg shadow-amber-500/20 transition-all"
               >
-                {saving ? "Guardando..." : "Guardar Todos los Cambios"}
+                {saving ? "Guardando..." : "Guardar Configuración"}
               </button>
             </div>
           </>
@@ -641,12 +637,12 @@ export default function AdminDashboard() {
         {activeTab === "responses" && (
           <div className="bg-slate-900/60 border border-slate-800/80 p-5 rounded-2xl space-y-4">
             <h2 className="text-sm font-bold text-amber-500 uppercase tracking-wider">
-              Respuestas Recibidas para /{eventSlug}
+              Confirmaciones Recibidas para /{eventSlug}
             </h2>
 
             {responses.length === 0 ? (
               <div className="text-center py-8 text-slate-500 text-xs">
-                Aún no hay respuestas registradas para este evento.
+                Aún no hay respuestas o confirmaciones registradas para este evento.
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -654,18 +650,28 @@ export default function AdminDashboard() {
                   <thead className="bg-slate-950 text-slate-400 border-b border-slate-800">
                     <tr>
                       <th className="p-3 font-semibold">Fecha</th>
-                      <th className="p-3 font-semibold">Respuesta / Datos</th>
+                      <th className="p-3 font-semibold">Pases Confirmados</th>
+                      <th className="p-3 font-semibold">Asistentes</th>
+                      <th className="p-3 font-semibold">Otros Datos</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800">
                     {responses.map((res, i) => (
                       <tr key={i} className="hover:bg-slate-800/30">
                         <td className="p-3 font-mono text-slate-500 text-[11px]">
-                          {res.date ? new Date(res.date).toLocaleString() : "Reciente"}
+                          {res.fechaRespuesta ? new Date(res.fechaRespuesta).toLocaleString() : "Reciente"}
                         </td>
-                        <td className="p-3">
-                          <pre className="text-xs font-mono text-amber-300/90 whitespace-pre-wrap">
-                            {JSON.stringify(res, null, 2)}
+                        <td className="p-3 font-bold text-amber-400">
+                          {res.pasesConfirmados} de {res.pasesDisponibles || "N/A"}
+                        </td>
+                        <td className="p-3 text-slate-200">
+                          {res.asistentes && Array.isArray(res.asistentes)
+                            ? res.asistentes.join(", ")
+                            : "N/A"}
+                        </td>
+                        <td className="p-3 font-mono text-slate-400 text-[11px]">
+                          <pre className="whitespace-pre-wrap">
+                            {JSON.stringify(res.preguntasAdicionales || {}, null, 2)}
                           </pre>
                         </td>
                       </tr>
@@ -677,10 +683,9 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* COLABORADORES Y CLIENTES */}
+        {/* COLABORADORES */}
         {activeTab === "users" && (
           <div className="space-y-6">
-            {/* Formulario Agregar Cliente / Usuario */}
             <div className="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl space-y-4">
               <h2 className="text-sm font-bold text-amber-500 uppercase tracking-wider">
                 Registrar Nuevo Colaborador o Cliente
@@ -728,7 +733,6 @@ export default function AdminDashboard() {
               </form>
             </div>
 
-            {/* Lista de Colaboradores / Usuarios */}
             <div className="bg-slate-900/60 border border-slate-800 p-5 rounded-2xl space-y-4">
               <h2 className="text-sm font-bold text-amber-500 uppercase tracking-wider">
                 Usuarios Registrados en la Plataforma
@@ -752,7 +756,6 @@ export default function AdminDashboard() {
 
                       return (
                         <tr key={c.id} className="hover:bg-slate-800/30 transition-all">
-                          {/* Campo Nombre */}
                           <td className="p-3">
                             {isEditing ? (
                               <input
@@ -766,7 +769,6 @@ export default function AdminDashboard() {
                             )}
                           </td>
 
-                          {/* Campo Usuario */}
                           <td className="p-3">
                             {isEditing ? (
                               <input
@@ -780,7 +782,6 @@ export default function AdminDashboard() {
                             )}
                           </td>
 
-                          {/* Campo Contraseña */}
                           <td className="p-3">
                             {isEditing ? (
                               <input
@@ -794,7 +795,6 @@ export default function AdminDashboard() {
                             )}
                           </td>
 
-                          {/* Rol */}
                           <td className="p-3 uppercase font-extrabold text-[10px]">
                             <span className={`px-2 py-0.5 rounded-md ${
                               c.role === "admin" ? "bg-amber-500/20 text-amber-400" : "bg-blue-500/20 text-blue-400"
@@ -803,7 +803,6 @@ export default function AdminDashboard() {
                             </span>
                           </td>
 
-                          {/* Estado */}
                           <td className="p-3">
                             <button
                               onClick={() => toggleCollaboratorStatus(c.id)}
@@ -817,7 +816,6 @@ export default function AdminDashboard() {
                             </button>
                           </td>
 
-                          {/* Acciones */}
                           <td className="p-3 text-right">
                             <div className="flex items-center justify-end gap-1.5">
                               {isEditing ? (
@@ -840,7 +838,6 @@ export default function AdminDashboard() {
                                   <button
                                     onClick={() => startEditingUser(c)}
                                     className="text-amber-400 hover:text-amber-300 font-bold text-[11px] bg-amber-500/10 hover:bg-amber-500/20 px-2 py-1 rounded-lg transition-all"
-                                    title="Editar usuario y contraseña"
                                   >
                                     ✏ Editar
                                   </button>
