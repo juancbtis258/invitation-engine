@@ -18,6 +18,14 @@ interface EventConfig {
   responses: any[];
 }
 
+interface Collaborator {
+  id: string;
+  name: string;
+  email: string;
+  role: "admin" | "collaborator" | "client";
+  status: "activo" | "inactivo";
+}
+
 export default function AdminDashboard() {
   const [eventSlug, setEventSlug] = useState("demo");
   const [title, setTitle] = useState("Boda María & Alejandro");
@@ -42,7 +50,17 @@ export default function AdminDashboard() {
     }
   });
 
-  const [activeTab, setActiveTab] = useState<"list" | "builder" | "responses">("list");
+  // Estado para gestión de colaboradores
+  const [collaborators, setCollaborators] = useState<Collaborator[]>([
+    { id: "u1", name: "Alejandro Mejía (Tú)", email: "admin@mi-invitacion.com", role: "admin", status: "activo" },
+    { id: "u2", name: "Cliente Demo", email: "cliente@bodamaria.com", role: "client", status: "activo" }
+  ]);
+
+  const [newCollabName, setNewCollabName] = useState("");
+  const [newCollabEmail, setNewCollabEmail] = useState("");
+  const [newCollabRole, setNewCollabRole] = useState<"collaborator" | "client">("client");
+
+  const [activeTab, setActiveTab] = useState<"list" | "builder" | "responses" | "users">("list");
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -101,7 +119,7 @@ export default function AdminDashboard() {
       plan: originalConfig.plan || "plus",
       active: true,
       questions: JSON.parse(JSON.stringify(originalConfig.questions || questions)),
-      responses: [], // Reinicia respuestas a cero
+      responses: [],
     };
 
     try {
@@ -152,6 +170,32 @@ export default function AdminDashboard() {
       });
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  // Agregar Colaborador / Cliente
+  const handleAddCollaborator = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCollabName || !newCollabEmail) return;
+
+    const newCollab: Collaborator = {
+      id: `u_${Date.now()}`,
+      name: newCollabName,
+      email: newCollabEmail,
+      role: newCollabRole,
+      status: "activo"
+    };
+
+    setCollaborators([...collaborators, newCollab]);
+    setNewCollabName("");
+    setNewCollabEmail("");
+    alert(`¡Colaborador/Cliente "${newCollab.name}" registrado correctamente!`);
+  };
+
+  // Cerrar Sesión
+  const handleLogout = () => {
+    if (confirm("¿Estás seguro de que deseas cerrar sesión?")) {
+      window.location.href = "/";
     }
   };
 
@@ -232,14 +276,14 @@ export default function AdminDashboard() {
               Creador & Gestor de Invitaciones
             </h1>
             <p className="text-xs text-slate-400 mt-0.5">
-              Administra tus eventos activos, diseña formularios y revisa respuestas
+              Administra tus eventos activos, diseña formularios y gestiona clientes
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setActiveTab("list")}
-              className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${
+              className={`px-3 py-2 text-xs font-bold rounded-xl transition-all ${
                 activeTab === "list"
                   ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
                   : "bg-slate-800 text-slate-300 hover:bg-slate-700"
@@ -249,7 +293,7 @@ export default function AdminDashboard() {
             </button>
             <button
               onClick={() => setActiveTab("builder")}
-              className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${
+              className={`px-3 py-2 text-xs font-bold rounded-xl transition-all ${
                 activeTab === "builder"
                   ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
                   : "bg-slate-800 text-slate-300 hover:bg-slate-700"
@@ -259,13 +303,32 @@ export default function AdminDashboard() {
             </button>
             <button
               onClick={() => setActiveTab("responses")}
-              className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${
+              className={`px-3 py-2 text-xs font-bold rounded-xl transition-all ${
                 activeTab === "responses"
                   ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
                   : "bg-slate-800 text-slate-300 hover:bg-slate-700"
               }`}
             >
               📊 Respuestas ({responses.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("users")}
+              className={`px-3 py-2 text-xs font-bold rounded-xl transition-all ${
+                activeTab === "users"
+                  ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
+                  : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+              }`}
+            >
+              👥 Colaboradores
+            </button>
+
+            {/* Botón de Cerrar Sesión */}
+            <button
+              onClick={handleLogout}
+              className="px-3 py-2 text-xs font-bold rounded-xl bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/30 transition-all ml-1"
+              title="Cerrar sesión"
+            >
+              🚪 Salir
             </button>
           </div>
         </div>
@@ -321,7 +384,7 @@ export default function AdminDashboard() {
                     <p>📦 Plan: <span className="text-slate-200 uppercase">{item.plan || "plus"}</span></p>
                   </div>
 
-                  {/* Acciones de Tarjeta con Duplicar */}
+                  {/* Acciones */}
                   <div className="flex gap-2 pt-2 border-t border-slate-800">
                     <button
                       onClick={() => handleSelectEvent(slug)}
@@ -541,6 +604,89 @@ export default function AdminDashboard() {
                 </table>
               </div>
             )}
+          </div>
+        )}
+
+        {/* COLABORADORES Y CLIENTES */}
+        {activeTab === "users" && (
+          <div className="space-y-6">
+            {/* Formulario Agregar Cliente */}
+            <div className="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl space-y-4">
+              <h2 className="text-sm font-bold text-amber-500 uppercase tracking-wider">
+                Registrar Nuevo Colaborador o Cliente
+              </h2>
+
+              <form onSubmit={handleAddCollaborator} className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <input
+                  type="text"
+                  placeholder="Nombre completo"
+                  value={newCollabName}
+                  onChange={(e) => setNewCollabName(e.target.value)}
+                  className="bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs font-medium focus:outline-none focus:border-amber-500"
+                  required
+                />
+                <input
+                  type="email"
+                  placeholder="Correo electrónico"
+                  value={newCollabEmail}
+                  onChange={(e) => setNewCollabEmail(e.target.value)}
+                  className="bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs font-medium focus:outline-none focus:border-amber-500"
+                  required
+                />
+                <select
+                  value={newCollabRole}
+                  onChange={(e) => setNewCollabRole(e.target.value as any)}
+                  className="bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs font-medium text-slate-300 focus:outline-none focus:border-amber-500"
+                >
+                  <option value="client">Cliente (Acceso a su evento)</option>
+                  <option value="collaborator">Colaborador (Soporte)</option>
+                </select>
+                <button
+                  type="submit"
+                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold px-4 py-2 rounded-xl transition-all"
+                >
+                  + Dar Acceso
+                </button>
+              </form>
+            </div>
+
+            {/* Lista de Colaboradores */}
+            <div className="bg-slate-900/60 border border-slate-800 p-5 rounded-2xl space-y-4">
+              <h2 className="text-sm font-bold text-amber-500 uppercase tracking-wider">
+                Usuarios Registrados en la Plataforma
+              </h2>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-slate-300">
+                  <thead className="bg-slate-950 text-slate-400 border-b border-slate-800">
+                    <tr>
+                      <th className="p-3 font-semibold">Nombre</th>
+                      <th className="p-3 font-semibold">Correo</th>
+                      <th className="p-3 font-semibold">Rol</th>
+                      <th className="p-3 font-semibold">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800">
+                    {collaborators.map((c) => (
+                      <tr key={c.id} className="hover:bg-slate-800/30">
+                        <td className="p-3 font-bold text-white">{c.name}</td>
+                        <td className="p-3 font-mono text-slate-400">{c.email}</td>
+                        <td className="p-3 uppercase font-extrabold text-[10px]">
+                          <span className={`px-2 py-0.5 rounded-md ${
+                            c.role === "admin" ? "bg-amber-500/20 text-amber-400" : "bg-blue-500/20 text-blue-400"
+                          }`}>
+                            {c.role === "admin" ? "Administrador" : c.role === "client" ? "Cliente" : "Colaborador"}
+                          </span>
+                        </td>
+                        <td className="p-3">
+                          <span className="text-emerald-400 text-[10px] font-bold uppercase">● {c.status}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
 
