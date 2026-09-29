@@ -4,27 +4,37 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+  // DICCIONARIO / BASE DE DATOS DE USUARIOS PERMITIDOS
+  // Aquí puedes agregar, quitar o modificar todos los usuarios y contraseñas que quieras:
+  const USERS_DATABASE: Record<string, string> = {
+    admin: "admin123",
+    boda: "boda2026",
+    maria: "12345",
+    alejandro: "12345",
+  };
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
-    // Validación básica de ejemplo (Ajusta las credenciales si tienes un backend/Supabase)
-    if (email === "admin@mi-invitacion.com" && password === "admin123") {
-      localStorage.setItem("user_session", JSON.stringify({ email, role: "admin" }));
-      router.push("/admin");
-    } else if (email && password) {
-      // Simulación de acceso para clientes/colaboradores
-      localStorage.setItem("user_session", JSON.stringify({ email, role: "client" }));
+    const cleanUsername = username.trim().toLowerCase();
+
+    // Verificamos si el usuario existe y si la contraseña coincide
+    if (USERS_DATABASE[cleanUsername] && USERS_DATABASE[cleanUsername] === password) {
+      localStorage.setItem(
+        "user_session",
+        JSON.stringify({ username: cleanUsername, role: cleanUsername === "admin" ? "admin" : "client" })
+      );
       router.push("/admin");
     } else {
-      setError("Por favor ingresa correo y contraseña válidos.");
+      setError("Usuario o contraseña incorrectos.");
       setLoading(false);
     }
   };
@@ -54,13 +64,13 @@ export default function LoginPage() {
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-slate-400 mb-1.5">
-              Correo Electrónico
+              Usuario
             </label>
             <input
-              type="email"
-              placeholder="tu@correo.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              placeholder="Ej. admin"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-500 transition-all"
               required
             />
@@ -88,16 +98,6 @@ export default function LoginPage() {
             {loading ? "Entrando..." : "Acceder al Panel"}
           </button>
         </form>
-
-        {/* Pie de página */}
-        <div className="text-center border-t border-slate-800 pt-4">
-          <a
-            href="/"
-            className="text-xs text-slate-500 hover:text-amber-400 transition-all"
-          >
-            ← Volver al sitio principal
-          </a>
-        </div>
 
       </div>
     </main>
