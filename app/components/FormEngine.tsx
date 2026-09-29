@@ -1,157 +1,242 @@
 "use client";
 
 import { useState } from "react";
-import formData from "../data/form-config.json";
 
 export default function FormEngine() {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, any>>({});
-  const [isFinished, setIsFinished] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [step, setStep] = useState(1);
+  const [formData, setFormData] = useState({
+    nombre: "",
+    whatsapp: "",
+    asistira: "", // "Sí" o "No"
+    numPersonas: 1,
+    asistentes: [""] as string[],
+    mensaje: "",
+  });
+  const [loading, setLoading] = useState(false);
 
-  const questions = formData.questions;
-  const currentQ = questions[currentIndex];
+  // Manejador para cambiar la cantidad de personas y ajustar las casillas
+  const handleNumPersonasChange = (num: number) => {
+    const nuevosAsistentes = Array.from({ length: num }, (_, i) => formData.asistentes[i] || "");
+    setFormData({ ...formData, numPersonas: num, asistentes: nuevosAsistentes });
+  };
 
-  const handleNext = async (value: any) => {
-    const updatedAnswers = { ...answers, [currentQ.id]: value };
-    setAnswers(updatedAnswers);
+  const handleAsistenteNombreChange = (index: number, val: string) => {
+    const list = [...formData.asistentes];
+    list[index] = val;
+    setFormData({ ...formData, asistentes: list });
+  };
 
-    if (currentIndex < questions.length - 1) {
-      setCurrentIndex(currentIndex + 1);
+  const handleNextStep1 = () => {
+    if (!formData.nombre || !formData.asistira) {
+      alert("Por favor completa tu nombre y selecciona si asistirás.");
+      return;
+    }
+    // Si responde NO, va directo a guardar/finalizar
+    if (formData.asistira === "No") {
+      submitForm();
     } else {
-      setSubmitting(true);
-      try {
-        await fetch("/api/responses", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updatedAnswers),
-        });
-      } catch (e) {
-        console.error(e);
-      }
-      setSubmitting(false);
-      setIsFinished(true);
+      setStep(2);
     }
   };
 
-  const generateWhatsAppUrl = () => {
-    const nombre = answers["nombre"] || answers["pregunta_1"] || "Un invitado";
-    const text = `¡Hola! Soy *${nombre}*. Acabo de confirmar mi asistencia.`;
-    return `https://wa.me/528100000000?text=${encodeURIComponent(text)}`;
+  const submitForm = async () => {
+    setLoading(true);
+    try {
+      // Guarda la respuesta en tu API interna (/api/form-config o /api/respuestas)
+      await fetch("/api/form-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "add_response", response: formData }),
+      });
+      setStep(5); // Va a la pantalla final de agradecimiento
+    } catch (error) {
+      console.error(error);
+      alert("Error al enviar la respuesta.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  if (submitting) {
-    return <div className="text-center py-6 text-sm text-slate-600 font-medium">Enviando respuestas...</div>;
-  }
-
-  if (isFinished) {
-    return (
-      <div className="text-center space-y-4 py-4">
-        <div className="text-3xl">🎉</div>
-        <h2 className="text-lg font-bold text-slate-800">¡Respuesta registrada!</h2>
-        <a
-          href={generateWhatsAppUrl()}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-block w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition text-sm shadow"
-        >
-          📲 Enviar Confirmación por WhatsApp
-        </a>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-4">
-      {/* Indicador discreto */}
-      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-right">
-        Paso {currentIndex + 1} de {questions.length}
-      </div>
-
-      <label className="block text-sm font-semibold text-slate-800">
-        {currentQ.title} {currentQ.required && <span className="text-red-500">*</span>}
-      </label>
-
-      {currentQ.type === "text" && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            const val = (e.currentTarget.elements.namedItem("answer") as HTMLInputElement).value;
-            if (val) handleNext(val);
-          }}
-          className="space-y-3"
+    <div className="max-w-md mx-auto bg-[#faf8f5] p-6 rounded-2xl shadow-xl text-slate-800 border border-slate-200">
+      
+      {/* Botón de retroceso (Back) */}
+      {step > 1 && step < 5 && (
+        <button
+          onClick={() => setStep(step - 1)}
+          className="text-xs text-slate-500 hover:text-slate-800 mb-4 flex items-center gap-1 font-medium"
         >
-          <input
-            name="answer"
-            type="text"
-            required={currentQ.required}
-            placeholder={currentQ.placeholder}
-            className="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:border-slate-800"
-          />
-          <button type="submit" className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl text-sm transition">
-            Siguiente →
-          </button>
-        </form>
+          ← Back
+        </button>
       )}
 
-      {currentQ.type === "choice" && (
-        <div className="space-y-2">
-          {currentQ.options?.map((opt: string) => (
+      {/* PANTALLA 1: Nombre, WhatsApp y Asistencia */}
+      {step === 1 && (
+        <div className="space-y-5">
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">Demo Confirma tu asistencia</h2>
+            <p className="text-xs text-slate-600 mt-1">
+              Gracias por confirmar tu asistencia. Completa la siguiente información para reservar tus lugares.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Ingresa tu nombre *</label>
+              <input
+                type="text"
+                value={formData.nombre}
+                onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                placeholder="Ej. Juan Sosa"
+                className="w-full p-2.5 rounded-lg bg-white border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Ingresa tu número de WhatsApp *</label>
+              <input
+                type="tel"
+                value={formData.whatsapp}
+                onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
+                placeholder="+52 811 000 0000"
+                className="w-full p-2.5 rounded-lg bg-white border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-2">¿Asistirás al evento? *</label>
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, asistira: "Sí" })}
+                  className={`w-full text-left p-2.5 rounded-lg border text-sm font-semibold flex items-center gap-2 transition-all ${
+                    formData.asistira === "Sí"
+                      ? "bg-slate-900 text-white border-slate-900"
+                      : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+                  }`}
+                >
+                  <span className="px-2 py-0.5 rounded bg-slate-200 text-slate-800 text-xs font-bold">A</span> Sí
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, asistira: "No" })}
+                  className={`w-full text-left p-2.5 rounded-lg border text-sm font-semibold flex items-center gap-2 transition-all ${
+                    formData.asistira === "No"
+                      ? "bg-slate-900 text-white border-slate-900"
+                      : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+                  }`}
+                >
+                  <span className="px-2 py-0.5 rounded bg-slate-200 text-slate-800 text-xs font-bold">B</span> No
+                </button>
+              </div>
+            </div>
+
             <button
-              key={opt}
-              onClick={() => handleNext(opt)}
-              className="w-full text-left p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-800 text-sm font-medium transition"
+              onClick={handleNextStep1}
+              className="w-auto bg-black hover:bg-slate-800 text-white font-bold text-xs px-5 py-2.5 rounded-lg transition-all"
             >
-              {opt}
+              Siguiente →
             </button>
-          ))}
+          </div>
         </div>
       )}
 
-      {currentQ.type === "number" && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            const val = (e.currentTarget.elements.namedItem("answer") as HTMLInputElement).value;
-            if (val) handleNext(val);
-          }}
-          className="space-y-3"
-        >
-          <input
-            name="answer"
-            type="number"
-            min={1}
-            max={10}
-            defaultValue={1}
-            required={currentQ.required}
-            className="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-center font-bold text-lg focus:outline-none focus:border-slate-800"
-          />
-          <button type="submit" className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl text-sm transition">
+      {/* PANTALLA 2: Cantidad de personas */}
+      {step === 2 && (
+        <div className="space-y-5">
+          <h2 className="text-lg font-bold text-slate-900">¿Cuántas personas asistirán? *</h2>
+          <select
+            value={formData.numPersonas}
+            onChange={(e) => handleNumPersonasChange(Number(e.target.value))}
+            className="w-full p-2.5 rounded-lg bg-white border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+          >
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+              <option key={n} value={n}>{n} persona{n > 1 ? "s" : ""}</option>
+            ))}
+          </select>
+
+          <button
+            onClick={() => setStep(3)}
+            className="bg-black hover:bg-slate-800 text-white font-bold text-xs px-5 py-2.5 rounded-lg transition-all"
+          >
             Siguiente →
           </button>
-        </form>
+        </div>
       )}
 
-      {currentQ.type === "textarea" && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            const val = (e.currentTarget.elements.namedItem("answer") as HTMLTextAreaElement).value;
-            handleNext(val || "Sin mensaje");
-          }}
-          className="space-y-3"
-        >
-          <textarea
-            name="answer"
-            rows={3}
-            placeholder={currentQ.placeholder}
-            className="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:border-slate-800"
-          />
-          <button type="submit" className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl text-sm transition">
-            Finalizar →
+      {/* PANTALLA 3: Nombres de los asistentes */}
+      {step === 3 && (
+        <div className="space-y-5">
+          <p className="text-xs text-slate-600 font-medium">
+            Por favor ingresa los nombres de las personas que asistirán con este pase
+          </p>
+
+          <div className="space-y-3">
+            {Array.from({ length: formData.numPersonas }).map((_, idx) => (
+              <div key={idx}>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Asistente {idx + 1} *
+                </label>
+                <input
+                  type="text"
+                  value={formData.asistentes[idx] || ""}
+                  onChange={(e) => handleAsistenteNombreChange(idx, e.target.value)}
+                  placeholder={`Nombre completo asistente ${idx + 1}`}
+                  className="w-full p-2.5 rounded-lg bg-white border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                />
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={() => setStep(4)}
+            className="bg-black hover:bg-slate-800 text-white font-bold text-xs px-5 py-2.5 rounded-lg transition-all"
+          >
+            Siguiente →
           </button>
-        </form>
+        </div>
       )}
+
+      {/* PANTALLA 4: Mensaje opcional */}
+      {step === 4 && (
+        <div className="space-y-5">
+          <div>
+            <h2 className="text-sm font-bold text-slate-900">
+              Unas palabras siempre me alegran el corazón ❤️ deja tu mensaje
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">(este campo no es obligatorio)</p>
+          </div>
+
+          <textarea
+            rows={4}
+            value={formData.mensaje}
+            onChange={(e) => setFormData({ ...formData, mensaje: e.target.value })}
+            placeholder="Escribe tu mensaje aquí..."
+            className="w-full p-3 rounded-lg bg-white border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 resize-none"
+          />
+
+          <button
+            onClick={submitForm}
+            disabled={loading}
+            className="bg-black hover:bg-slate-800 text-white font-bold text-xs px-5 py-2.5 rounded-lg transition-all"
+          >
+            {loading ? "Enviando..." : "Siguiente →"}
+          </button>
+        </div>
+      )}
+
+      {/* PANTALLA 5: Agradecimiento final */}
+      {step === 5 && (
+        <div className="text-center py-8 space-y-3">
+          <p className="text-base font-bold text-slate-900">
+            ¡Perfecto! Tu asistencia ha quedado confirmada.
+          </p>
+          <p className="text-sm text-slate-600">
+            Te esperamos con mucha alegría 🎉
+          </p>
+        </div>
+      )}
+
     </div>
   );
 }
