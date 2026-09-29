@@ -10,13 +10,11 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  // DICCIONARIO / BASE DE DATOS DE USUARIOS PERMITIDOS
-  // Aquí puedes agregar, quitar o modificar todos los usuarios y contraseñas que quieras:
+  // DICCIONARIO DE USUARIOS
   const USERS_DATABASE: Record<string, string> = {
-    admin: "admin123",
+    admin: "123",
+    cliente: "123",
     boda: "boda2026",
-    maria: "12345",
-    alejandro: "12345",
   };
 
   const handleLogin = (e: React.FormEvent) => {
@@ -26,7 +24,6 @@ export default function LoginPage() {
 
     const cleanUsername = username.trim().toLowerCase();
 
-    // Verificamos si el usuario existe y si la contraseña coincide
     if (USERS_DATABASE[cleanUsername] && USERS_DATABASE[cleanUsername] === password) {
       localStorage.setItem(
         "user_session",

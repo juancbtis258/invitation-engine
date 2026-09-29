@@ -21,7 +21,8 @@ interface EventConfig {
 interface Collaborator {
   id: string;
   name: string;
-  email: string;
+  username: string;
+  password?: string;
   role: "admin" | "collaborator" | "client";
   status: "activo" | "inactivo";
 }
@@ -52,18 +53,20 @@ export default function AdminDashboard() {
 
   // Estado para gestión de colaboradores
   const [collaborators, setCollaborators] = useState<Collaborator[]>([
-    { id: "u1", name: "Alejandro Mejía (Tú)", email: "admin@mi-invitacion.com", role: "admin", status: "activo" },
-    { id: "u2", name: "Cliente Demo", email: "cliente@bodamaria.com", role: "client", status: "activo" }
+    { id: "u1", name: "Alejandro Mejía (Tú)", username: "admin", password: "123", role: "admin", status: "activo" },
+    { id: "u2", name: "Cliente Demo", username: "cliente", password: "123", role: "client", status: "activo" }
   ]);
 
   const [newCollabName, setNewCollabName] = useState("");
-  const [newCollabEmail, setNewCollabEmail] = useState("");
+  const [newCollabUsername, setNewCollabUsername] = useState("");
+  const [newCollabPassword, setNewCollabPassword] = useState("");
   const [newCollabRole, setNewCollabRole] = useState<"collaborator" | "client">("client");
 
   // Estado para edición de usuario
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
-  const [editEmail, setEditEmail] = useState("");
+  const [editUsername, setEditUsername] = useState("");
+  const [editPassword, setEditPassword] = useState("");
 
   const [activeTab, setActiveTab] = useState<"list" | "builder" | "responses" | "users">("list");
   const [saving, setSaving] = useState(false);
@@ -181,39 +184,42 @@ export default function AdminDashboard() {
   // Agregar Colaborador / Cliente
   const handleAddCollaborator = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCollabName || !newCollabEmail) return;
+    if (!newCollabName || !newCollabUsername || !newCollabPassword) return;
 
     const newCollab: Collaborator = {
       id: `u_${Date.now()}`,
       name: newCollabName,
-      email: newCollabEmail,
+      username: newCollabUsername.trim().toLowerCase(),
+      password: newCollabPassword,
       role: newCollabRole,
       status: "activo"
     };
 
     setCollaborators([...collaborators, newCollab]);
     setNewCollabName("");
-    setNewCollabEmail("");
-    alert(`¡Colaborador/Cliente "${newCollab.name}" registrado correctamente!`);
+    setNewCollabUsername("");
+    setNewCollabPassword("");
+    alert(`¡Cliente "${newCollab.name}" registrado con el usuario "${newCollab.username}"!`);
   };
 
   // Iniciar modo de edición
   const startEditingUser = (user: Collaborator) => {
     setEditingUserId(user.id);
     setEditName(user.name);
-    setEditEmail(user.email);
+    setEditUsername(user.username);
+    setEditPassword(user.password || "");
   };
 
   // Guardar cambios del usuario editado
   const saveUserEdit = (id: string) => {
-    if (!editName.trim() || !editEmail.trim()) {
-      alert("El nombre y correo no pueden estar vacíos.");
+    if (!editName.trim() || !editUsername.trim() || !editPassword.trim()) {
+      alert("Los campos no pueden estar vacíos.");
       return;
     }
 
     setCollaborators(collaborators.map((c) => {
       if (c.id === id) {
-        return { ...c, name: editName, email: editEmail };
+        return { ...c, name: editName, username: editUsername.trim().toLowerCase(), password: editPassword };
       }
       return c;
     }));
@@ -674,13 +680,13 @@ export default function AdminDashboard() {
         {/* COLABORADORES Y CLIENTES */}
         {activeTab === "users" && (
           <div className="space-y-6">
-            {/* Formulario Agregar Cliente */}
+            {/* Formulario Agregar Cliente / Usuario */}
             <div className="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl space-y-4">
               <h2 className="text-sm font-bold text-amber-500 uppercase tracking-wider">
                 Registrar Nuevo Colaborador o Cliente
               </h2>
 
-              <form onSubmit={handleAddCollaborator} className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <form onSubmit={handleAddCollaborator} className="grid grid-cols-1 md:grid-cols-5 gap-3">
                 <input
                   type="text"
                   placeholder="Nombre completo"
@@ -690,10 +696,18 @@ export default function AdminDashboard() {
                   required
                 />
                 <input
-                  type="email"
-                  placeholder="Correo electrónico"
-                  value={newCollabEmail}
-                  onChange={(e) => setNewCollabEmail(e.target.value)}
+                  type="text"
+                  placeholder="Usuario (ej. admin, boda)"
+                  value={newCollabUsername}
+                  onChange={(e) => setNewCollabUsername(e.target.value)}
+                  className="bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs font-medium focus:outline-none focus:border-amber-500"
+                  required
+                />
+                <input
+                  type="text"
+                  placeholder="Contraseña"
+                  value={newCollabPassword}
+                  onChange={(e) => setNewCollabPassword(e.target.value)}
                   className="bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs font-medium focus:outline-none focus:border-amber-500"
                   required
                 />
@@ -702,7 +716,7 @@ export default function AdminDashboard() {
                   onChange={(e) => setNewCollabRole(e.target.value as any)}
                   className="bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs font-medium text-slate-300 focus:outline-none focus:border-amber-500"
                 >
-                  <option value="client">Cliente (Acceso a su evento)</option>
+                  <option value="client">Cliente (Acceso a evento)</option>
                   <option value="collaborator">Colaborador (Soporte)</option>
                 </select>
                 <button
@@ -714,7 +728,7 @@ export default function AdminDashboard() {
               </form>
             </div>
 
-            {/* Lista de Colaboradores */}
+            {/* Lista de Colaboradores / Usuarios */}
             <div className="bg-slate-900/60 border border-slate-800 p-5 rounded-2xl space-y-4">
               <h2 className="text-sm font-bold text-amber-500 uppercase tracking-wider">
                 Usuarios Registrados en la Plataforma
@@ -725,7 +739,8 @@ export default function AdminDashboard() {
                   <thead className="bg-slate-950 text-slate-400 border-b border-slate-800">
                     <tr>
                       <th className="p-3 font-semibold">Nombre</th>
-                      <th className="p-3 font-semibold">Correo</th>
+                      <th className="p-3 font-semibold">Usuario</th>
+                      <th className="p-3 font-semibold">Contraseña</th>
                       <th className="p-3 font-semibold">Rol</th>
                       <th className="p-3 font-semibold">Estado</th>
                       <th className="p-3 font-semibold text-right">Acciones</th>
@@ -751,17 +766,31 @@ export default function AdminDashboard() {
                             )}
                           </td>
 
-                          {/* Campo Correo */}
+                          {/* Campo Usuario */}
                           <td className="p-3">
                             {isEditing ? (
                               <input
-                                type="email"
-                                value={editEmail}
-                                onChange={(e) => setEditEmail(e.target.value)}
+                                type="text"
+                                value={editUsername}
+                                onChange={(e) => setEditUsername(e.target.value)}
+                                className="bg-slate-950 border border-amber-500 rounded-lg px-2.5 py-1 text-xs font-mono text-amber-400 w-full focus:outline-none"
+                              />
+                            ) : (
+                              <span className="font-mono text-amber-400 font-bold">{c.username}</span>
+                            )}
+                          </td>
+
+                          {/* Campo Contraseña */}
+                          <td className="p-3">
+                            {isEditing ? (
+                              <input
+                                type="text"
+                                value={editPassword}
+                                onChange={(e) => setEditPassword(e.target.value)}
                                 className="bg-slate-950 border border-amber-500 rounded-lg px-2.5 py-1 text-xs font-mono text-slate-200 w-full focus:outline-none"
                               />
                             ) : (
-                              <span className="font-mono text-slate-400">{c.email}</span>
+                              <span className="font-mono text-slate-400">{c.password || "••••••"}</span>
                             )}
                           </td>
 
@@ -811,9 +840,9 @@ export default function AdminDashboard() {
                                   <button
                                     onClick={() => startEditingUser(c)}
                                     className="text-amber-400 hover:text-amber-300 font-bold text-[11px] bg-amber-500/10 hover:bg-amber-500/20 px-2 py-1 rounded-lg transition-all"
-                                    title="Editar nombre y correo"
+                                    title="Editar usuario y contraseña"
                                   >
-                                    ✏️️ Editar
+                                    ✏ Editar
                                   </button>
 
                                   {c.role !== "admin" && (
