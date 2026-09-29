@@ -1,40 +1,94 @@
-import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { NextResponse } from "next/server";
+import fs from "fs";
+import path from "path";
 
-function getJsonPath() {
-  const possiblePaths = [
-    path.join(process.cwd(), 'app/data/form-config.json'),
-    path.join(process.cwd(), 'src/data/form-config.json'),
-    path.join(process.cwd(), 'data/form-config.json'),
-  ];
-  for (const p of possiblePaths) {
-    if (fs.existsSync(p)) return p;
+// Ruta al archivo local JSON de almacenamiento
+const dataFilePath = path.join(process.cwd(), "form-config.json");
+
+// Helper para leer los datos del JSON
+function getStoredData() {
+  if (!fs.existsSync(dataFilePath)) {
+    // Estructura inicial con un evento por defecto
+    const initialData = {
+      events: {
+        "demo": {
+          title: "Boda María & Alejandro",
+          targetDate: "2026-10-15",
+          plan: "plus",
+          responses: []
+        }
+      }
+    };
+    fs.writeFileSync(dataFilePath, JSON.stringify(initialData, null, 2));
+    return initialData;
   }
-  return possiblePaths[0];
+  const fileContent = fs.readFileSync(dataFilePath, "utf8");
+  return JSON.parse(fileContent);
 }
 
-export async function GET() {
-  try {
-    const jsonPath = getJsonPath();
-    if (!fs.existsSync(jsonPath)) {
-      return NextResponse.json({ error: 'Archivo no encontrado' }, { status: 404 });
-    }
-    const fileData = fs.readFileSync(jsonPath, 'utf8');
-    return NextResponse.json(JSON.parse(fileData));
-  } catch (error) {
-    return NextResponse.json({ error: 'Error al leer la configuración' }, { status: 500 });
-  }
+// Helper para guardar
+function saveData(data: any) {
+  fs.writeFileSync(dataFilePath, JSON.stringify(data, null, 2));
 }
 
+// GET: /api/form-config?event=boda-maria
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const eventSlug = searchParams.get("event") || "demo";
+  const data = getStoredData();
+
+  const eventData = data.events[eventSlug] || null;
+
+  return NextResponse.json({
+    eventSlug,
+    data: eventData,
+    allEvents: Object.keys(data.events || {})
+  });
+}
+
+// POST: Guarda cambios de un evento o registra una respuesta
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const jsonPath = getJsonPath();
-    
-    fs.writeFileSync(jsonPath, JSON.stringify(body, null, 2), 'utf8');
-    return NextResponse.json({ success: true, data: body });
+    const { action, eventSlug, response, eventConfig } = body;
+    const currentSlug = eventSlug || "demo";
+    const data = getStoredData();
+
+    if (!data.events) data.events = {};
+
+    // CASO 1: Guardar una respuesta enviada por un invitado
+    if (action === "add_response") {
+      if (!data.events[currentSlug]) {
+        return NextResponse.json({ error: "Evento no encontrado" }, { status: 404 });
+      }
+      if (!data.events[currentSlug].responses) {
+        data.events[currentSlug].responses = [];
+      }
+      
+      const newResponse = {
+        id: `res_${Date.now()}`,
+        date: new Date().toISOString(),
+        ...response
+      };
+      
+      data.events[currentSlug].responses.push(newResponse);
+      saveData(data);
+      return NextResponse.json({ success: true, response: newResponse });
+    }
+
+    // CASO 2: Crear o actualizar un evento desde el Panel de Admin
+    if (action === "save_event") {
+      data.events[currentSlug] = {
+        ...(data.events[currentSlug] || { responses: [] }),
+        ...eventConfig
+      };
+      saveData(data);
+      return NextResponse.json({ success: true, eventSlug: currentSlug });
+    }
+
+    return NextResponse.json({ error: "Acción no válida" }, { status: 400 });
   } catch (error) {
-    return NextResponse.json({ error: 'Error al actualizar la configuración' }, { status: 500 });
+    console.error(error);
+    return NextResponse.json({ error: "Error en el servidor" }, { status: 500 });
   }
 }

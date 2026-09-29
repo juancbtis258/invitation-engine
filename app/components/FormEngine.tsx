@@ -2,19 +2,18 @@
 
 import { useState } from "react";
 
-export default function FormEngine() {
+export default function FormEngine({ eventSlug = "demo" }: { eventSlug?: string }) {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     nombre: "",
     whatsapp: "",
-    asistira: "", // "Sí" o "No"
+    asistira: "",
     numPersonas: 1,
     asistentes: [""] as string[],
     mensaje: "",
   });
   const [loading, setLoading] = useState(false);
 
-  // Manejador para cambiar la cantidad de personas y ajustar las casillas
   const handleNumPersonasChange = (num: number) => {
     const nuevosAsistentes = Array.from({ length: num }, (_, i) => formData.asistentes[i] || "");
     setFormData({ ...formData, numPersonas: num, asistentes: nuevosAsistentes });
@@ -31,7 +30,6 @@ export default function FormEngine() {
       alert("Por favor completa tu nombre y selecciona si asistirás.");
       return;
     }
-    // Si responde NO, va directo a guardar/finalizar
     if (formData.asistira === "No") {
       submitForm();
     } else {
@@ -42,13 +40,16 @@ export default function FormEngine() {
   const submitForm = async () => {
     setLoading(true);
     try {
-      // Guarda la respuesta en tu API interna (/api/form-config o /api/respuestas)
       await fetch("/api/form-config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "add_response", response: formData }),
+        body: JSON.stringify({
+          action: "add_response",
+          eventSlug: eventSlug, // // Guarda la respuesta asociada al evento específico
+          response: formData,
+        }),
       });
-      setStep(5); // Va a la pantalla final de agradecimiento
+      setStep(5);
     } catch (error) {
       console.error(error);
       alert("Error al enviar la respuesta.");
@@ -58,9 +59,7 @@ export default function FormEngine() {
   };
 
   return (
-    <div className="max-w-md mx-auto bg-[#faf8f5] p-6 rounded-2xl shadow-xl text-slate-800 border border-slate-200">
-      
-      {/* Botón de retroceso (Back) */}
+    <div className="max-w-md mx-auto bg-white p-6 rounded-2xl shadow-lg text-slate-800 border border-slate-200">
       {step > 1 && step < 5 && (
         <button
           onClick={() => setStep(step - 1)}
@@ -70,13 +69,13 @@ export default function FormEngine() {
         </button>
       )}
 
-      {/* PANTALLA 1: Nombre, WhatsApp y Asistencia */}
+      {/* PANTALLA 1 */}
       {step === 1 && (
         <div className="space-y-5">
           <div>
-            <h2 className="text-xl font-bold text-slate-900">Demo Confirma tu asistencia</h2>
+            <h2 className="text-xl font-bold text-slate-900">Confirma tu asistencia</h2>
             <p className="text-xs text-slate-600 mt-1">
-              Gracias por confirmar tu asistencia. Completa la siguiente información para reservar tus lugares.
+              Completa la siguiente información para reservar tus lugares.
             </p>
           </div>
 
@@ -141,7 +140,7 @@ export default function FormEngine() {
         </div>
       )}
 
-      {/* PANTALLA 2: Cantidad de personas */}
+      {/* PANTALLA 2 */}
       {step === 2 && (
         <div className="space-y-5">
           <h2 className="text-lg font-bold text-slate-900">¿Cuántas personas asistirán? *</h2>
@@ -164,7 +163,7 @@ export default function FormEngine() {
         </div>
       )}
 
-      {/* PANTALLA 3: Nombres de los asistentes */}
+      {/* PANTALLA 3 */}
       {step === 3 && (
         <div className="space-y-5">
           <p className="text-xs text-slate-600 font-medium">
@@ -197,7 +196,7 @@ export default function FormEngine() {
         </div>
       )}
 
-      {/* PANTALLA 4: Mensaje opcional */}
+      {/* PANTALLA 4 */}
       {step === 4 && (
         <div className="space-y-5">
           <div>
@@ -225,7 +224,7 @@ export default function FormEngine() {
         </div>
       )}
 
-      {/* PANTALLA 5: Agradecimiento final */}
+      {/* PANTALLA 5 */}
       {step === 5 && (
         <div className="text-center py-8 space-y-3">
           <p className="text-base font-bold text-slate-900">
@@ -236,7 +235,6 @@ export default function FormEngine() {
           </p>
         </div>
       )}
-
     </div>
   );
 }
