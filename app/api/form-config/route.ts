@@ -2,91 +2,103 @@ import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 
-const dataFilePath = path.join(process.cwd(), "form-config.json");
+const dataFilePath = path.join(process.cwd(), "app", "data", "form-config.json");
 
-// Datos base por defecto si no hay JSON
+// Datos por defecto si el archivo aún no existe
 const defaultEventData = {
   title: "Boda María & Alejandro",
   targetDate: "2026-10-15",
   plan: "plus",
+  active: true,
+  questions: [
+    { id: "q1", label: "Ingresa tu nombre", type: "text" },
+    { id: "q2", label: "Ingresa tu número de WhatsApp", type: "text" },
+    { id: "q3", label: "¿Asistirás al evento?", type: "choice", options: ["Sí", "No"] }
+  ],
   responses: []
 };
 
 function getStoredData() {
   try {
     if (!fs.existsSync(dataFilePath)) {
-      return { events: { "demo": defaultEventData } };
+      const initialData = { events: { demo: defaultEventData } };
+      fs.mkdirSync(path.dirname(dataFilePath), { recursive: true });
+      fs.writeFileSync(dataFilePath, JSON.stringify(initialData, null, 2), "utf-8");
+      return initialData;
     }
-    const fileContent = fs.readFileSync(dataFilePath, "utf8");
+    const fileContent = fs.readFileSync(dataFilePath, "utf-8");
     return JSON.parse(fileContent);
-  } catch (e) {
-    return { events: { "demo": defaultEventData } };
+  } catch (error) {
+    console.error("Error leyendo archivo JSON:", error);
+    return { events: { demo: defaultEventData } };
   }
 }
 
 function saveData(data: any) {
   try {
-    fs.writeFileSync(dataFilePath, JSON.stringify(data, null, 2));
-  } catch (e) {
-    console.error("Error guardando en archivo local:", e);
+    fs.mkdirSync(path.dirname(dataFilePath), { recursive: true });
+    fs.writeFileSync(dataFilePath, JSON.stringify(data, null, 2), "utf-8");
+  } catch (error) {
+    console.error("Error guardando en archivo JSON:", error);
   }
 }
 
+// GET: Obtener configuración de un evento
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const eventSlug = searchParams.get("event") || "demo";
+
   const data = getStoredData();
+  const eventConfig = data.events?.[eventSlug] || defaultEventData;
 
-  // Si se busca "demo" o un evento no registrado, devuelve los datos base para que no marque "Evento no encontrado"
-  const eventData = data.events?.[eventSlug] || defaultEventData;
-
-  return NextResponse.json({
-    eventSlug,
-    data: eventData,
-    allEvents: Object.keys(data.events || { demo: true })
-  });
+  return NextResponse.json({ success: true, data: eventConfig });
 }
 
+// POST: Guardar evento, actualizar o registrar respuesta de un invitado
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { action, eventSlug, response, eventConfig } = body;
+    const { action, eventSlug, eventConfig, responseData } = body;
     const currentSlug = eventSlug || "demo";
-    const data = getStoredData();
 
+    const data = getStoredData();
     if (!data.events) data.events = {};
 
-    if (action === "add_response") {
+    // Acción 1: Guardar / Duplicar / Actualizar evento completo
+    if (action === "save_event" || eventConfig) {
+      const existing = data.events[currentSlug] || defaultEventData;
+      data.events[currentSlug] = {
+        ...existing,
+        ...eventConfig,
+      };
+      saveData(data);
+      return NextResponse.json({ success: true, message: "Evento guardado con éxito" });
+    }
+
+    // Acción 2: Registrar respuesta enviada por un invitado
+    if (responseData) {
       if (!data.events[currentSlug]) {
         data.events[currentSlug] = { ...defaultEventData, responses: [] };
       }
       if (!data.events[currentSlug].responses) {
         data.events[currentSlug].responses = [];
       }
-      
+
       const newResponse = {
-        id: `res_${Date.now()}`,
+        id: `resp_${Date.now()}`,
         date: new Date().toISOString(),
-        ...response
+        ...responseData,
       };
-      
+
       data.events[currentSlug].responses.push(newResponse);
       saveData(data);
-      return NextResponse.json({ success: true, response: newResponse });
+
+      return NextResponse.json({ success: true, message: "Respuesta registrada" });
     }
 
-    if (action === "save_event") {
-      data.events[currentSlug] = {
-        ...(data.events[currentSlug] || { responses: [] }),
-        ...eventConfig
-      };
-      saveData(data);
-      return NextResponse.json({ success: true, eventSlug: currentSlug });
-    }
-
-    return NextResponse.json({ error: "Acción no válida" }, { status: 400 });
+    return NextResponse.json({ success: false, error: "Acción no reconocida" }, { status: 400 });
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: "Error en el servidor" }, { status: 500 });
+    console.error("Error en POST API:", error);
+    return NextResponse.json({ success: false, error: "Error de servidor" }, { status: 500 });
   }
 }
