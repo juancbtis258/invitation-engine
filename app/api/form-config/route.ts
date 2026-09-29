@@ -43,14 +43,19 @@ function saveData(data: any) {
   }
 }
 
-// GET: Obtener configuración de un evento
+// GET: Obtener configuración de un evento o la lista completa
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
+  const action = searchParams.get("action");
   const eventSlug = searchParams.get("event") || "demo";
 
   const data = getStoredData();
-  const eventConfig = data.events?.[eventSlug] || defaultEventData;
 
+  if (action === "get_all_events") {
+    return NextResponse.json({ success: true, data: data.events || {} });
+  }
+
+  const eventConfig = data.events?.[eventSlug] || defaultEventData;
   return NextResponse.json({ success: true, data: eventConfig });
 }
 
@@ -64,7 +69,7 @@ export async function POST(request: Request) {
     const data = getStoredData();
     if (!data.events) data.events = {};
 
-    // Acción 1: Guardar / Duplicar / Actualizar evento completo
+    // Guardar / Duplicar / Actualizar evento
     if (action === "save_event" || eventConfig) {
       const existing = data.events[currentSlug] || defaultEventData;
       data.events[currentSlug] = {
@@ -75,7 +80,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, message: "Evento guardado con éxito" });
     }
 
-    // Acción 2: Registrar respuesta enviada por un invitado
+    // Registrar respuesta del invitado
     if (responseData) {
       if (!data.events[currentSlug]) {
         data.events[currentSlug] = { ...defaultEventData, responses: [] };

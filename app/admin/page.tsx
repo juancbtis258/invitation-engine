@@ -46,7 +46,19 @@ export default function AdminDashboard() {
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Cargar datos
+  // Cargar catálogo completo de eventos al inicio
+  useEffect(() => {
+    fetch("/api/form-config?action=get_all_events")
+      .then((res) => res.json())
+      .then((res) => {
+        if (res.data && Object.keys(res.data).length > 0) {
+          setAllEvents(res.data);
+        }
+      })
+      .catch((err) => console.error("Error al cargar lista de eventos:", err));
+  }, []);
+
+  // Cargar datos de un evento específico
   const loadEventData = (slugToLoad: string) => {
     fetch(`/api/form-config?event=${slugToLoad}`)
       .then((res) => res.json())
@@ -88,7 +100,7 @@ export default function AdminDashboard() {
       targetDate: originalConfig.targetDate || "2026-12-31",
       plan: originalConfig.plan || "plus",
       active: true,
-      questions: JSON.parse(JSON.stringify(originalConfig.questions || questions)), // Copia limpia de preguntas
+      questions: JSON.parse(JSON.stringify(originalConfig.questions || questions)),
       responses: [], // Reinicia respuestas a cero
     };
 
