@@ -16,6 +16,7 @@ interface EventConfig {
   plan: string;
   active: boolean;
   questions: Question[];
+  whatsappPhone?: string; // Número de WhatsApp para confirmaciones
 }
 
 function PublicEventContent() {
@@ -23,7 +24,7 @@ function PublicEventContent() {
   const searchParams = useSearchParams();
   const slug = params?.slug as string;
 
-  // Leer parámetro ?pases=X de la URL (por defecto 2 pases si no se indica)
+  // Leer parámetro ?pases=X de la URL (por defecto 2)
   const pasesParam = searchParams.get("pases");
   const maxPases = pasesParam && !isNaN(Number(pasesParam)) && Number(pasesParam) > 0 
     ? parseInt(pasesParam, 10) 
@@ -31,12 +32,17 @@ function PublicEventContent() {
 
   const [config, setConfig] = useState<EventConfig | null>(null);
   const [loading, setLoading] = useState(true);
-  
-  // Respuestas del formulario
+
+  // Estados del flujo paso a paso
+  const [step, setStep] = useState<"asistencia" | "detalles" | "finalizado">("asistencia");
+  const [asistira, setAsistira] = useState<boolean | null>(null);
+
+  // Datos del formulario
+  const [nombreInvitado, setNombreInvitado] = useState("");
+  const [telefonoWhatsapp, setTelefonoWhatsapp] = useState("");
   const [pasesSeleccionados, setPasesSeleccionados] = useState<number>(1);
   const [nombresAsistentes, setNombresAsistentes] = useState<string[]>([""]);
   const [extraAnswers, setExtraAnswers] = useState<Record<string, string>>({});
-  const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -53,7 +59,7 @@ function PublicEventContent() {
       .finally(() => setLoading(false));
   }, [slug]);
 
-  // Actualizar la lista de campos de nombres al cambiar la cantidad seleccionada
+  // Cambiar cantidad de pases y ajustar array de nombres
   const handlePasesChange = (cantidad: number) => {
     setPasesSeleccionados(cantidad);
     const nuevosNombres = Array(cantidad)
@@ -68,11 +74,51 @@ function PublicEventContent() {
     setNombresAsistentes(copia);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Manejo de la decisión inicial de asistencia
+  const handleDecisionAsistencia = (asiste: boolean) => {
+    setAsistira(asiste);
+    if (asiste) {
+      setStep("detalles");
+    } else {
+      enviarRespuestaNoAsistira();
+    }
+  };
+
+  const enviarRespuestaNoAsistira = async () => {
+    setSubmitting(true);
+    const respuestaFinal = {
+      asistira: false,
+      nombreInvitado,
+      telefonoWhatsapp,
+      fechaRespuesta: new Date().toISOString(),
+    };
+
+    try {
+      await fetch("/api/form-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "save_response",
+          eventSlug: slug,
+          response: respuestaFinal,
+        }),
+      });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+      setStep("finalizado");
+    }
+  };
+
+  const handleSubmitFinal = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
 
     const respuestaFinal = {
+      asistira: true,
+      nombreInvitado,
+      telefonoWhatsapp,
       pasesConfirmados: pasesSeleccionados,
       pasesDisponibles: maxPases,
       asistentes: nombresAsistentes,
@@ -92,16 +138,31 @@ function PublicEventContent() {
       });
 
       if (res.ok) {
-        setSubmitted(true);
+        setStep("finalizado");
       } else {
-        alert("Ocurrió un error al enviar tu confirmación. Inténtalo de nuevo.");
+        alert("Ocurrió un error al enviar tu confirmación.");
       }
     } catch (err) {
       console.error(err);
-      alert("Error conectando con el servidor.");
+      alert("Error al conectar con el servidor.");
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // Generar mensaje dinámico para WhatsApp
+  const abrirWhatsapp = () => {
+    const numero = config?.whatsappPhone || "5210000000000"; // Cambiar o configurar número de WhatsApp del organizador
+    let mensaje = "";
+
+    if (asistira) {
+      mensaje = `¡Hola! Confirmo mi asistencia para ${config?.title}.\n- Nombre: ${nombreInvitado || "Invitado"}\n- Lugares confirmados: ${pasesSeleccionados}\n- Acompañantes: ${nombresAsistentes.join(", ")}`;
+    } else {
+      mensaje = `¡Hola! Lamentablemente no podré asistir a ${config?.title}.\n- Nombre: ${nombreInvitado || "Invitado"}`;
+    }
+
+    const url = `https://wa.me/${numero.replace(/\D/g, "")}?text=${encodeURIComponent(mensaje)}`;
+    window.open(url, "_blank");
   };
 
   if (loading) {
@@ -126,7 +187,7 @@ function PublicEventContent() {
   return (
     <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-2xl space-y-6">
       
-      {/* Encabezado */}
+      {/* Encabezado del Evento */}
       <div className="text-center space-y-2 border-b border-slate-800 pb-5">
         <h1 className="text-2xl font-extrabold text-amber-500">{config.title}</h1>
         <p className="text-xs font-semibold text-slate-400">
@@ -134,17 +195,81 @@ function PublicEventContent() {
         </p>
       </div>
 
-      {submitted ? (
-        <div className="bg-emerald-500/10 border border-emerald-500/30 p-6 rounded-2xl text-center space-y-2">
-          <h2 className="text-lg font-bold text-emerald-400">¡Confirmación Recibida!</h2>
-          <p className="text-xs text-slate-300">
-            Hemos registrado correctamente tu asistencia para <strong>{pasesSeleccionados}</strong> {pasesSeleccionados === 1 ? "lugar" : "lugares"}.
-          </p>
+      {/* ---------------- PASO 1: PREGUNTA DE ASISTENCIA ---------------- */}
+      {step === "asistencia" && (
+        <div className="space-y-6">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                Ingresa tu nombre *
+              </label>
+              <input
+                type="text"
+                placeholder="Tu nombre completo"
+                value={nombreInvitado}
+                onChange={(e) => setNombreInvitado(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                Ingresa tu número de WhatsApp
+              </label>
+              <input
+                type="tel"
+                placeholder="Ej. 8110000000"
+                value={telefonoWhatsapp}
+                onChange={(e) => setTelefonoWhatsapp(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            <label className="block text-center text-sm font-bold text-amber-400">
+              ¿Asistirás al evento? *
+            </label>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                type="button"
+                disabled={!nombreInvitado.trim() || submitting}
+                onClick={() => handleDecisionAsistencia(true)}
+                className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl shadow-lg transition-all"
+              >
+                ¡Sí, asistiré! 🎉
+              </button>
+              <button
+                type="button"
+                disabled={!nombreInvitado.trim() || submitting}
+                onClick={() => handleDecisionAsistencia(false)}
+                className="w-full bg-rose-900/60 hover:bg-rose-800 disabled:opacity-50 text-rose-200 border border-rose-700/50 font-bold py-3 rounded-xl transition-all"
+              >
+                No podré asistir 😔
+              </button>
+            </div>
+            {!nombreInvitado.trim() && (
+              <p className="text-[11px] text-center text-amber-500/80">
+                * Por favor ingresa tu nombre antes de responder.
+              </p>
+            )}
+          </div>
         </div>
-      ) : (
-        <form onSubmit={handleSubmit} className="space-y-6">
-          
-          {/* Selector de pases dinámico según la URL */}
+      )}
+
+      {/* ---------------- PASO 2: DETALLES DE ACOMPAÑANTES Y PREGUNTAS (SI DIJO SÍ) ---------------- */}
+      {step === "detalles" && (
+        <form onSubmit={handleSubmitFinal} className="space-y-6">
+          <button
+            type="button"
+            onClick={() => setStep("asistencia")}
+            className="text-xs text-amber-400 hover:underline flex items-center gap-1"
+          >
+            ← Cambiar respuesta de asistencia
+          </button>
+
+          {/* Selector de pases */}
           <div className="bg-slate-950/80 border border-slate-800 p-4 rounded-2xl space-y-4">
             <div>
               <label className="block text-xs font-bold text-amber-400 mb-1">
@@ -163,7 +288,7 @@ function PublicEventContent() {
               </select>
             </div>
 
-            {/* Campos dinámicos para los nombres de los asistentes */}
+            {/* Nombres de los acompañantes */}
             <div className="space-y-3 pt-2">
               <label className="block text-xs font-bold text-slate-300">
                 Nombres de los asistentes:
@@ -186,39 +311,46 @@ function PublicEventContent() {
             </div>
           </div>
 
-          {/* Preguntas adicionales de la invitación */}
+          {/* Preguntas adicionales personalizadas (Filtrando las de nombre/asistencia/whatsapp) */}
           {config.questions && config.questions.length > 0 && (
             <div className="space-y-4">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                 Información Adicional
               </h3>
-              {config.questions.map((q) => (
-                <div key={q.id}>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    {q.label}
-                  </label>
+              {config.questions
+                .filter(
+                  (q) =>
+                    !q.label.toLowerCase().includes("nombre") &&
+                    !q.label.toLowerCase().includes("asistir") &&
+                    !q.label.toLowerCase().includes("whatsapp")
+                )
+                .map((q) => (
+                  <div key={q.id}>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                      {q.label}
+                    </label>
 
-                  {q.type === "choice" ? (
-                    <select
-                      onChange={(e) => setExtraAnswers({ ...extraAnswers, [q.label]: e.target.value })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
-                    >
-                      <option value="">-- Selecciona una opción --</option>
-                      {q.options?.map((opt, i) => (
-                        <option key={i} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type={q.type === "number" ? "number" : "text"}
-                      onChange={(e) => setExtraAnswers({ ...extraAnswers, [q.label]: e.target.value })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
-                    />
-                  )}
-                </div>
-              ))}
+                    {q.type === "choice" ? (
+                      <select
+                        onChange={(e) => setExtraAnswers({ ...extraAnswers, [q.label]: e.target.value })}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                      >
+                        <option value="">-- Selecciona una opción --</option>
+                        {q.options?.map((opt, i) => (
+                          <option key={i} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type={q.type === "number" ? "number" : "text"}
+                        onChange={(e) => setExtraAnswers({ ...extraAnswers, [q.label]: e.target.value })}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                      />
+                    )}
+                  </div>
+                ))}
             </div>
           )}
 
@@ -227,9 +359,43 @@ function PublicEventContent() {
             disabled={submitting}
             className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-sm py-3.5 rounded-xl shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
           >
-            {submitting ? "Confirmando..." : "Confirmar Asistencia"}
+            {submitting ? "Guardando..." : "Confirmar y Finalizar"}
           </button>
         </form>
+      )}
+
+      {/* ---------------- PASO 3: PANTALLA FINAL Y ENVÍO A WHATSAPP ---------------- */}
+      {step === "finalizado" && (
+        <div className="text-center space-y-6 py-4">
+          {asistira ? (
+            <div className="bg-emerald-500/10 border border-emerald-500/30 p-6 rounded-2xl space-y-2">
+              <h2 className="text-lg font-bold text-emerald-400">¡Asistencia Confirmada! 🎉</h2>
+              <p className="text-xs text-slate-300">
+                Hemos registrado tu confirmación para <strong>{pasesSeleccionados}</strong> {pasesSeleccionados === 1 ? "lugar" : "lugares"}.
+              </p>
+            </div>
+          ) : (
+            <div className="bg-slate-800/50 border border-slate-700/50 p-6 rounded-2xl space-y-2">
+              <h2 className="text-lg font-bold text-slate-300">Respuesta registrada ✉️</h2>
+              <p className="text-xs text-slate-400">
+                Gracias por avisarnos, lamentamos que no puedas acompañarnos.
+              </p>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <p className="text-xs text-slate-400">
+              Haz clic abajo para enviar tu respuesta directamente por WhatsApp al organizador:
+            </p>
+            <button
+              type="button"
+              onClick={abrirWhatsapp}
+              className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-sm py-3.5 rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              💬 Enviar confirmación por WhatsApp
+            </button>
+          </div>
+        </div>
       )}
 
     </div>
@@ -239,7 +405,7 @@ function PublicEventContent() {
 export default function PublicEventPage() {
   return (
     <main className="min-h-screen bg-[#0f172a] text-slate-100 flex items-center justify-center p-4 md:p-8">
-      <Suspense fallback={<p className="text-sm font-medium text-slate-400">Cargando pases...</p>}>
+      <Suspense fallback={<p className="text-sm font-medium text-slate-400">Cargando evento...</p>}>
         <PublicEventContent />
       </Suspense>
     </main>
