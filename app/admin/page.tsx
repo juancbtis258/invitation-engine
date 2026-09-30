@@ -23,12 +23,14 @@ export interface Question {
   placeholder?: string;
 }
 
+export type PlanType = "BASICO" | "PLUS" | "PREMIUM";
+
 interface EventItem {
   id: string;
   slug: string;
   title: string;
   targetDate: string;
-  plan: string;
+  plan: PlanType;
   active: boolean;
   whatsappPhone: string;
   pasesAsignados?: number;
@@ -43,7 +45,7 @@ interface UserItem {
   activo: boolean;
 }
 
-// Función auxiliar para convertir el título en una URL amigable (slug)
+// Genera el slug automático
 function generateSlug(text: string): string {
   return text
     .toString()
@@ -57,7 +59,6 @@ function generateSlug(text: string): string {
     .replace(/-+/g, "-");
 }
 
-// Map de íconos y nombres bonitos para los tipos de campo
 const TIPO_LABELS: Record<QuestionType, { name: string; icon: string }> = {
   text: { name: "Texto corto", icon: "📝" },
   paragraph: { name: "Texto largo (Párrafo)", icon: "📜" },
@@ -71,18 +72,15 @@ const TIPO_LABELS: Record<QuestionType, { name: string; icon: string }> = {
 };
 
 export default function AdminDashboardPage() {
-  // Estado para la pestaña activa
   const [tabActiva, setTabActiva] = useState<
     "eventos" | "disenador" | "respuestas" | "colaboradores"
   >("eventos");
 
-  // Estado para alertas de copia de enlaces
+  // Rol del usuario actual (Simulación: Puedes cambiar entre ADMINISTRADOR y CLIENTE)
+  const [rolUsuarioActual] = useState<"ADMINISTRADOR" | "CLIENTE">("ADMINISTRADOR");
+
   const [copiadoTipo, setCopiadoTipo] = useState<string | null>(null);
-
-  // Estado para la búsqueda por texto
   const [busquedaEvento, setBusquedaEvento] = useState("");
-
-  // // NUEVO: Estado para filtrar eventos por estado (todos, activos, inactivos)
   const [filtroEstado, setFiltroEstado] = useState<"todos" | "activos" | "inactivos">("todos");
 
   // Lista de eventos creados
@@ -127,19 +125,19 @@ export default function AdminDashboardPage() {
   const [modalSlug, setModalSlug] = useState("");
   const [slugEditadoManualmente, setSlugEditadoManualmente] = useState(false);
   const [modalDate, setModalDate] = useState("");
-  const [modalPlan, setModalPlan] = useState("PLUS");
+  const [modalPlan, setModalPlan] = useState<PlanType>("PLUS");
   const [modalWhatsapp, setModalWhatsapp] = useState("");
   const [modalPases, setModalPases] = useState<number>(2);
   const [modalActive, setModalActive] = useState(true);
   const [editandoEventoId, setEditandoEventoId] = useState<string | null>(null);
 
-  // Campos del Diseñador
+  // Campos del Diseñador (Solo Administradores)
   const [nuevaPreguntaLabel, setNuevaPreguntaLabel] = useState("");
   const [nuevaPreguntaTipo, setNuevaPreguntaTipo] = useState<QuestionType>("text");
   const [nuevaPreguntaOpciones, setNuevaPreguntaOpciones] = useState("");
   const [nuevaPreguntaRequerida, setNuevaPreguntaRequerida] = useState(false);
 
-  // Campos de Colaboradores y Respuestas
+  // Colaboradores y Respuestas
   const [usuarios, setUsuarios] = useState<UserItem[]>([
     {
       id: "u1",
@@ -155,10 +153,18 @@ export default function AdminDashboardPage() {
   const [usuarioEditandoId, setUsuarioEditandoId] = useState<string | null>(null);
   const [respuestas, setRespuestas] = useState<any[]>([]);
 
-  // Obtiene el objeto del evento seleccionado actualmente
+  // Evento seleccionado actualmente
   const eventoActual = eventos.find((e) => e.id === eventoSeleccionadoId) || eventos[0];
 
-  // // NUEVO: Filtra eventos combinando texto de búsqueda Y estado (activo/inactivo)
+  // Métricas calculadas para el panel del cliente
+  const totalRespuestas = respuestas.length;
+  const totalConfirmados = respuestas.filter((r) => r.attending).length;
+  const totalCancelados = respuestas.filter((r) => !r.attending).length;
+  const totalAsistentesPersona = respuestas
+    .filter((r) => r.attending)
+    .reduce((acc, curr) => acc + (Number(curr.pasesConfirmados) || 1), 0);
+
+  // Filtra eventos por texto y estado
   const eventosFiltrados = eventos.filter((ev) => {
     const coincideTexto =
       ev.title.toLowerCase().includes(busquedaEvento.toLowerCase()) ||
@@ -169,7 +175,7 @@ export default function AdminDashboardPage() {
     return coincideTexto;
   });
 
-  // Carga las respuestas del evento desde la API cuando cambia el evento seleccionado
+  // Carga respuestas desde la API
   useEffect(() => {
     if (!eventoActual) return;
     fetch(`/api/form-config?event=${eventoActual.slug}`)
@@ -267,7 +273,6 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // Copia el link general/demo al portapapeles
   const copiarLinkGeneral = (slug: string) => {
     const url = `${window.location.origin}/${slug}`;
     navigator.clipboard.writeText(url);
@@ -275,7 +280,6 @@ export default function AdminDashboardPage() {
     setTimeout(() => setCopiadoTipo(null), 2500);
   };
 
-  // Copia el link parametrizado con pases
   const copiarLinkPases = (slug: string, pases: number = 2) => {
     const url = `${window.location.origin}/${slug}?pases=${pases}`;
     navigator.clipboard.writeText(url);
@@ -283,35 +287,34 @@ export default function AdminDashboardPage() {
     setTimeout(() => setCopiadoTipo(null), 2500);
   };
 
-  // // NUEVO: Función para exportar las respuestas del evento actual a formato CSV (Compatible con Excel)
+  // Exportación directa a Excel
   const exportarRespuestasCSV = () => {
     if (!respuestas || respuestas.length === 0) return;
 
-    // Encabezados con formato BOM para correcta codificación de acentos en Excel
-    let csvContent = "\uFEFFNro,Invitado,Asistirá,Respuestas Personalizadas,Fecha de Registro\n";
+    let csvContent = "\uFEFFNro,Invitado,Asistirá,Personas/Pases,Respuestas Adicionales,Fecha Registro\n";
 
     respuestas.forEach((r, idx) => {
       const num = idx + 1;
       const nombre = `"${(r.name || "Anónimo").replace(/"/g, '""')}"`;
       const asistira = r.attending ? "SÍ" : "NO";
+      const personas = r.pasesConfirmados || 1;
       const custom = `"${JSON.stringify(r.customAnswers || {}).replace(/"/g, '""')}"`;
       const fecha = r.createdAt ? `"${new Date(r.createdAt).toLocaleString()}"` : '""';
 
-      csvContent += `${num},${nombre},${asistira},${custom},${fecha}\n`;
+      csvContent += `${num},${nombre},${asistira},${personas},${custom},${fecha}\n`;
     });
 
-    // Crear un blob y desencadenar descarga directa
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `Respuestas_${eventoActual.slug}_${new Date().toISOString().slice(0,10)}.csv`);
+    link.setAttribute("download", `Lista_Invitados_${eventoActual.slug}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  // Agregar pregunta al diseñador
+  // Diseñador (Admin)
   const handleAgregarPregunta = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nuevaPreguntaLabel || !eventoActual) return;
@@ -362,7 +365,7 @@ export default function AdminDashboardPage() {
     );
   };
 
-  // Administración de colaboradores
+  // Colaboradores
   const handleGuardarUsuario = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nuevoNombre || !nuevoCorreo) return;
@@ -415,11 +418,11 @@ export default function AdminDashboardPage() {
               Creador & Gestor de Invitaciones
             </h1>
             <p className="text-xs text-slate-400 mt-0.5">
-              Administra tus eventos activos, diseña formularios y gestiona clientes
+              Administra tus eventos activos, visualiza respuestas y gestiona clientes
             </p>
           </div>
 
-          {/* BOTONES DE PESTAÑAS PRINCIPALES */}
+          {/* NAVEGACIÓN PRINCIPAL */}
           <div className="flex flex-wrap items-center gap-2 md:gap-3">
             <button
               onClick={() => setTabActiva("eventos")}
@@ -432,16 +435,19 @@ export default function AdminDashboardPage() {
               📁 Mis Eventos
             </button>
 
-            <button
-              onClick={() => setTabActiva("disenador")}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                tabActiva === "disenador"
-                  ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
-                  : "bg-slate-800/80 text-slate-300 hover:bg-slate-800"
-              }`}
-            >
-              🛠 Diseñador
-            </button>
+            {/* SOLO ADMINISTRADORES PUEDEN VER EL DISEÑADOR */}
+            {rolUsuarioActual === "ADMINISTRADOR" && (
+              <button
+                onClick={() => setTabActiva("disenador")}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  tabActiva === "disenador"
+                    ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
+                    : "bg-slate-800/80 text-slate-300 hover:bg-slate-800"
+                }`}
+              >
+                🛠 Diseñador (Admin)
+              </button>
+            )}
 
             <button
               onClick={() => setTabActiva("respuestas")}
@@ -451,19 +457,21 @@ export default function AdminDashboardPage() {
                   : "bg-slate-800/80 text-slate-300 hover:bg-slate-800"
               }`}
             >
-              📊 Respuestas ({respuestas.length})
+              📊 Respuestas ({totalRespuestas})
             </button>
 
-            <button
-              onClick={() => setTabActiva("colaboradores")}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                tabActiva === "colaboradores"
-                  ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
-                  : "bg-slate-800/80 text-slate-300 hover:bg-slate-800"
-              }`}
-            >
-              👥 Colaboradores
-            </button>
+            {rolUsuarioActual === "ADMINISTRADOR" && (
+              <button
+                onClick={() => setTabActiva("colaboradores")}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  tabActiva === "colaboradores"
+                    ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
+                    : "bg-slate-800/80 text-slate-300 hover:bg-slate-800"
+                }`}
+              >
+                👥 Colaboradores
+              </button>
+            )}
           </div>
         </div>
 
@@ -480,9 +488,7 @@ export default function AdminDashboardPage() {
                 </p>
               </div>
 
-              {/* FILTRO POR ESTADO + BUSCADOR + CREAR NUEVO */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
-                {/* // NUEVO: Selector de Filtro por Estado */}
                 <select
                   value={filtroEstado}
                   onChange={(e) => setFiltroEstado(e.target.value as any)}
@@ -497,7 +503,6 @@ export default function AdminDashboardPage() {
                   </option>
                 </select>
 
-                {/* Buscador en Vivo */}
                 <div className="relative">
                   <input
                     type="text"
@@ -525,7 +530,7 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            {/* LISTADO DE TARJETAS DE EVENTOS */}
+            {/* LISTADO DE TARJETAS */}
             {eventosFiltrados.length === 0 ? (
               <div className="text-center py-12 bg-slate-950/60 rounded-2xl border border-slate-800">
                 <p className="text-xs text-slate-500">
@@ -557,17 +562,25 @@ export default function AdminDashboardPage() {
 
                       <div className="text-[11px] text-slate-400 mt-3 space-y-1">
                         <p>📅 Fecha: {ev.targetDate || "Sin fecha"}</p>
-                        <p>💎 Plan: {ev.plan}</p>
                         <p>
-                          🎫 Pases Asignados:{" "}
-                          <span className="text-amber-400 font-bold">
-                            {ev.pasesAsignados ?? 2} pases
-                          </span>
+                          💎 Plan:{" "}
+                          <span className="font-extrabold text-amber-400">{ev.plan}</span>
+                          {ev.plan === "BASICO" && " (WhatsApp Directo)"}
+                          {ev.plan === "PLUS" && " ($300 - Panel & Exportación)"}
+                          {ev.plan === "PREMIUM" && " ($800 - Gestión Assist)"}
                         </p>
+                        {ev.plan !== "BASICO" && (
+                          <p>
+                            🎫 Pases Asignados:{" "}
+                            <span className="text-amber-400 font-bold">
+                              {ev.pasesAsignados ?? 2} pases
+                            </span>
+                          </p>
+                        )}
                         <p>📱 WhatsApp: {ev.whatsappPhone || "No asignado"}</p>
                       </div>
 
-                      {/* BOTONES DE ENLACES DE COPIA RÁPIDA */}
+                      {/* ENLACES RÁPIDOS */}
                       <div className="mt-4 pt-3 border-t border-slate-900 flex flex-col gap-2">
                         <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase">
                           <span>Enlaces del Evento:</span>
@@ -584,15 +597,17 @@ export default function AdminDashboardPage() {
                               : "🔗 Link Demo"}
                           </button>
 
-                          <button
-                            onClick={() => copiarLinkPases(ev.slug, ev.pasesAsignados || 2)}
-                            className="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 px-2 py-1.5 rounded-lg transition-all cursor-pointer text-center truncate"
-                            title="Copiar link con pases incluidos"
-                          >
-                            {copiadoTipo === `pases-${ev.slug}`
-                              ? "¡Copiado! 🚀"
-                              : `🎫 Link Pases (${ev.pasesAsignados ?? 2})`}
-                          </button>
+                          {ev.plan !== "BASICO" && (
+                            <button
+                              onClick={() => copiarLinkPases(ev.slug, ev.pasesAsignados || 2)}
+                              className="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 px-2 py-1.5 rounded-lg transition-all cursor-pointer text-center truncate"
+                              title="Copiar link con pases incluidos"
+                            >
+                              {copiadoTipo === `pases-${ev.slug}`
+                                ? "¡Copiado! 🚀"
+                                : `🎫 Link Pases (${ev.pasesAsignados ?? 2})`}
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -618,16 +633,16 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* PESTAÑA 2: DISEÑADOR DE FORMULARIOS */}
-        {tabActiva === "disenador" && (
+        {/* PESTAÑA 2: DISEÑADOR DE FORMULARIOS (SOLO ADMINISTRADORES) */}
+        {tabActiva === "disenador" && rolUsuarioActual === "ADMINISTRADOR" && (
           <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 md:p-8 space-y-6 shadow-2xl">
             <div className="border-b border-slate-800 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
                 <h2 className="text-xs font-black text-amber-500 uppercase tracking-wider flex items-center gap-2">
-                  <span>🛠️</span> DISEÑADOR DE PREGUNTAS Y CAMPOS DEL FORMULARIO
+                  <span>🛠️</span> DISEÑADOR DE PREGUNTAS Y CAMPOS (ADMINISTRADOR)
                 </h2>
                 <p className="text-xs text-slate-400 mt-1">
-                  Evento actual: <span className="text-amber-400 font-bold">{eventoActual?.title}</span>
+                  Evento actual: <span className="text-amber-400 font-bold">{eventoActual?.title}</span> (Plan: {eventoActual?.plan})
                 </p>
               </div>
 
@@ -640,17 +655,16 @@ export default function AdminDashboardPage() {
                 >
                   {eventos.map((ev) => (
                     <option key={ev.id} value={ev.id}>
-                      {ev.title} ({ev.slug})
+                      {ev.title} ({ev.slug}) - {ev.plan}
                     </option>
                   ))}
                 </select>
               </div>
             </div>
 
-            {/* FORMULARIO PARA AGREGAR NUEVO CAMPO */}
             <form onSubmit={handleAgregarPregunta} className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4">
               <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-                <span>➕</span> AGREGAR NUEVA PREGUNTA
+                <span>➕</span> AGREGAR NUEVA PREGUNTA AL EVENTO
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
@@ -712,7 +726,6 @@ export default function AdminDashboardPage() {
               </div>
             </form>
 
-            {/* LISTA DE PREGUNTAS DEL EVENTO */}
             <div className="space-y-4 pt-2">
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider">
                 CAMPOS ACTIVOS EN LA INVITACIÓN ({eventoActual?.questions?.length || 0})
@@ -738,7 +751,7 @@ export default function AdminDashboardPage() {
                         onClick={() => handleEliminarPregunta(q.id)}
                         className="text-rose-400 hover:text-rose-300 font-bold text-xs px-3 py-1 rounded-lg bg-rose-950/40 border border-rose-900/50 hover:bg-rose-900/60 transition-all cursor-pointer"
                       >
-                        🗑️ Eliminar
+                        🗑 Eliminar
                       </button>
                     </div>
 
@@ -811,50 +824,80 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* PESTAÑA 3: RESPUESTAS */}
+        {/* PESTAÑA 3: RESPUESTAS Y PANEL DEL CLIENTE */}
         {tabActiva === "respuestas" && (
           <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 md:p-8 space-y-6 shadow-2xl">
+            
+            {/* ENCABEZADO Y SELECTOR */}
             <div className="border-b border-slate-800 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
                 <h2 className="text-xs font-black text-amber-500 uppercase tracking-wider">
-                  📊 RESPUESTAS REGISTRADAS
+                  📊 CONCENTRADO DE RESPUESTAS E INVITADOS
                 </h2>
                 <p className="text-xs text-slate-400 mt-1">
-                  Respuestas recibidas para: <span className="text-amber-400 font-bold">{eventoActual?.title}</span>
+                  Evento: <span className="text-amber-400 font-bold">{eventoActual?.title}</span>
                 </p>
               </div>
 
-              {/* BOTÓN DE EXPORTACIÓN Y SELECTOR DE EVENTO */}
               <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-                {/* // NUEVO: Botón Verde para Descargar Excel (CSV) */}
-                {respuestas.length > 0 && (
-                  <button
-                    onClick={exportarRespuestasCSV}
-                    className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold px-3.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-md"
-                    title="Exportar reporte de respuestas a Excel"
-                  >
-                    <span>📥 Exportar Excel (CSV)</span>
-                  </button>
-                )}
-
-                <select
-                  value={eventoSeleccionadoId}
-                  onChange={(e) => setEventoSeleccionadoId(e.target.value)}
-                  className="bg-slate-950 border border-slate-800 text-xs text-amber-400 font-bold rounded-xl px-3 py-2 focus:outline-none focus:border-amber-500"
+                {/* BOTÓN DE DESCARGA DIRECTA A EXCEL */}
+                <button
+                  onClick={exportarRespuestasCSV}
+                  disabled={respuestas.length === 0}
+                  className={`text-xs font-bold px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shadow-lg ${
+                    respuestas.length > 0
+                      ? "bg-emerald-500 hover:bg-emerald-400 text-slate-950 cursor-pointer"
+                      : "bg-slate-800 text-slate-500 cursor-not-allowed"
+                  }`}
+                  title="Descargar concentrado de lista de invitados a Excel"
                 >
-                  {eventos.map((ev) => (
-                    <option key={ev.id} value={ev.id}>
-                      {ev.title} ({ev.slug})
-                    </option>
-                  ))}
-                </select>
+                  <span>📥 Descargar Excel (CSV)</span>
+                </button>
+
+                {rolUsuarioActual === "ADMINISTRADOR" && (
+                  <select
+                    value={eventoSeleccionadoId}
+                    onChange={(e) => setEventoSeleccionadoId(e.target.value)}
+                    className="bg-slate-950 border border-slate-800 text-xs text-amber-400 font-bold rounded-xl px-3 py-2 focus:outline-none focus:border-amber-500"
+                  >
+                    {eventos.map((ev) => (
+                      <option key={ev.id} value={ev.id}>
+                        {ev.title} ({ev.slug})
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
             </div>
 
+            {/* TARJETAS DE MÉTRICAS RÁPIDAS PARA EL CLIENTE */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800/80 space-y-1">
+                <span className="text-[10px] font-bold uppercase text-slate-500">Total Envíos</span>
+                <p className="text-xl font-black text-slate-100">{totalRespuestas}</p>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800/80 space-y-1">
+                <span className="text-[10px] font-bold uppercase text-emerald-500">Confirmados (SÍ)</span>
+                <p className="text-xl font-black text-emerald-400">{totalConfirmados}</p>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800/80 space-y-1">
+                <span className="text-[10px] font-bold uppercase text-rose-500">Cancelados (NO)</span>
+                <p className="text-xl font-black text-rose-400">{totalCancelados}</p>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800/80 space-y-1">
+                <span className="text-[10px] font-bold uppercase text-amber-500">Total Personas</span>
+                <p className="text-xl font-black text-amber-400">{totalAsistentesPersona} asist.</p>
+              </div>
+            </div>
+
+            {/* TABLA DE DETALLE DE RESPUESTAS */}
             {respuestas.length === 0 ? (
               <div className="text-center py-12 bg-slate-950/60 rounded-2xl border border-slate-800">
                 <p className="text-xs text-slate-500">
-                  No hay respuestas registradas aún para este evento.
+                  No hay confirmaciones ni respuestas registradas aún para este evento.
                 </p>
               </div>
             ) : (
@@ -863,9 +906,10 @@ export default function AdminDashboardPage() {
                   <thead>
                     <tr className="border-b border-slate-800 text-slate-400 uppercase font-bold">
                       <th className="p-3">#</th>
-                      <th className="p-3">Invitado</th>
+                      <th className="p-3">Invitado / Familia</th>
                       <th className="p-3">Asistirá</th>
-                      <th className="p-3">Respuestas Formulario</th>
+                      <th className="p-3">Asistentes</th>
+                      <th className="p-3">Respuestas Adicionales</th>
                       <th className="p-3">Fecha</th>
                     </tr>
                   </thead>
@@ -876,14 +920,17 @@ export default function AdminDashboardPage() {
                         <td className="p-3 font-semibold text-slate-200">{r.name || "Anónimo"}</td>
                         <td className="p-3">
                           <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
                               r.attending
                                 ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                                 : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
                             }`}
                           >
-                            {r.attending ? "SÍ" : "NO"}
+                            {r.attending ? "SÍ ASISTIRÁ" : "NO ASISTIRÁ"}
                           </span>
+                        </td>
+                        <td className="p-3 font-bold text-amber-400">
+                          {r.attending ? `${r.pasesConfirmados || 1} persona(s)` : "0"}
                         </td>
                         <td className="p-3 text-slate-300">
                           <pre className="text-[11px] font-mono whitespace-pre-wrap">
@@ -903,7 +950,7 @@ export default function AdminDashboardPage() {
         )}
 
         {/* PESTAÑA 4: COLABORADORES */}
-        {tabActiva === "colaboradores" && (
+        {tabActiva === "colaboradores" && rolUsuarioActual === "ADMINISTRADOR" && (
           <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 md:p-8 space-y-6 shadow-2xl">
             <div className="border-b border-slate-800 pb-4">
               <h2 className="text-xs font-black text-amber-500 uppercase tracking-wider">
@@ -916,7 +963,7 @@ export default function AdminDashboardPage() {
 
             <form onSubmit={handleGuardarUsuario} className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4">
               <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider">
-                {usuarioEditandoId ? "✏️ Editar Colaborador" : "➕ Registrar Nuevo Colaborador"}
+                {usuarioEditandoId ? "✏️️ Editar Colaborador" : "➕ Registrar Nuevo Colaborador"}
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -1060,30 +1107,43 @@ export default function AdminDashboardPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 font-bold mb-1">Plan</label>
+                  <label className="block text-slate-400 font-bold mb-1">Plan Contratado</label>
                   <select
                     value={modalPlan}
-                    onChange={(e) => setModalPlan(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-amber-500"
+                    onChange={(e) => setModalPlan(e.target.value as PlanType)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-amber-400 font-bold focus:outline-none focus:border-amber-500"
                   >
-                    <option value="BASICO">BASICO</option>
-                    <option value="PLUS">PLUS</option>
-                    <option value="PREMIUM">PREMIUM</option>
+                    <option value="BASICO">BASICO (WhatsApp Directo)</option>
+                    <option value="PLUS">PLUS ($300 MXN - Panel & Exportación)</option>
+                    <option value="PREMIUM">PREMIUM ($800 MXN - Gestión Assist)</option>
                   </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-400 font-bold mb-1">Pases Asignados (Boletos)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={modalPases}
-                    onChange={(e) => setModalPases(Number(e.target.value))}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-amber-500"
-                  />
-                </div>
+                {modalPlan !== "BASICO" ? (
+                  <div>
+                    <label className="block text-slate-400 font-bold mb-1">Pases Asignados (Boletos)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={modalPases}
+                      onChange={(e) => setModalPases(Number(e.target.value))}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-slate-500 font-bold mb-1">Pases</label>
+                    <input
+                      type="text"
+                      value="N/A (Ilimitado)"
+                      disabled
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-500 cursor-not-allowed"
+                    />
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-slate-400 font-bold mb-1">WhatsApp Notificaciones</label>
                   <input
