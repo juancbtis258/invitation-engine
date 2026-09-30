@@ -40,9 +40,13 @@ interface EventItem {
 interface UserItem {
   id: string;
   nombre: string;
+  username: string;
   correo: string;
+  password?: string;
   rol: "ADMINISTRADOR" | "CLIENTE";
+  eventoAsignadoSlug?: string;
   activo: boolean;
+  createdAt: string;
 }
 
 function generateSlug(text: string): string {
@@ -117,7 +121,7 @@ export default function AdminDashboardPage() {
 
   const [eventoSeleccionadoId, setEventoSeleccionadoId] = useState<string>("1");
 
-  // Campos para Modal de Crear/Editar Eventos
+  // Modal Crear/Editar Evento
   const [mostrarModalEvento, setMostrarModalEvento] = useState(false);
   const [modalTitle, setModalTitle] = useState("");
   const [modalSlug, setModalSlug] = useState("");
@@ -135,20 +139,30 @@ export default function AdminDashboardPage() {
   const [nuevaPreguntaOpciones, setNuevaPreguntaOpciones] = useState("");
   const [nuevaPreguntaRequerida, setNuevaPreguntaRequerida] = useState(false);
 
-  // Colaboradores y Respuestas
+  // ESTADOS DE COLABORADORES Y USUARIOS COMPLETO
   const [usuarios, setUsuarios] = useState<UserItem[]>([
     {
       id: "u1",
       nombre: "Alejandro Mejía",
+      username: "amejia",
       correo: "admin@mi-invitacion.com",
+      password: "••••••••",
       rol: "ADMINISTRADOR",
+      eventoAsignadoSlug: "todos",
       activo: true,
+      createdAt: "2026-01-10",
     },
   ]);
+
   const [nuevoNombre, setNuevoNombre] = useState("");
+  const [nuevoUsername, setNuevoUsername] = useState("");
   const [nuevoCorreo, setNuevoCorreo] = useState("");
+  const [nuevoPassword, setNuevoPassword] = useState("");
   const [nuevoRol, setNuevoRol] = useState<"ADMINISTRADOR" | "CLIENTE">("CLIENTE");
+  const [nuevoEventoSlug, setNuevoEventoSlug] = useState("demo");
+  const [nuevoActivo, setNuevoActivo] = useState(true);
   const [usuarioEditandoId, setUsuarioEditandoId] = useState<string | null>(null);
+
   const [respuestas, setRespuestas] = useState<any[]>([]);
 
   const eventoActual = eventos.find((e) => e.id === eventoSeleccionadoId) || eventos[0];
@@ -187,9 +201,7 @@ export default function AdminDashboardPage() {
       });
   }, [eventoSeleccionadoId, eventoActual?.slug]);
 
-  // Función para cerrar sesión y redirigir al Login
   const handleCerrarSesion = () => {
-    // Redirige al login de la plataforma
     router.push("/login");
   };
 
@@ -385,6 +397,7 @@ export default function AdminDashboardPage() {
     );
   };
 
+  // MANEJO COMPLETO DE USUARIOS
   const handleGuardarUsuario = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nuevoNombre || !nuevoCorreo) return;
@@ -393,7 +406,16 @@ export default function AdminDashboardPage() {
       setUsuarios(
         usuarios.map((u) =>
           u.id === usuarioEditandoId
-            ? { ...u, nombre: nuevoNombre, correo: nuevoCorreo, rol: nuevoRol }
+            ? {
+                ...u,
+                nombre: nuevoNombre,
+                username: nuevoUsername || generateSlug(nuevoNombre),
+                correo: nuevoCorreo,
+                password: nuevoPassword || u.password,
+                rol: nuevoRol,
+                eventoAsignadoSlug: nuevoEventoSlug,
+                activo: nuevoActivo,
+              }
             : u
         )
       );
@@ -404,22 +426,46 @@ export default function AdminDashboardPage() {
         {
           id: Date.now().toString(),
           nombre: nuevoNombre,
+          username: nuevoUsername || generateSlug(nuevoNombre),
           correo: nuevoCorreo,
+          password: nuevoPassword || "123456",
           rol: nuevoRol,
-          activo: true,
+          eventoAsignadoSlug: nuevoEventoSlug,
+          activo: nuevoActivo,
+          createdAt: new Date().toISOString().split("T")[0],
         },
       ]);
     }
+
+    limpiarFormularioUsuario();
+  };
+
+  const limpiarFormularioUsuario = () => {
+    setUsuarioEditandoId(null);
     setNuevoNombre("");
+    setNuevoUsername("");
     setNuevoCorreo("");
+    setNuevoPassword("");
     setNuevoRol("CLIENTE");
+    setNuevoEventoSlug(eventos[0]?.slug || "demo");
+    setNuevoActivo(true);
   };
 
   const handleEditarUsuario = (u: UserItem) => {
     setUsuarioEditandoId(u.id);
     setNuevoNombre(u.nombre);
+    setNuevoUsername(u.username || "");
     setNuevoCorreo(u.correo);
+    setNuevoPassword(u.password || "");
     setNuevoRol(u.rol);
+    setNuevoEventoSlug(u.eventoAsignadoSlug || "demo");
+    setNuevoActivo(u.activo);
+  };
+
+  const handleToggleEstadoUsuario = (id: string) => {
+    setUsuarios(
+      usuarios.map((u) => (u.id === id ? { ...u, activo: !u.activo } : u))
+    );
   };
 
   const handleEliminarUsuario = (id: string) => {
@@ -429,7 +475,7 @@ export default function AdminDashboardPage() {
   return (
     <div className="min-h-screen bg-[#0d1527] text-slate-100 p-4 md:p-8 font-sans">
       <div className="max-w-6xl mx-auto space-y-6">
-        {/* HEADER DE LA PLATAFORMA */}
+        {/* HEADER */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-black text-amber-500 tracking-tight">
@@ -485,15 +531,14 @@ export default function AdminDashboardPage() {
                     : "bg-slate-800/80 text-slate-300 hover:bg-slate-800"
                 }`}
               >
-                👥 Colaboradores
+                👥 Colaboradores ({usuarios.length})
               </button>
             )}
 
-            {/* BOTÓN DE CERRAR SESIÓN */}
             <button
               onClick={handleCerrarSesion}
               className="px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-950/50 hover:bg-rose-900/80 text-rose-300 border border-rose-800/60 transition-all cursor-pointer flex items-center gap-1.5 ml-2"
-              title="Cerrar sesión y regresar al Login"
+              title="Cerrar sesión"
             >
               <span>🚪 Salir</span>
             </button>
@@ -555,7 +600,6 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            {/* LISTADO DE TARJETAS */}
             {eventosFiltrados.length === 0 ? (
               <div className="text-center py-12 bg-slate-950/60 rounded-2xl border border-slate-800">
                 <p className="text-xs text-slate-500">
@@ -590,13 +634,10 @@ export default function AdminDashboardPage() {
                         <p>
                           💎 Plan:{" "}
                           <span className="font-extrabold text-amber-400">{ev.plan}</span>
-                          {ev.plan === "BASICO" && " (WhatsApp Directo)"}
-                          {ev.plan === "PLUS" && " ($300 - Panel & Exportación)"}
-                          {ev.plan === "PREMIUM" && " ($800 - Gestión Assist)"}
                         </p>
                         {ev.plan !== "BASICO" && (
                           <p>
-                            🎫 Pases Asignados:{" "}
+                            🎫 Pases:{" "}
                             <span className="text-amber-400 font-bold">
                               {ev.pasesAsignados ?? 2} pases
                             </span>
@@ -605,53 +646,35 @@ export default function AdminDashboardPage() {
                         <p>📱 WhatsApp: {ev.whatsappPhone || "No asignado"}</p>
                       </div>
 
-                      {/* ENLACES DEL EVENTO */}
                       <div className="mt-4 pt-3 border-t border-slate-900 flex flex-col gap-2">
-                        <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase">
-                          <span>Enlaces del Evento:</span>
-                        </div>
-
                         <div className="grid grid-cols-3 gap-2">
                           <button
                             onClick={() => copiarLinkGeneral(ev.slug)}
-                            className="text-[10px] font-bold text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-2 py-1.5 rounded-lg transition-all cursor-pointer text-center truncate"
-                            title="Copiar link general de la invitación"
+                            className="text-[10px] font-bold text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-2 py-1.5 rounded-lg transition-all cursor-pointer text-center truncate"
                           >
-                            {copiadoTipo === `demo-${ev.slug}`
-                              ? "¡Copiado! 🚀"
-                              : "🔗 Link Demo"}
+                            {copiadoTipo === `demo-${ev.slug}` ? "¡Copiado! 🚀" : "🔗 Link Demo"}
                           </button>
 
                           {ev.plan !== "BASICO" ? (
                             <button
                               onClick={() => copiarLinkPases(ev.slug, ev.pasesAsignados || 2)}
-                              className="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 px-2 py-1.5 rounded-lg transition-all cursor-pointer text-center truncate"
-                              title="Copiar link con pases incluidos"
+                              className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 px-2 py-1.5 rounded-lg transition-all cursor-pointer text-center truncate"
                             >
-                              {copiadoTipo === `pases-${ev.slug}`
-                                ? "¡Copiado! 🚀"
-                                : `🎫 Link Pases (${ev.pasesAsignados ?? 2})`}
+                              {copiadoTipo === `pases-${ev.slug}` ? "¡Copiado! 🚀" : `🎫 Link Pases`}
                             </button>
                           ) : (
-                            <div className="text-[10px] text-slate-600 bg-slate-900 px-2 py-1.5 rounded-lg text-center font-bold border border-slate-800">
-                              N/A
-                            </div>
+                            <div className="text-[10px] text-slate-600 bg-slate-900 px-2 py-1.5 rounded-lg text-center font-bold border border-slate-800">N/A</div>
                           )}
 
                           {ev.plan !== "BASICO" ? (
                             <button
                               onClick={() => copiarLinkPortalCliente(ev.slug)}
-                              className="text-[10px] font-bold text-sky-400 hover:text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 px-2 py-1.5 rounded-lg transition-all cursor-pointer text-center truncate"
-                              title="Copiar enlace privado para que el cliente descargue sus listas"
+                              className="text-[10px] font-bold text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 px-2 py-1.5 rounded-lg transition-all cursor-pointer text-center truncate"
                             >
-                              {copiadoTipo === `portal-${ev.slug}`
-                                ? "¡Copiado! 🚀"
-                                : "📊 Portal Cliente"}
+                              {copiadoTipo === `portal-${ev.slug}` ? "¡Copiado! 🚀" : "📊 Portal"}
                             </button>
                           ) : (
-                            <div className="text-[10px] text-slate-600 bg-slate-900 px-2 py-1.5 rounded-lg text-center font-bold border border-slate-800">
-                              N/A
-                            </div>
+                            <div className="text-[10px] text-slate-600 bg-slate-900 px-2 py-1.5 rounded-lg text-center font-bold border border-slate-800">N/A</div>
                           )}
                         </div>
                       </div>
@@ -660,13 +683,13 @@ export default function AdminDashboardPage() {
                     <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-900">
                       <button
                         onClick={() => abrirModalEditar(ev)}
-                        className="text-xs bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 px-3 py-1.5 rounded-lg transition-all cursor-pointer"
+                        className="text-xs bg-slate-900 text-slate-300 border border-slate-800 px-3 py-1.5 rounded-lg transition-all cursor-pointer"
                       >
                         ✏️ Editar
                       </button>
                       <button
                         onClick={() => handleEliminarEvento(ev.id)}
-                        className="text-xs bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 border border-rose-900/50 px-3 py-1.5 rounded-lg transition-all cursor-pointer"
+                        className="text-xs bg-rose-950/40 text-rose-400 border border-rose-900/50 px-3 py-1.5 rounded-lg transition-all cursor-pointer"
                       >
                         🗑️ Eliminar
                       </button>
@@ -687,39 +710,36 @@ export default function AdminDashboardPage() {
                   <span>🛠️</span> DISEÑADOR DE PREGUNTAS Y CAMPOS (ADMINISTRADOR)
                 </h2>
                 <p className="text-xs text-slate-400 mt-1">
-                  Evento actual: <span className="text-amber-400 font-bold">{eventoActual?.title}</span> (Plan: {eventoActual?.plan})
+                  Evento actual: <span className="text-amber-400 font-bold">{eventoActual?.title}</span>
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-400">Evento:</span>
-                <select
-                  value={eventoSeleccionadoId}
-                  onChange={(e) => setEventoSeleccionadoId(e.target.value)}
-                  className="bg-slate-950 border border-slate-800 text-xs text-amber-400 font-bold rounded-xl px-3 py-2 focus:outline-none focus:border-amber-500"
-                >
-                  {eventos.map((ev) => (
-                    <option key={ev.id} value={ev.id}>
-                      {ev.title} ({ev.slug}) - {ev.plan}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <select
+                value={eventoSeleccionadoId}
+                onChange={(e) => setEventoSeleccionadoId(e.target.value)}
+                className="bg-slate-950 border border-slate-800 text-xs text-amber-400 font-bold rounded-xl px-3 py-2 focus:outline-none focus:border-amber-500"
+              >
+                {eventos.map((ev) => (
+                  <option key={ev.id} value={ev.id}>
+                    {ev.title} ({ev.slug})
+                  </option>
+                ))}
+              </select>
             </div>
 
             <form onSubmit={handleAgregarPregunta} className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4">
-              <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-                <span>➕</span> AGREGAR NUEVA PREGUNTA AL EVENTO
+              <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider">
+                ➕ AGREGAR NUEVA PREGUNTA AL EVENTO
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
                 <div className="md:col-span-7">
                   <input
                     type="text"
-                    placeholder="Ej. ¿Alergias o requerimiento de menú especial?"
+                    placeholder="Ej. ¿Alergias o menú especial?"
                     value={nuevaPreguntaLabel}
                     onChange={(e) => setNuevaPreguntaLabel(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
                     required
                   />
                 </div>
@@ -739,20 +759,8 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
-              {["choice", "checkbox"].includes(nuevaPreguntaTipo) && (
-                <div>
-                  <input
-                    type="text"
-                    placeholder="Opciones separadas por coma (ej. Opción A, Opción B, Opción C)"
-                    value={nuevaPreguntaOpciones}
-                    onChange={(e) => setNuevaPreguntaOpciones(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-              )}
-
               <div className="flex items-center justify-between pt-1">
-                <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer select-none">
+                <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={nuevaPreguntaRequerida}
@@ -772,99 +780,25 @@ export default function AdminDashboardPage() {
             </form>
 
             <div className="space-y-4 pt-2">
-              <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider">
-                CAMPOS ACTIVOS EN LA INVITACIÓN ({eventoActual?.questions?.length || 0})
-              </h3>
-
-              {(!eventoActual?.questions || eventoActual.questions.length === 0) ? (
-                <div className="text-center py-12 bg-slate-950/60 rounded-2xl border border-slate-800">
-                  <p className="text-xs text-slate-500">
-                    No has añadido preguntas personalizadas a esta invitación.
-                  </p>
-                </div>
-              ) : (
-                eventoActual.questions.map((q, index) => (
-                  <div
-                    key={q.id}
-                    className="bg-slate-950 p-4 md:p-5 rounded-2xl border border-slate-800/90 space-y-3"
-                  >
-                    <div className="flex items-center justify-between gap-2 border-b border-slate-900 pb-3">
-                      <span className="text-[10px] font-mono font-bold text-amber-500 bg-amber-500/10 px-2.5 py-1 rounded-md border border-amber-500/20">
-                        Campo #{index + 1}
-                      </span>
-                      <button
-                        onClick={() => handleEliminarPregunta(q.id)}
-                        className="text-rose-400 hover:text-rose-300 font-bold text-xs px-3 py-1 rounded-lg bg-rose-950/40 border border-rose-900/50 hover:bg-rose-900/60 transition-all cursor-pointer"
-                      >
-                        🗑 Eliminar
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
-                      <div className="md:col-span-7">
-                        <label className="block text-[10px] uppercase text-slate-500 font-bold mb-1">
-                          Pregunta / Título
-                        </label>
-                        <input
-                          type="text"
-                          value={q.label}
-                          onChange={(e) => handleUpdatePregunta(q.id, "label", e.target.value)}
-                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-100 font-semibold focus:outline-none focus:border-amber-500"
-                        />
-                      </div>
-
-                      <div className="md:col-span-5">
-                        <label className="block text-[10px] uppercase text-slate-500 font-bold mb-1">
-                          Tipo de campo
-                        </label>
-                        <select
-                          value={q.type}
-                          onChange={(e) => handleUpdatePregunta(q.id, "type", e.target.value as QuestionType)}
-                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-amber-400 font-bold focus:outline-none focus:border-amber-500"
-                        >
-                          {Object.entries(TIPO_LABELS).map(([key, item]) => (
-                            <option key={key} value={key}>
-                              {item.icon} {item.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    {["choice", "checkbox"].includes(q.type) && (
-                      <div>
-                        <label className="block text-[10px] uppercase text-slate-500 font-bold mb-1">
-                          Opciones (separadas por coma)
-                        </label>
-                        <input
-                          type="text"
-                          value={q.options ? q.options.join(", ") : ""}
-                          onChange={(e) =>
-                            handleUpdatePregunta(
-                              q.id,
-                              "options",
-                              e.target.value.split(",").map((s) => s.trim()).filter(Boolean)
-                            )
-                          }
-                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
-                        />
-                      </div>
-                    )}
-
-                    <div className="pt-1 flex items-center justify-between text-xs">
-                      <label className="flex items-center gap-2 text-slate-400 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={q.required}
-                          onChange={(e) => handleUpdatePregunta(q.id, "required", e.target.checked)}
-                          className="w-4 h-4 accent-amber-500 rounded"
-                        />
-                        <span>Campo obligatorio</span>
-                      </label>
-                    </div>
+              {eventoActual?.questions?.map((q, index) => (
+                <div key={q.id} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-900 pb-2">
+                    <span className="text-[10px] font-mono font-bold text-amber-500">Campo #{index + 1}</span>
+                    <button
+                      onClick={() => handleEliminarPregunta(q.id)}
+                      className="text-rose-400 font-bold text-xs px-3 py-1 bg-rose-950/40 rounded-lg cursor-pointer"
+                    >
+                      🗑 Eliminar
+                    </button>
                   </div>
-                ))
-              )}
+                  <input
+                    type="text"
+                    value={q.label}
+                    onChange={(e) => handleUpdatePregunta(q.id, "label", e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-100 font-semibold"
+                  />
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -882,187 +816,190 @@ export default function AdminDashboardPage() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-                <button
-                  onClick={exportarRespuestasCSV}
-                  disabled={respuestas.length === 0}
-                  className={`text-xs font-bold px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shadow-lg ${
-                    respuestas.length > 0
-                      ? "bg-emerald-500 hover:bg-emerald-400 text-slate-950 cursor-pointer"
-                      : "bg-slate-800 text-slate-500 cursor-not-allowed"
-                  }`}
-                  title="Descargar concentrado de lista de invitados a Excel"
-                >
-                  <span>📥 Descargar Excel (CSV)</span>
-                </button>
-
-                {rolUsuarioActual === "ADMINISTRADOR" && (
-                  <select
-                    value={eventoSeleccionadoId}
-                    onChange={(e) => setEventoSeleccionadoId(e.target.value)}
-                    className="bg-slate-950 border border-slate-800 text-xs text-amber-400 font-bold rounded-xl px-3 py-2 focus:outline-none focus:border-amber-500"
-                  >
-                    {eventos.map((ev) => (
-                      <option key={ev.id} value={ev.id}>
-                        {ev.title} ({ev.slug})
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
+              <button
+                onClick={exportarRespuestasCSV}
+                disabled={respuestas.length === 0}
+                className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs px-4 py-2.5 rounded-xl cursor-pointer"
+              >
+                📥 Descargar Excel (CSV)
+              </button>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800/80 space-y-1">
-                <span className="text-[10px] font-bold uppercase text-slate-500">Total Envíos</span>
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-1">
+                <span className="text-[10px] font-bold text-slate-500">ENVÍOS</span>
                 <p className="text-xl font-black text-slate-100">{totalRespuestas}</p>
               </div>
-
-              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800/80 space-y-1">
-                <span className="text-[10px] font-bold uppercase text-emerald-500">Confirmados (SÍ)</span>
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-1">
+                <span className="text-[10px] font-bold text-emerald-500">CONFIRMADOS</span>
                 <p className="text-xl font-black text-emerald-400">{totalConfirmados}</p>
               </div>
-
-              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800/80 space-y-1">
-                <span className="text-[10px] font-bold uppercase text-rose-500">Cancelados (NO)</span>
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-1">
+                <span className="text-[10px] font-bold text-rose-500">CANCELADOS</span>
                 <p className="text-xl font-black text-rose-400">{totalCancelados}</p>
               </div>
-
-              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800/80 space-y-1">
-                <span className="text-[10px] font-bold uppercase text-amber-500">Total Personas</span>
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-1">
+                <span className="text-[10px] font-bold text-amber-500">PERSONAS</span>
                 <p className="text-xl font-black text-amber-400">{totalAsistentesPersona} asist.</p>
               </div>
             </div>
-
-            {respuestas.length === 0 ? (
-              <div className="text-center py-12 bg-slate-950/60 rounded-2xl border border-slate-800">
-                <p className="text-xs text-slate-500">
-                  No hay confirmaciones ni respuestas registradas aún para este evento.
-                </p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-800 text-slate-400 uppercase font-bold">
-                      <th className="p-3">#</th>
-                      <th className="p-3">Invitado / Familia</th>
-                      <th className="p-3">Asistirá</th>
-                      <th className="p-3">Asistentes</th>
-                      <th className="p-3">Respuestas Adicionales</th>
-                      <th className="p-3">Fecha</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60">
-                    {respuestas.map((r, idx) => (
-                      <tr key={idx} className="hover:bg-slate-900/40">
-                        <td className="p-3 text-slate-500 font-mono">{idx + 1}</td>
-                        <td className="p-3 font-semibold text-slate-200">{r.name || "Anónimo"}</td>
-                        <td className="p-3">
-                          <span
-                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                              r.attending
-                                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                                : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
-                            }`}
-                          >
-                            {r.attending ? "SÍ ASISTIRÁ" : "NO ASISTIRÁ"}
-                          </span>
-                        </td>
-                        <td className="p-3 font-bold text-amber-400">
-                          {r.attending ? `${r.pasesConfirmados || 1} persona(s)` : "0"}
-                        </td>
-                        <td className="p-3 text-slate-300">
-                          <pre className="text-[11px] font-mono whitespace-pre-wrap">
-                            {JSON.stringify(r.customAnswers || {}, null, 2)}
-                          </pre>
-                        </td>
-                        <td className="p-3 text-slate-500 text-[11px]">
-                          {r.createdAt ? new Date(r.createdAt).toLocaleString() : "-"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
           </div>
         )}
 
-        {/* PESTAÑA 4: COLABORADORES */}
+        {/* PESTAÑA 4: COLABORADORES Y USUARIOS PROFESIONAL */}
         {tabActiva === "colaboradores" && rolUsuarioActual === "ADMINISTRADOR" && (
           <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 md:p-8 space-y-6 shadow-2xl">
             <div className="border-b border-slate-800 pb-4">
               <h2 className="text-xs font-black text-amber-500 uppercase tracking-wider">
-                👥 ADMINISTRACIÓN DE COLABORADORES Y CLIENTES
+                👥 GESTIÓN PROFESIONAL DE ACCESOS Y CLIENTES
               </h2>
               <p className="text-xs text-slate-400 mt-1">
-                Añade o gestiona los accesos de administradores y clientes.
+                Administra usuarios, credenciales de acceso, asignación de eventos y contraseñas.
               </p>
             </div>
 
+            {/* FORMULARIO AVANZADO */}
             <form onSubmit={handleGuardarUsuario} className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4">
               <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider">
-                {usuarioEditandoId ? "✏ Editar Colaborador" : "➕ Registrar Nuevo Colaborador"}
+                {usuarioEditandoId ? "✏️ Editar Credenciales de Colaborador" : "➕ Dar de Alta Nuevo Colaborador / Cliente"}
               </h3>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <input
-                  type="text"
-                  placeholder="Nombre completo"
-                  value={nuevoNombre}
-                  onChange={(e) => setNuevoNombre(e.target.value)}
-                  className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500"
-                  required
-                />
-                <input
-                  type="email"
-                  placeholder="Correo electrónico"
-                  value={nuevoCorreo}
-                  onChange={(e) => setNuevoCorreo(e.target.value)}
-                  className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500"
-                  required
-                />
-                <select
-                  value={nuevoRol}
-                  onChange={(e) => setNuevoRol(e.target.value as "ADMINISTRADOR" | "CLIENTE")}
-                  className="bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-amber-400 font-bold focus:outline-none focus:border-amber-500"
-                >
-                  <option value="CLIENTE">CLIENTE</option>
-                  <option value="ADMINISTRADOR">ADMINISTRADOR</option>
-                </select>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {/* NOMBRE REAL */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                    Nombre Completo *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej. Alejandro Mejía"
+                    value={nuevoNombre}
+                    onChange={(e) => setNuevoNombre(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                    required
+                  />
+                </div>
+
+                {/* NOMBRE DE USUARIO (USERNAME) */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                    Nombre de Usuario (Login)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej. amejia"
+                    value={nuevoUsername}
+                    onChange={(e) => setNuevoUsername(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-amber-400 font-mono focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                {/* CORREO */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                    Correo Electrónico *
+                  </label>
+                  <input
+                    type="email"
+                    placeholder="admin@mi-invitacion.com"
+                    value={nuevoCorreo}
+                    onChange={(e) => setNuevoCorreo(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                    required
+                  />
+                </div>
+
+                {/* CONTRASEÑA */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                    {usuarioEditandoId ? "Cambiar Contraseña" : "Asignar Contraseña *"}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder={usuarioEditandoId ? "Dejar en blanco para no cambiar" : "Ej. Clave123*"}
+                    value={nuevoPassword}
+                    onChange={(e) => setNuevoPassword(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-emerald-400 font-mono focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                {/* ROL */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                    Rol de Sistema
+                  </label>
+                  <select
+                    value={nuevoRol}
+                    onChange={(e) => setNuevoRol(e.target.value as "ADMINISTRADOR" | "CLIENTE")}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-amber-400 font-bold focus:outline-none focus:border-amber-500"
+                  >
+                    <option value="CLIENTE">CLIENTE (Solo ver su evento)</option>
+                    <option value="ADMINISTRADOR">ADMINISTRADOR (Acceso Total)</option>
+                  </select>
+                </div>
+
+                {/* EVENTO ASIGNADO */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                    Evento Asignado / Cliente
+                  </label>
+                  <select
+                    value={nuevoEventoSlug}
+                    onChange={(e) => setNuevoEventoSlug(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-sky-400 font-bold focus:outline-none focus:border-amber-500"
+                  >
+                    <option value="todos">🌐 Todos los eventos (Admin)</option>
+                    {eventos.map((ev) => (
+                      <option key={ev.id} value={ev.slug}>
+                        {ev.title} (/{ev.slug})
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              <div className="flex justify-end gap-2">
-                {usuarioEditandoId && (
+              {/* BOTONES Y ESTADO */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
+                <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={nuevoActivo}
+                    onChange={(e) => setNuevoActivo(e.target.checked)}
+                    className="w-4 h-4 accent-amber-500 rounded"
+                  />
+                  <span>Permitir acceso al usuario (Cuenta Activa)</span>
+                </label>
+
+                <div className="flex gap-2 w-full sm:w-auto justify-end">
+                  {usuarioEditandoId && (
+                    <button
+                      type="button"
+                      onClick={limpiarFormularioUsuario}
+                      className="bg-slate-800 text-slate-300 font-bold text-xs px-4 py-2 rounded-xl cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                  )}
                   <button
-                    type="button"
-                    onClick={() => {
-                      setUsuarioEditandoId(null);
-                      setNuevoNombre("");
-                      setNuevoCorreo("");
-                    }}
-                    className="bg-slate-800 text-slate-300 font-bold text-xs px-4 py-2 rounded-xl"
+                    type="submit"
+                    className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs px-6 py-2 rounded-xl transition-all shadow-lg shadow-amber-500/20 cursor-pointer"
                   >
-                    Cancelar
+                    {usuarioEditandoId ? "Actualizar Credenciales" : "+ Guardar Colaborador"}
                   </button>
-                )}
-                <button
-                  type="submit"
-                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs px-6 py-2 rounded-xl transition-all shadow-lg shadow-amber-500/20 cursor-pointer"
-                >
-                  {usuarioEditandoId ? "Actualizar Usuario" : "+ Guardar Colaborador"}
-                </button>
+                </div>
               </div>
             </form>
 
-            <div className="overflow-x-auto">
+            {/* TABLA PROFESIONAL DE USUARIOS */}
+            <div className="overflow-x-auto border border-slate-800 rounded-2xl bg-slate-950">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-800 text-slate-400 uppercase font-bold">
-                    <th className="p-3">Nombre</th>
-                    <th className="p-3">Correo</th>
-                    <th className="p-3">Rol</th>
+                  <tr className="border-b border-slate-800 text-slate-400 uppercase font-bold text-[10px] bg-slate-900/60">
+                    <th className="p-3">Usuario / Nombre</th>
+                    <th className="p-3">Login / Correo</th>
+                    <th className="p-3">Contraseña</th>
+                    <th className="p-3">Rol / Evento</th>
+                    <th className="p-3">Alta</th>
                     <th className="p-3">Estado</th>
                     <th className="p-3 text-right">Acciones</th>
                   </tr>
@@ -1070,24 +1007,64 @@ export default function AdminDashboardPage() {
                 <tbody className="divide-y divide-slate-800/60">
                   {usuarios.map((u) => (
                     <tr key={u.id} className="hover:bg-slate-900/40">
-                      <td className="p-3 font-semibold text-slate-100">{u.nombre}</td>
-                      <td className="p-3 text-slate-400">{u.correo}</td>
-                      <td className="p-3 font-bold text-amber-400">{u.rol}</td>
-                      <td className="p-3">
-                        <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full text-[10px] font-bold">
-                          ACTIVO
+                      {/* NOMBRE Y USERNAME */}
+                      <td className="p-3 font-semibold text-slate-100">
+                        {u.nombre}
+                        <span className="block text-[10px] font-mono text-amber-400">
+                          @{u.username || "sin-user"}
                         </span>
                       </td>
+
+                      {/* CORREO */}
+                      <td className="p-3 text-slate-300 font-mono text-[11px]">
+                        {u.correo}
+                      </td>
+
+                      {/* CONTRASEÑA */}
+                      <td className="p-3 font-mono text-emerald-400 font-bold">
+                        {u.password ? u.password : "••••••••"}
+                      </td>
+
+                      {/* ROL Y EVENTO */}
+                      <td className="p-3">
+                        <span className="font-bold text-amber-400 block">{u.rol}</span>
+                        <span className="text-[10px] text-sky-400 font-mono">
+                          /{u.eventoAsignadoSlug || "demo"}
+                        </span>
+                      </td>
+
+                      {/* FECHA DE ALTA */}
+                      <td className="p-3 text-slate-500 font-mono text-[11px]">
+                        📅 {u.createdAt || "2026-01-10"}
+                      </td>
+
+                      {/* ESTADO CON BOTÓN CONMUTADOR */}
+                      <td className="p-3">
+                        <button
+                          onClick={() => handleToggleEstadoUsuario(u.id)}
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold cursor-pointer transition-all ${
+                            u.activo
+                              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20"
+                              : "bg-rose-500/10 text-rose-400 border border-rose-500/30 hover:bg-rose-500/20"
+                          }`}
+                        >
+                          {u.activo ? "🟢 ACTIVO" : "🔴 SUSPENDIDO"}
+                        </button>
+                      </td>
+
+                      {/* ACCIONES */}
                       <td className="p-3 text-right space-x-2">
                         <button
                           onClick={() => handleEditarUsuario(u)}
                           className="bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800 px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+                          title="Editar usuario y contraseña"
                         >
                           ✏️ Editar
                         </button>
                         <button
                           onClick={() => handleEliminarUsuario(u.id)}
                           className="bg-rose-950/40 text-rose-400 hover:bg-rose-900/60 border border-rose-900/50 px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+                          title="Eliminar usuario"
                         >
                           🗑️ Eliminar
                         </button>
@@ -1101,7 +1078,7 @@ export default function AdminDashboardPage() {
         )}
       </div>
 
-      {/* MODAL CREAR / EDITAR EVENTO */}
+      {/* MODAL EVENTO */}
       {mostrarModalEvento && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-[#121c33] border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl">
@@ -1111,22 +1088,18 @@ export default function AdminDashboardPage() {
 
             <form onSubmit={handleGuardarEvento} className="space-y-3 text-xs">
               <div>
-                <label className="block text-slate-400 font-bold mb-1">
-                  Nombre del Evento
-                </label>
+                <label className="block text-slate-400 font-bold mb-1">Nombre del Evento</label>
                 <input
                   type="text"
                   value={modalTitle}
                   onChange={(e) => handleTitleChange(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-amber-500"
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-100"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-slate-400 font-bold mb-1">
-                  Slug URL (ej. boda-maria)
-                </label>
+                <label className="block text-slate-400 font-bold mb-1">Slug URL (ej. boda-maria)</label>
                 <input
                   type="text"
                   value={modalSlug}
@@ -1134,77 +1107,53 @@ export default function AdminDashboardPage() {
                     setModalSlug(e.target.value);
                     setSlugEditadoManualmente(true);
                   }}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-amber-400 font-mono focus:outline-none focus:border-amber-500"
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-amber-400 font-mono"
                   required
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 font-bold mb-1">
-                    Fecha del Evento
-                  </label>
+                  <label className="block text-slate-400 font-bold mb-1">Fecha</label>
                   <input
                     type="date"
                     value={modalDate}
                     onChange={(e) => setModalDate(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-amber-500"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-100"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 font-bold mb-1">
-                    Plan Contratado
-                  </label>
+                  <label className="block text-slate-400 font-bold mb-1">Plan</label>
                   <select
                     value={modalPlan}
                     onChange={(e) => setModalPlan(e.target.value as PlanType)}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-amber-400 font-bold focus:outline-none focus:border-amber-500"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-amber-400 font-bold"
                   >
-                    <option value="BASICO">BASICO (WhatsApp Directo)</option>
-                    <option value="PLUS">PLUS ($300 MXN - Panel & Exportación)</option>
-                    <option value="PREMIUM">PREMIUM ($800 MXN - Gestión Assist)</option>
+                    <option value="BASICO">BASICO</option>
+                    <option value="PLUS">PLUS ($300 MXN)</option>
+                    <option value="PREMIUM">PREMIUM ($800 MXN)</option>
                   </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                {modalPlan !== "BASICO" ? (
-                  <div>
-                    <label className="block text-slate-400 font-bold mb-1">
-                      Pases Asignados (Boletos)
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={modalPases}
-                      onChange={(e) => setModalPases(Number(e.target.value))}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
-                ) : (
-                  <div>
-                    <label className="block text-slate-500 font-bold mb-1">
-                      Pases
-                    </label>
-                    <input
-                      type="text"
-                      value="N/A (Ilimitado)"
-                      disabled
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-500 cursor-not-allowed"
-                    />
-                  </div>
-                )}
-
                 <div>
-                  <label className="block text-slate-400 font-bold mb-1">
-                    WhatsApp Notificaciones
-                  </label>
+                  <label className="block text-slate-400 font-bold mb-1">Pases</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={modalPases}
+                    onChange={(e) => setModalPases(Number(e.target.value))}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-100"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-400 font-bold mb-1">WhatsApp Notificaciones</label>
                   <input
                     type="text"
-                    placeholder="5218115591681"
                     value={modalWhatsapp}
                     onChange={(e) => setModalWhatsapp(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-amber-500"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-100"
                   />
                 </div>
               </div>
