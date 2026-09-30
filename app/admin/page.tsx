@@ -1587,7 +1587,9 @@ export default function AdminDashboardPage() {
                       const nuevoPlan = e.target.value as PlanType;
                       setModalPlan(nuevoPlan);
                       if (nuevoPlan === "BASICO") {
-                        setModalPases(1);
+                        setModalPases(0);
+                      } else if (modalPases === 0) {
+                        setModalPases(2);
                       }
                     }}
                     className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-amber-400 font-bold focus:outline-none focus:border-amber-500"
@@ -1604,17 +1606,22 @@ export default function AdminDashboardPage() {
                   </label>
                   <input
                     type="number"
-                    min={1}
+                    min={0}
                     max={20}
-                    value={modalPlan === "BASICO" ? 1 : modalPases}
+                    value={modalPlan === "BASICO" ? 0 : modalPases}
                     disabled={modalPlan === "BASICO"}
                     onChange={(e) => setModalPases(Number(e.target.value))}
                     className={`w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 font-mono focus:outline-none ${
                       modalPlan === "BASICO"
-                        ? "opacity-50 cursor-not-allowed bg-slate-950"
+                        ? "opacity-50 cursor-not-allowed bg-slate-950 text-slate-500"
                         : "focus:border-amber-500"
                     }`}
                   />
+                  {modalPlan === "BASICO" && (
+                    <span className="text-[10px] text-amber-400/90 font-medium mt-1 block">
+                      🚫 Sin pases en Plan Básico (Confirmación directa a WhatsApp)
+                    </span>
+                  )}
                 </div>
               </div>
 

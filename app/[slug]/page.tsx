@@ -104,14 +104,17 @@ export default function InvitacionPublicaPage() {
   const handleFinalizarYEnviar = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Verificamos si el plan configurado es BÁSICO
+    const esBasico = (event as any)?.plan === "BASICO";
+
     const payload = {
       eventSlug: slug,
       name: nombreInvitado,
       whatsapp: whatsappInvitado,
       attending: asistira,
-      pasesConfirmados: asistira ? pasesSeleccionados : 0,
-      acompanantes: asistira ? nombresAcompanantes : [],
-      customAnswers: respuestasCustom,
+      pasesConfirmados: esBasico ? (asistira ? 1 : 0) : (asistira ? pasesSeleccionados : 0),
+      acompanantes: esBasico ? [] : (asistira ? nombresAcompanantes : []),
+      customAnswers: esBasico ? {} : respuestasCustom,
       mensaje: mensajeLibre,
     };
 
@@ -131,7 +134,8 @@ export default function InvitacionPublicaPage() {
     if (whatsappInvitado) textoWA += `📱 *WhatsApp:* ${whatsappInvitado}%0A`;
     textoWA += `✨ *¿Asistirá?:* ${asistira ? "SÍ, ¡ahí estaré! 🎉" : "NO podré asistir 😔"}%0A`;
 
-    if (asistira) {
+    // SOLO si NO es plan Básico y SÍ asistirá, incluimos pases, acompañantes y preguntas
+    if (!esBasico && asistira) {
       textoWA += `🎫 *Pases Confirmados:* ${pasesSeleccionados}%0A`;
       if (nombresAcompanantes.length > 0) {
         textoWA += `👥 *Asistentes:* ${nombresAcompanantes.filter(Boolean).join(", ")}%0A`;
