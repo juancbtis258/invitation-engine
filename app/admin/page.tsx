@@ -24,16 +24,16 @@ interface EventItem {
 interface UserItem {
   id: string;
   nombre: string;
-  usuario: string;
-  pass: string;
+  correo: string;
   rol: "ADMINISTRADOR" | "CLIENTE";
+  activo: boolean;
 }
 
 export default function AdminDashboardPage() {
   // Navegación por pestañas
   const [tabActiva, setTabActiva] = useState<
     "eventos" | "disenador" | "respuestas" | "colaboradores"
-  >("eventos");
+  >("colaboradores");
 
   // LISTA DE EVENTOS (Catálogo)
   const [eventos, setEventos] = useState<EventItem[]>([
@@ -76,33 +76,31 @@ export default function AdminDashboardPage() {
   const [nuevaPreguntaOpciones, setNuevaPreguntaOpciones] = useState("");
   const [nuevaPreguntaRequerida, setNuevaPreguntaRequerida] = useState(false);
 
-  // USUARIOS / COLABORADORES
+  // USUARIOS / COLABORADORES (RÉPLICA EXACTA DE LA IMAGEN)
   const [usuarios, setUsuarios] = useState<UserItem[]>([
     {
       id: "u1",
       nombre: "Alejandro Mejía (Tú)",
-      usuario: "admin",
-      pass: "123",
+      correo: "admin@mi-invitacion.com",
       rol: "ADMINISTRADOR",
+      activo: true,
     },
     {
       id: "u2",
       nombre: "Cliente Demo",
-      usuario: "cliente",
-      pass: "123",
+      correo: "cliente@bodamaria.com",
       rol: "CLIENTE",
+      activo: true,
     },
   ]);
 
   const [nuevoNombre, setNuevoNombre] = useState("");
-  const [nuevoUsuario, setNuevoUsuario] = useState("");
-  const [nuevaPass, setNuevaPass] = useState("");
+  const [nuevoCorreo, setNuevoCorreo] = useState("");
   const [nuevoRol, setNuevoRol] = useState<"ADMINISTRADOR" | "CLIENTE">("CLIENTE");
   const [usuarioEditandoId, setUsuarioEditandoId] = useState<string | null>(null);
 
   // RESPUESTAS RECIBIDAS
   const [respuestas, setRespuestas] = useState<any[]>([]);
-  const [mensajeEstado, setMensajeEstado] = useState("");
 
   const eventoActual = eventos.find((e) => e.id === eventoSeleccionadoId) || eventos[0];
 
@@ -231,13 +229,13 @@ export default function AdminDashboardPage() {
   // --- GESTIÓN DE USUARIOS / COLABORADORES ---
   const handleGuardarUsuario = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nuevoNombre || !nuevoUsuario || !nuevaPass) return;
+    if (!nuevoNombre || !nuevoCorreo) return;
 
     if (usuarioEditandoId) {
       setUsuarios(
         usuarios.map((u) =>
           u.id === usuarioEditandoId
-            ? { ...u, nombre: nuevoNombre, usuario: nuevoUsuario, pass: nuevaPass, rol: nuevoRol }
+            ? { ...u, nombre: nuevoNombre, correo: nuevoCorreo, rol: nuevoRol }
             : u
         )
       );
@@ -246,23 +244,21 @@ export default function AdminDashboardPage() {
       const nuevoU: UserItem = {
         id: Date.now().toString(),
         nombre: nuevoNombre,
-        usuario: nuevoUsuario,
-        pass: nuevaPass,
+        correo: nuevoCorreo,
         rol: nuevoRol,
+        activo: true,
       };
       setUsuarios([...usuarios, nuevoU]);
     }
 
     setNuevoNombre("");
-    setNuevoUsuario("");
-    setNuevaPass("");
+    setNuevoCorreo("");
   };
 
   const handleEditarUsuario = (u: UserItem) => {
     setUsuarioEditandoId(u.id);
     setNuevoNombre(u.nombre);
-    setNuevoUsuario(u.usuario);
-    setNuevaPass(u.pass);
+    setNuevoCorreo(u.correo);
     setNuevoRol(u.rol);
   };
 
@@ -271,27 +267,27 @@ export default function AdminDashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0b1329] text-slate-100 p-4 md:p-8 font-sans">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="min-h-screen bg-[#0d1527] text-slate-100 p-4 md:p-8 font-sans">
+      <div className="max-w-6xl mx-auto space-y-6">
 
         {/* HEADER Y PESTAÑAS */}
-        <div className="space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-black text-amber-500 tracking-tight">
               Creador & Gestor de Invitaciones
             </h1>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-slate-400 mt-0.5">
               Administra tus eventos activos, diseña formularios y gestiona clientes
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 md:gap-3 bg-slate-900/60 p-2 rounded-2xl border border-slate-800/80">
+          <div className="flex flex-wrap items-center gap-2 md:gap-3">
             <button
               onClick={() => setTabActiva("eventos")}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                 tabActiva === "eventos"
                   ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
-                  : "bg-slate-800/60 text-slate-300 hover:bg-slate-800"
+                  : "bg-slate-800/80 text-slate-300 hover:bg-slate-800"
               }`}
             >
               📁 Mis Eventos
@@ -302,7 +298,7 @@ export default function AdminDashboardPage() {
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                 tabActiva === "disenador"
                   ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
-                  : "bg-slate-800/60 text-slate-300 hover:bg-slate-800"
+                  : "bg-slate-800/80 text-slate-300 hover:bg-slate-800"
               }`}
             >
               🛠️ Diseñador
@@ -313,7 +309,7 @@ export default function AdminDashboardPage() {
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                 tabActiva === "respuestas"
                   ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
-                  : "bg-slate-800/60 text-slate-300 hover:bg-slate-800"
+                  : "bg-slate-800/80 text-slate-300 hover:bg-slate-800"
               }`}
             >
               📊 Respuestas ({respuestas.length})
@@ -324,7 +320,7 @@ export default function AdminDashboardPage() {
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                 tabActiva === "colaboradores"
                   ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
-                  : "bg-slate-800/60 text-slate-300 hover:bg-slate-800"
+                  : "bg-slate-800/80 text-slate-300 hover:bg-slate-800"
               }`}
             >
               👥 Colaboradores
@@ -332,18 +328,18 @@ export default function AdminDashboardPage() {
 
             <button
               onClick={() => (window.location.href = "/")}
-              className="ml-auto px-4 py-2 bg-rose-950/40 border border-rose-800/50 text-rose-400 hover:bg-rose-900/50 rounded-xl text-xs font-bold transition-all"
+              className="px-4 py-2 bg-rose-950/40 border border-rose-900/50 text-rose-400 hover:bg-rose-900/50 rounded-xl text-xs font-bold transition-all"
             >
               🚪 Salir
             </button>
           </div>
         </div>
 
-        {/* PESTAÑA 1: MIS EVENTOS (CATÁLOGO Y TARJETAS) */}
+        {/* PESTAÑA 1: MIS EVENTOS */}
         {tabActiva === "eventos" && (
           <div className="space-y-6">
-            <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
-              <h2 className="text-sm font-black text-amber-500 uppercase tracking-wider">
+            <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
+              <h2 className="text-xs font-black text-amber-500 uppercase tracking-wider">
                 CATÁLOGO DE EVENTOS REGISTRADOS
               </h2>
 
@@ -355,16 +351,15 @@ export default function AdminDashboardPage() {
               </button>
             </div>
 
-            {/* LISTA DE TARJETAS DE EVENTO */}
             <div className="grid grid-cols-1 gap-4">
               {eventos.map((ev) => (
                 <div
                   key={ev.id}
-                  className={`bg-slate-900/90 border ${
+                  className={`bg-[#121c33] border ${
                     eventoSeleccionadoId === ev.id
                       ? "border-amber-500/60 ring-1 ring-amber-500/30"
-                      : "border-slate-800"
-                  } rounded-3xl p-6 space-y-4 shadow-xl transition-all`}
+                      : "border-slate-800/80"
+                  } rounded-2xl p-6 space-y-4 shadow-xl transition-all`}
                 >
                   <div className="flex items-start justify-between gap-4 border-b border-slate-800/80 pb-3">
                     <div>
@@ -394,14 +389,14 @@ export default function AdminDashboardPage() {
                   <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800/80">
                     <button
                       onClick={() => abrirModalEditar(ev)}
-                      className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-4 py-2 rounded-xl transition-all"
+                      className="bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-xs font-bold px-4 py-2 rounded-xl transition-all"
                     >
                       ⚙️ Editar
                     </button>
 
                     <button
                       onClick={() => handleDuplicarEvento(ev)}
-                      className="bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-bold px-4 py-2 rounded-xl transition-all"
+                      className="bg-slate-800/80 hover:bg-slate-700 text-amber-400 text-xs font-bold px-4 py-2 rounded-xl transition-all"
                     >
                       📋 Duplicar
                     </button>
@@ -411,9 +406,9 @@ export default function AdminDashboardPage() {
                         setEventoSeleccionadoId(ev.id);
                         setTabActiva("disenador");
                       }}
-                      className="bg-slate-800 hover:bg-slate-700 text-emerald-400 text-xs font-bold px-4 py-2 rounded-xl transition-all"
+                      className="bg-slate-800/80 hover:bg-slate-700 text-emerald-400 text-xs font-bold px-4 py-2 rounded-xl transition-all"
                     >
-                      🛠️ Diseñar Preguntas
+                      🛠️️ Diseñar Preguntas
                     </button>
 
                     <a
@@ -431,12 +426,12 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* PESTAÑA 2: DISEÑADOR DE FORMULARIOS & PREGUNTAS DINÁMICAS */}
+        {/* PESTAÑA 2: DISEÑADOR */}
         {tabActiva === "disenador" && (
-          <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl">
+          <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 md:p-8 space-y-6 shadow-2xl">
             <div className="border-b border-slate-800 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
               <div>
-                <h2 className="text-sm font-black text-amber-500 uppercase tracking-wider">
+                <h2 className="text-xs font-black text-amber-500 uppercase tracking-wider">
                   🛠️ DISEÑADOR DE PREGUNTAS Y CAMPOS DEL FORMULARIO
                 </h2>
                 <p className="text-xs text-slate-400 mt-1">
@@ -444,7 +439,6 @@ export default function AdminDashboardPage() {
                 </p>
               </div>
 
-              {/* Selector para cambiar de evento en el diseñador */}
               <select
                 value={eventoSeleccionadoId}
                 onChange={(e) => setEventoSeleccionadoId(e.target.value)}
@@ -458,8 +452,7 @@ export default function AdminDashboardPage() {
               </select>
             </div>
 
-            {/* AGREGAR PREGUNTA */}
-            <form onSubmit={handleAgregarPregunta} className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4">
+            <form onSubmit={handleAgregarPregunta} className="bg-slate-950 p-5 rounded-xl border border-slate-800 space-y-4">
               <h3 className="text-xs font-bold text-slate-200 uppercase">
                 + Agregar Nueva Pregunta
               </h3>
@@ -515,7 +508,6 @@ export default function AdminDashboardPage() {
               </div>
             </form>
 
-            {/* PREGUNTAS ACTUALMENTE CONFIGURADAS */}
             <div className="space-y-3">
               <h3 className="text-xs font-bold text-slate-400 uppercase">
                 Campos activos en la invitación ({eventoActual?.questions?.length || 0})
@@ -553,8 +545,8 @@ export default function AdminDashboardPage() {
 
         {/* PESTAÑA 3: RESPUESTAS */}
         {tabActiva === "respuestas" && (
-          <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-4 shadow-2xl">
-            <h2 className="text-sm font-black text-amber-500 tracking-wider uppercase border-b border-slate-800 pb-3">
+          <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 md:p-8 space-y-4 shadow-2xl">
+            <h2 className="text-xs font-black text-amber-500 tracking-wider uppercase border-b border-slate-800 pb-3">
               📊 RESPUESTAS RECIBIDAS - {eventoActual?.title}
             </h2>
 
@@ -597,46 +589,35 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* PESTAÑA 4: COLABORADORES & USUARIOS (CON EDICIÓN Y CONTRASEÑAS) */}
+        {/* PESTAÑA 4: COLABORADORES (RÉPLICA EXACTA DE TU CAPTURA) */}
         {tabActiva === "colaboradores" && (
           <div className="space-y-6">
             
-            {/* Formulario Crear / Editar Usuario */}
-            <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-5 shadow-2xl">
-              <h2 className="text-sm font-black text-amber-500 tracking-wider uppercase">
-                {usuarioEditandoId ? "EDITAR USUARIO O CLIENTE" : "REGISTRAR NUEVO COLABORADOR O CLIENTE"}
+            {/* FORMULARIO: REGISTRAR NUEVO COLABORADOR O CLIENTE */}
+            <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 space-y-4 shadow-xl">
+              <h2 className="text-xs font-black text-amber-500 tracking-wider uppercase">
+                {usuarioEditandoId ? "EDITAR COLABORADOR O CLIENTE" : "REGISTRAR NUEVO COLABORADOR O CLIENTE"}
               </h2>
 
-              <form onSubmit={handleGuardarUsuario} className="space-y-3.5">
+              <form onSubmit={handleGuardarUsuario} className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-center">
                 <div>
                   <input
                     type="text"
                     placeholder="Nombre completo"
                     value={nuevoNombre}
                     onChange={(e) => setNuevoNombre(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500"
                     required
                   />
                 </div>
 
                 <div>
                   <input
-                    type="text"
-                    placeholder="Usuario (ej. admin, boda)"
-                    value={nuevoUsuario}
-                    onChange={(e) => setNuevoUsuario(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <input
-                    type="password"
-                    placeholder="Contraseña"
-                    value={nuevaPass}
-                    onChange={(e) => setNuevaPass(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500"
+                    type="email"
+                    placeholder="Correo electrónico"
+                    value={nuevoCorreo}
+                    onChange={(e) => setNuevoCorreo(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500"
                     required
                   />
                 </div>
@@ -645,86 +626,77 @@ export default function AdminDashboardPage() {
                   <select
                     value={nuevoRol}
                     onChange={(e) => setNuevoRol(e.target.value as any)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-slate-300 focus:outline-none focus:border-amber-500 cursor-pointer"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-300 focus:outline-none focus:border-amber-500 cursor-pointer"
                   >
-                    <option value="CLIENTE">Cliente (Acceso a evento)</option>
+                    <option value="CLIENTE">Cliente (Acceso a su evento)</option>
                     <option value="ADMINISTRADOR">Administrador (Acceso total)</option>
                   </select>
                 </div>
 
-                <div className="flex items-center gap-2 pt-2">
+                <div>
                   <button
                     type="submit"
-                    className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs py-3.5 rounded-xl shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
+                    className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs py-2.5 rounded-xl shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
                   >
-                    {usuarioEditandoId ? "Actualizar Usuario" : "+ Dar Acceso"}
+                    {usuarioEditandoId ? "Actualizar" : "+ Dar Acceso"}
                   </button>
-
-                  {usuarioEditandoId && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setUsuarioEditandoId(null);
-                        setNuevoNombre("");
-                        setNuevoUsuario("");
-                        setNuevaPass("");
-                      }}
-                      className="bg-slate-800 text-slate-300 font-bold text-xs px-4 py-3.5 rounded-xl"
-                    >
-                      Cancelar
-                    </button>
-                  )}
                 </div>
               </form>
             </div>
 
-            {/* Tabla de Usuarios Registrados */}
-            <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-4 shadow-2xl">
-              <h2 className="text-sm font-black text-amber-500 tracking-wider uppercase">
+            {/* TABLA: USUARIOS REGISTRADOS EN LA PLATAFORMA */}
+            <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 space-y-4 shadow-xl">
+              <h2 className="text-xs font-black text-amber-500 tracking-wider uppercase">
                 USUARIOS REGISTRADOS EN LA PLATAFORMA
               </h2>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-950 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
+                  <thead className="bg-[#0a101f] text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
                     <tr>
                       <th className="p-3">Nombre</th>
-                      <th className="p-3">Usuario</th>
-                      <th className="p-3">Contraseña</th>
+                      <th className="p-3">Correo</th>
                       <th className="p-3">Rol</th>
+                      <th className="p-3">Estado</th>
                       <th className="p-3 text-right">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60">
                     {usuarios.map((u) => (
-                      <tr key={u.id} className="hover:bg-slate-800/40 transition-colors">
+                      <tr key={u.id} className="hover:bg-slate-800/30 transition-colors">
                         <td className="p-3 font-semibold text-slate-100">{u.nombre}</td>
-                        <td className="p-3 font-bold text-amber-400">{u.usuario}</td>
-                        <td className="p-3 text-slate-400 font-mono">{u.pass}</td>
+                        <td className="p-3 text-slate-400">{u.correo}</td>
                         <td className="p-3">
                           {u.rol === "ADMINISTRADOR" ? (
-                            <span className="bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded text-[10px] font-bold">
+                            <span className="bg-amber-500/20 text-amber-400 border border-amber-500/40 px-2.5 py-1 rounded text-[10px] font-black tracking-wider">
                               ADMINISTRADOR
                             </span>
                           ) : (
-                            <span className="bg-blue-500/10 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded text-[10px] font-bold">
+                            <span className="bg-blue-600/20 text-blue-400 border border-blue-500/40 px-2.5 py-1 rounded text-[10px] font-black tracking-wider">
                               CLIENTE
                             </span>
                           )}
                         </td>
+                        <td className="p-3">
+                          <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-full text-[10px] font-bold">
+                            • ACTIVO
+                          </span>
+                        </td>
                         <td className="p-3 text-right space-x-2">
                           <button
                             onClick={() => handleEditarUsuario(u)}
-                            className="text-amber-400 hover:text-amber-300 font-bold text-[11px]"
+                            className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold text-[11px] px-3 py-1 rounded-lg transition-all"
                           >
-                            Editar
+                            ✏️ Editar
                           </button>
-                          <button
-                            onClick={() => handleEliminarUsuario(u.id)}
-                            className="text-rose-400 hover:text-rose-300 font-bold text-[11px]"
-                          >
-                            Borrar
-                          </button>
+                          {u.rol !== "ADMINISTRADOR" && (
+                            <button
+                              onClick={() => handleEliminarUsuario(u.id)}
+                              className="bg-rose-950/40 hover:bg-rose-900/50 text-rose-400 border border-rose-800/40 font-bold text-[11px] px-3 py-1 rounded-lg transition-all"
+                            >
+                              Eliminar
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -739,8 +711,8 @@ export default function AdminDashboardPage() {
         {/* MODAL CREAR / EDITAR EVENTO */}
         {mostrarModalEvento && (
           <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-3xl p-6 md:p-8 space-y-5 shadow-2xl">
-              <h2 className="text-base font-extrabold text-amber-500">
+            <div className="bg-[#121c33] border border-slate-800 w-full max-w-lg rounded-2xl p-6 md:p-8 space-y-5 shadow-2xl">
+              <h2 className="text-sm font-extrabold text-amber-500 uppercase tracking-wider">
                 {editandoEventoId ? "⚙️ Editar Configuración de Evento" : "✨ Crear Nuevo Evento"}
               </h2>
 
@@ -785,8 +757,7 @@ export default function AdminDashboardPage() {
                   />
                 </div>
 
-                {/* WhatsApp receptor integrado */}
-                <div className="bg-amber-500/10 border border-amber-500/20 p-3.5 rounded-2xl space-y-1">
+                <div className="bg-amber-500/10 border border-amber-500/20 p-3.5 rounded-xl space-y-1">
                   <label className="block text-xs font-bold text-amber-400">
                     📱 WhatsApp Receptor de Confirmaciones
                   </label>
