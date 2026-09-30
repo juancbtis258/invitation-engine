@@ -1,87 +1,101 @@
 import { NextResponse } from "next/server";
 
-// Base de datos en memoria para guardar configuración y respuestas recibidas
-let database: Record<string, { config: any; responses: any[] }> = {
+// Base de datos en memoria para guardar las configuraciones de cada evento de forma dinámica
+const eventosDB: Record<string, any> = {
   demo: {
-    config: {
-      title: "Boda María & Alejandro",
-      targetDate: "2026-10-15",
-      whatsappPhone: "5218112345678",
-      active: true,
-      questions: [],
-    },
+    title: "Boda María & Alejandro",
+    slug: "demo",
+    targetDate: "2026-10-15",
+    plan: "PLUS",
+    active: true,
+    whatsappPhone: "5218115591681",
+    pasesAsignados: 2,
+    questions: [],
+    responses: [],
+  },
+  "yunnie-y-juan": {
+    title: "yunnie y juan",
+    slug: "yunnie-y-juan",
+    targetDate: "1996-09-21",
+    plan: "PREMIUM",
+    active: true,
+    whatsappPhone: "5218115591681",
+    pasesAsignados: 4,
+    questions: [],
     responses: [],
   },
 };
 
+// GET: Obtener la configuración del evento por su slug
 export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const eventSlug = searchParams.get("event") || "demo";
+  const { searchParams } = new URL(request.url);
+  const slug = searchParams.get("event") || "demo";
 
-    if (!database[eventSlug]) {
-      database[eventSlug] = {
-        config: {
-          title: "Mi Evento Especial",
-          targetDate: "2026-10-15",
-          whatsappPhone: "",
-          active: true,
-          questions: [],
-        },
+  const evento = eventosDB[slug] || {
+    title: slug.replace(/-/g, " ").toUpperCase(),
+    slug: slug,
+    whatsappPhone: "5218115591681",
+    plan: "PLUS",
+    active: true,
+    pasesAsignados: 2,
+    questions: [],
+    responses: [],
+  };
+
+  return NextResponse.json({ success: true, data: evento });
+}
+
+// POST: Actualizar configuración desde Admin O guardar respuesta del cliente
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const { action, event, eventSlug, config, response } = body;
+
+    const slug = event || eventSlug;
+
+    if (!slug) {
+      return NextResponse.json(
+        { success: false, error: "Falta el identificador del evento (slug)" },
+        { status: 400 }
+      );
+    }
+
+    // Asegurar que el evento exista en la BD
+    if (!eventosDB[slug]) {
+      eventosDB[slug] = {
+        title: slug.replace(/-/g, " ").toUpperCase(),
+        slug: slug,
+        whatsappPhone: "5218115591681",
+        questions: [],
         responses: [],
       };
     }
 
-    return NextResponse.json({
-      data: {
-        ...database[eventSlug].config,
-        responses: database[eventSlug].responses,
-      },
-    });
-  } catch (error) {
-    return NextResponse.json({ error: "Error al obtener datos" }, { status: 500 });
-  }
-}
-
-export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-
-    if (body.action === "save_config") {
-      const { eventSlug, config } = body;
-
-      if (!database[eventSlug]) {
-        database[eventSlug] = { config: {}, responses: [] };
-      }
-
-      database[eventSlug].config = {
-        ...database[eventSlug].config,
-        ...config,
+    // CASO 1: Guardar cambios desde el Panel de Administración (Número de WhatsApp, Título, Preguntas)
+    if (config) {
+      eventosDB[slug] = {
+        ...eventosDB[slug],
+        ...config, // Aquí se sobrescribe whatsappPhone con el número que pusiste en la casilla
       };
-
-      return NextResponse.json({
-        success: true,
-        config: database[eventSlug].config,
-      });
+      return NextResponse.json({ success: true, data: eventosDB[slug] });
     }
 
-    if (body.action === "save_response") {
-      const { eventSlug, response } = body;
-
-      if (!database[eventSlug]) {
-        database[eventSlug] = { config: {}, responses: [] };
+    // CASO 2: Guardar respuesta enviada por un invitado desde la invitación
+    if (response || action === "save_response") {
+      if (!eventosDB[slug].responses) {
+        eventosDB[slug].responses = [];
       }
+      const nuevaRespuesta = response;
+      eventosDB[slug].responses.unshift(nuevaRespuesta);
 
-      database[eventSlug].responses.unshift({
-        id: Date.now().toString(),
-        ...response,
-      });
-
-      return NextResponse.json({ success: true });
+      return NextResponse.json({ success: true, data: eventosDB[slug] });
     }
 
-    return NextResponse.json({ error: "Acción no válida" }, { status: 400 });
-  } catch (error) {
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
+    return NextResponse.json({ success: true, data: eventosDB[slug] });
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 }
+    );
   }
 }
