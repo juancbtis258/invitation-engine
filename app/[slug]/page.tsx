@@ -23,7 +23,7 @@ function PublicEventContent() {
   const searchParams = useSearchParams();
   const slug = params?.slug as string;
 
-  // Leer parámetro ?pases=X de la URL (por defecto 2 pases si no se pasa nada)
+  // Leer parámetro ?pases=X de la URL (por defecto 2 pases si no se indica)
   const pasesParam = searchParams.get("pases");
   const maxPases = pasesParam && !isNaN(Number(pasesParam)) && Number(pasesParam) > 0 
     ? parseInt(pasesParam, 10) 
@@ -144,7 +144,7 @@ function PublicEventContent() {
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
           
-          {/* Selector de pases dinámico en base al parámetro URL */}
+          {/* Selector de pases dinámico según la URL */}
           <div className="bg-slate-950/80 border border-slate-800 p-4 rounded-2xl space-y-4">
             <div>
               <label className="block text-xs font-bold text-amber-400 mb-1">
@@ -163,7 +163,7 @@ function PublicEventContent() {
               </select>
             </div>
 
-            {/* Campos para ingresar nombres según los pases elegidos */}
+            {/* Campos dinámicos para los nombres de los asistentes */}
             <div className="space-y-3 pt-2">
               <label className="block text-xs font-bold text-slate-300">
                 Nombres de los asistentes:
