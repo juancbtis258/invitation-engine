@@ -168,10 +168,10 @@ const EVENTOS_DEFAULT: EventItem[] = [
     slug: "demo",
     title: "Boda María & Alejandro",
     targetDate: "2026-10-15",
-    plan: "PLUS",
+    plan: "BASICO",
     active: true,
     whatsappPhone: "5218115591681",
-    pasesAsignados: 2,
+    pasesAsignados: 0,
     ownerUsername: "amejia",
     questions: [],
   },
@@ -417,7 +417,7 @@ export default function AdminDashboardPage() {
     const planEv = ev.plan || "PLUS";
     setModalPlan(planEv);
     setModalWhatsapp(ev.whatsappPhone || "5218116122704");
-    setModalPases(planEv === "BASICO" ? 1 : ev.pasesAsignados || 2);
+    setModalPases(planEv === "BASICO" ? 0 : ev.pasesAsignados || 2);
     setModalActive(ev.active);
     setMostrarModalEvento(true);
   };
@@ -426,7 +426,7 @@ export default function AdminDashboardPage() {
     e.preventDefault();
     if (!modalTitle || !modalSlug) return;
 
-    const pasesFinales = modalPlan === "BASICO" ? 1 : Number(modalPases);
+    const pasesFinales = modalPlan === "BASICO" ? 0 : Number(modalPases);
 
     const eventoData = {
       title: modalTitle,
@@ -448,7 +448,7 @@ export default function AdminDashboardPage() {
           event: modalSlug, 
           config: {
             ...eventoData,
-            plan: modalPlan, // Aseguramos la persistencia explícita del plan
+            plan: modalPlan,
           } 
         }),
       });
@@ -461,13 +461,14 @@ export default function AdminDashboardPage() {
     if (editandoEventoId) {
       listaActualizada = eventos.map((ev) =>
         ev.id === editandoEventoId 
-          ? { ...ev, ...eventoData, plan: modalPlan } 
+          ? { ...ev, ...eventoData, id: editandoEventoId, plan: modalPlan } 
           : ev
       );
     } else {
       const nuevo: EventItem = {
         id: Date.now().toString(),
         ...eventoData,
+        plan: modalPlan,
         questions: [],
       };
       listaActualizada = [...eventos, nuevo];
@@ -958,7 +959,7 @@ export default function AdminDashboardPage() {
 
                       <div className="text-[11px] text-slate-400 mt-3 space-y-1">
                         <p>📅 Fecha: {ev.targetDate || "Sin fecha"}</p>
-                        <p>🎫 Pases por defecto: {ev.plan === "BASICO" ? 1 : ev.pasesAsignados || 2}</p>
+                        <p>🎫 Pases por defecto: {ev.plan === "BASICO" ? 0 : ev.pasesAsignados || 2}</p>
                         <p>📱 WhatsApp: {ev.whatsappPhone || "No asignado"}</p>
                       </div>
 
@@ -974,7 +975,7 @@ export default function AdminDashboardPage() {
                           <button
                             type="button"
                             onClick={() =>
-                              abrirPasesLink(ev.slug, ev.plan === "BASICO" ? 1 : ev.pasesAsignados || 2)
+                              abrirPasesLink(ev.slug, ev.plan === "BASICO" ? 0 : ev.pasesAsignados || 2)
                             }
                             className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-1.5 rounded-lg text-center truncate cursor-pointer hover:bg-emerald-500/20"
                           >
@@ -1550,7 +1551,7 @@ export default function AdminDashboardPage() {
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-[#121c33] border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl">
             <h3 className="text-sm font-black text-amber-500 uppercase tracking-wider">
-              {editandoEventoId ? "✏️ EDITAR EVENTO" : "➕ CREAR NUEVO EVENTO"}
+              {editandoEventoId ? "✏️️ EDITAR EVENTO" : "➕ CREAR NUEVO EVENTO"}
             </h3>
 
             <form onSubmit={handleGuardarEvento} className="space-y-3.5 text-xs">
