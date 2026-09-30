@@ -210,7 +210,7 @@ export default function AdminDashboardPage() {
 
   const [respuestas, setRespuestas] = useState<any[]>([]);
 
-  // LÓGICA MULTIEVENTO CORREGIDA: Garantiza que cualquier cliente vea sus eventos
+  // Lógica multievento para visibilidad
   const eventosVisibles = eventos.filter((e) => {
     if (rolUsuarioActual === "ADMINISTRADOR" || slugAsignado === "todos") {
       return true;
@@ -301,7 +301,7 @@ export default function AdminDashboardPage() {
     setModalSlug(ev.slug);
     setSlugEditadoManualmente(true);
     setModalDate(ev.targetDate);
-    setModalPlan(ev.plan);
+    setModalPlan(ev.plan || "PLUS");
     setModalWhatsapp(ev.whatsappPhone || "5218115591681");
     setModalPases(ev.pasesAsignados || 2);
     setModalActive(ev.active);
@@ -403,7 +403,7 @@ export default function AdminDashboardPage() {
     });
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
+    const url = URL.ObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
     link.setAttribute("download", `Lista_Invitados_${eventoActual?.slug || "evento"}.csv`);
@@ -449,7 +449,7 @@ export default function AdminDashboardPage() {
     );
   };
 
-  // Manejo de Clientes / Colaboradores
+  // Manejo de Colaboradores
   const handleGuardarUsuario = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nuevoNombre || !nuevoWhatsapp) return;
@@ -628,7 +628,7 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* SELECTOR GLOBAL DE EVENTO ACTIVO PARA TRABAJAR */}
+        {/* SELECTOR GLOBAL DE EVENTO ACTIVO */}
         {eventosVisibles.length > 0 && (
           <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3 flex flex-col md:flex-row items-center justify-between gap-3">
             <span className="text-xs font-bold text-slate-400">
@@ -719,9 +719,14 @@ export default function AdminDashboardPage() {
                         <h3 className="text-sm font-bold text-slate-100">
                           {ev.title}
                         </h3>
-                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                          {ev.active ? "ACTIVO" : "INACTIVO"}
-                        </span>
+                        <div className="flex gap-1">
+                          <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                            {ev.plan || "PLUS"}
+                          </span>
+                          <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            {ev.active ? "ACTIVO" : "INACTIVO"}
+                          </span>
+                        </div>
                       </div>
 
                       <p className="text-xs font-mono text-amber-400 mt-1">
@@ -730,6 +735,7 @@ export default function AdminDashboardPage() {
 
                       <div className="text-[11px] text-slate-400 mt-3 space-y-1">
                         <p>📅 Fecha: {ev.targetDate || "Sin fecha"}</p>
+                        <p>🎫 Pases por defecto: {ev.pasesAsignados || 2}</p>
                         <p>📱 WhatsApp: {ev.whatsappPhone || "No asignado"}</p>
                       </div>
 
@@ -798,7 +804,7 @@ export default function AdminDashboardPage() {
           <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 md:p-8 space-y-6 shadow-2xl">
             <div className="border-b border-slate-800 pb-4">
               <h2 className="text-xs font-black text-amber-500 uppercase tracking-wider">
-                🛠️ DISEÑADOR DE FORMULARIO DE CONFIRMACIÓN
+                🛠️️ DISEÑADOR DE FORMULARIO DE CONFIRMACIÓN
               </h2>
               <p className="text-xs text-slate-400 mt-1">
                 Editando campos del evento:{" "}
@@ -955,7 +961,7 @@ export default function AdminDashboardPage() {
                 <div className="flex justify-between items-center border-b border-slate-900 pb-2">
                   <h3 className="text-xs font-bold text-amber-400 uppercase">
                     {usuarioEditandoId
-                      ? "✏️ EDITAR COLABORADOR / CLIENTE"
+                      ? "✏️️ EDITAR COLABORADOR / CLIENTE"
                       : "➕ DAR DE ALTA NUEVO COLABORADOR / CLIENTE"}
                   </h3>
                   {usuarioEditandoId && (
@@ -1044,7 +1050,7 @@ export default function AdminDashboardPage() {
                 </div>
               </form>
 
-              {/* TABLA DE CLIENTES CON OJO DE CONTRASEÑA */}
+              {/* TABLA DE CLIENTES */}
               <div className="overflow-x-auto border border-slate-800 rounded-2xl bg-slate-950">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
@@ -1141,31 +1147,32 @@ export default function AdminDashboardPage() {
           )}
       </div>
 
-      {/* MODAL CREAR / EDITAR EVENTO */}
+      {/* MODAL CREAR / EDITAR EVENTO (INCLUYE PLANES Y PASES) */}
       {mostrarModalEvento && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-[#121c33] border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl">
             <h3 className="text-sm font-black text-amber-500 uppercase tracking-wider">
-              {editandoEventoId ? "✏️ Editar Evento" : "➕ Crear Nuevo Evento"}
+              {editandoEventoId ? "✏️ EDITAR EVENTO" : "➕ CREAR NUEVO EVENTO"}
             </h3>
 
-            <form onSubmit={handleGuardarEvento} className="space-y-3 text-xs">
+            <form onSubmit={handleGuardarEvento} className="space-y-3.5 text-xs">
               <div>
                 <label className="block text-slate-400 font-bold mb-1">
-                  Nombre del Evento
+                  Nombre del Evento *
                 </label>
                 <input
                   type="text"
                   value={modalTitle}
                   onChange={(e) => handleTitleChange(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-100"
+                  placeholder="Ej. Boda Yunnie y Juan"
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-amber-500"
                   required
                 />
               </div>
 
               <div>
                 <label className="block text-slate-400 font-bold mb-1">
-                  Slug URL (ej. boda-maria)
+                  Slug URL (ej. boda-maria) *
                 </label>
                 <input
                   type="text"
@@ -1174,7 +1181,7 @@ export default function AdminDashboardPage() {
                     setModalSlug(e.target.value);
                     setSlugEditadoManualmente(true);
                   }}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-amber-400 font-mono"
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-amber-400 font-mono focus:outline-none focus:border-amber-500"
                   required
                 />
               </div>
@@ -1182,15 +1189,47 @@ export default function AdminDashboardPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-400 font-bold mb-1">
-                    Fecha
+                    Plan Contratado
+                  </label>
+                  <select
+                    value={modalPlan}
+                    onChange={(e) => setModalPlan(e.target.value as PlanType)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-amber-400 font-bold focus:outline-none focus:border-amber-500"
+                  >
+                    <option value="BASICO">BÁSICO</option>
+                    <option value="PLUS">PLUS</option>
+                    <option value="PREMIUM">PREMIUM</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 font-bold mb-1">
+                    Pases Asignados x Defecto
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={modalPases}
+                    onChange={(e) => setModalPases(Number(e.target.value))}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 font-mono focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-400 font-bold mb-1">
+                    Fecha del Evento
                   </label>
                   <input
                     type="date"
                     value={modalDate}
                     onChange={(e) => setModalDate(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-100"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-amber-500"
                   />
                 </div>
+
                 <div>
                   <label className="block text-slate-400 font-bold mb-1">
                     WhatsApp Notificaciones
@@ -1199,16 +1238,17 @@ export default function AdminDashboardPage() {
                     type="text"
                     value={modalWhatsapp}
                     onChange={(e) => setModalWhatsapp(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-100"
+                    placeholder="5218115591681"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 font-mono focus:outline-none focus:border-amber-500"
                   />
                 </div>
               </div>
 
-              <div className="pt-2 flex items-center justify-end gap-2">
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-900">
                 <button
                   type="button"
                   onClick={() => setMostrarModalEvento(false)}
-                  className="bg-slate-800 text-slate-300 font-bold px-4 py-2 rounded-xl cursor-pointer"
+                  className="bg-slate-800 text-slate-300 font-bold px-4 py-2 rounded-xl cursor-pointer hover:bg-slate-700"
                 >
                   Cancelar
                 </button>
