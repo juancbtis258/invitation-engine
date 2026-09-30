@@ -278,8 +278,8 @@ export default function InvitacionPublicaPage() {
               ← Back
             </button>
 
-            <div className="space-y-3">
-              <label className="block text-lg font-black text-slate-100">
+           <div className={(event as any)?.plan === "BASICO" ? "hidden" : "block"}>
+              <label className="block text-slate-400 font-bold mb-1">
                 ¿Cuántas personas asistirán? *
               </label>
               <select
