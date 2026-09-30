@@ -29,13 +29,25 @@ interface UserItem {
   activo: boolean;
 }
 
+// Función auxiliar para convertir texto a Slug limpio (URL Friendly)
+function generateSlug(text: string): string {
+  return text
+    .toString()
+    .toLowerCase()
+    .trim()
+    .normalize("NFD") // Separa acentos de letras
+    .replace(/[\u0300-\u036f]/g, "") // Elimina acentos
+    .replace(/&/g, "-and-") // Cambia & por and
+    .replace(/[^a-z0-9 -]/g, "") // Elimina caracteres especiales
+    .replace(/\s+/g, "-") // Reemplaza espacios con guiones
+    .replace(/-+/g, "-"); // Elimina guiones dobles
+}
+
 export default function AdminDashboardPage() {
-  // Navegación por pestañas
   const [tabActiva, setTabActiva] = useState<
     "eventos" | "disenador" | "respuestas" | "colaboradores"
-  >("colaboradores");
+  >("eventos");
 
-  // LISTA DE EVENTOS (Catálogo)
   const [eventos, setEventos] = useState<EventItem[]>([
     {
       id: "1",
@@ -62,13 +74,14 @@ export default function AdminDashboardPage() {
   const [mostrarModalEvento, setMostrarModalEvento] = useState(false);
   const [modalTitle, setModalTitle] = useState("");
   const [modalSlug, setModalSlug] = useState("");
+  const [slugEditadoManualmente, setSlugEditadoManualmente] = useState(false);
   const [modalDate, setModalDate] = useState("");
   const [modalPlan, setModalPlan] = useState("PLUS");
   const [modalWhatsapp, setModalWhatsapp] = useState("");
   const [modalActive, setModalActive] = useState(true);
   const [editandoEventoId, setEditandoEventoId] = useState<string | null>(null);
 
-  // DISEÑADOR DE PREGUNTAS DINÁMICAS
+  // DISEÑADOR DE PREGUNTAS
   const [nuevaPreguntaLabel, setNuevaPreguntaLabel] = useState("");
   const [nuevaPreguntaTipo, setNuevaPreguntaTipo] = useState<
     "text" | "choice" | "boolean"
@@ -76,7 +89,7 @@ export default function AdminDashboardPage() {
   const [nuevaPreguntaOpciones, setNuevaPreguntaOpciones] = useState("");
   const [nuevaPreguntaRequerida, setNuevaPreguntaRequerida] = useState(false);
 
-  // USUARIOS / COLABORADORES (RÉPLICA EXACTA DE LA IMAGEN)
+  // COLABORADORES
   const [usuarios, setUsuarios] = useState<UserItem[]>([
     {
       id: "u1",
@@ -104,7 +117,6 @@ export default function AdminDashboardPage() {
 
   const eventoActual = eventos.find((e) => e.id === eventoSeleccionadoId) || eventos[0];
 
-  // Cargar datos de API al seleccionar evento
   useEffect(() => {
     if (!eventoActual) return;
     fetch(`/api/form-config?event=${eventoActual.slug}`)
@@ -117,11 +129,19 @@ export default function AdminDashboardPage() {
       .catch((err) => console.error("Error al sincronizar respuestas:", err));
   }, [eventoSeleccionadoId, eventoActual?.slug]);
 
-  // --- GESTIÓN DE EVENTOS ---
+  // Manejador para actualizar el título y auto-generar el Slug
+  const handleTitleChange = (val: string) => {
+    setModalTitle(val);
+    if (!slugEditadoManualmente) {
+      setModalSlug(generateSlug(val));
+    }
+  };
+
   const abrirModalCrear = () => {
     setEditandoEventoId(null);
     setModalTitle("");
     setModalSlug("");
+    setSlugEditadoManualmente(false);
     setModalDate("");
     setModalPlan("PLUS");
     setModalWhatsapp("");
@@ -133,6 +153,7 @@ export default function AdminDashboardPage() {
     setEditandoEventoId(ev.id);
     setModalTitle(ev.title);
     setModalSlug(ev.slug);
+    setSlugEditadoManualmente(true);
     setModalDate(ev.targetDate);
     setModalPlan(ev.plan);
     setModalWhatsapp(ev.whatsappPhone || "");
@@ -188,7 +209,6 @@ export default function AdminDashboardPage() {
     setEventos([...eventos, duplicado]);
   };
 
-  // --- GESTIÓN DE PREGUNTAS EN EL DISEÑADOR ---
   const handleAgregarPregunta = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nuevaPreguntaLabel || !eventoActual) return;
@@ -226,7 +246,6 @@ export default function AdminDashboardPage() {
     setEventos(actualizados);
   };
 
-  // --- GESTIÓN DE USUARIOS / COLABORADORES ---
   const handleGuardarUsuario = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nuevoNombre || !nuevoCorreo) return;
@@ -408,16 +427,16 @@ export default function AdminDashboardPage() {
                       }}
                       className="bg-slate-800/80 hover:bg-slate-700 text-emerald-400 text-xs font-bold px-4 py-2 rounded-xl transition-all"
                     >
-                      🛠️️ Diseñar Preguntas
+                      🛠 Diseñar Preguntas
                     </button>
 
                     <a
-                      href={`/?event=${ev.slug}`}
+                      href={`/?event=${ev.slug}&p=2`}
                       target="_blank"
                       rel="noreferrer"
                       className="bg-slate-800/80 hover:bg-slate-700 text-amber-400 text-xs font-bold px-4 py-2 rounded-xl transition-all"
                     >
-                      🔗 Ver Demo
+                      🔗 Ver Demo (2 pases)
                     </a>
                   </div>
                 </div>
@@ -589,11 +608,9 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* PESTAÑA 4: COLABORADORES (RÉPLICA EXACTA DE TU CAPTURA) */}
+        {/* PESTAÑA 4: COLABORADORES */}
         {tabActiva === "colaboradores" && (
           <div className="space-y-6">
-            
-            {/* FORMULARIO: REGISTRAR NUEVO COLABORADOR O CLIENTE */}
             <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 space-y-4 shadow-xl">
               <h2 className="text-xs font-black text-amber-500 tracking-wider uppercase">
                 {usuarioEditandoId ? "EDITAR COLABORADOR O CLIENTE" : "REGISTRAR NUEVO COLABORADOR O CLIENTE"}
@@ -644,7 +661,6 @@ export default function AdminDashboardPage() {
               </form>
             </div>
 
-            {/* TABLA: USUARIOS REGISTRADOS EN LA PLATAFORMA */}
             <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 space-y-4 shadow-xl">
               <h2 className="text-xs font-black text-amber-500 tracking-wider uppercase">
                 USUARIOS REGISTRADOS EN LA PLATAFORMA
@@ -704,7 +720,6 @@ export default function AdminDashboardPage() {
                 </table>
               </div>
             </div>
-
           </div>
         )}
 
@@ -725,7 +740,7 @@ export default function AdminDashboardPage() {
                     type="text"
                     placeholder="Ej. Boda María & Alejandro"
                     value={modalTitle}
-                    onChange={(e) => setModalTitle(e.target.value)}
+                    onChange={(e) => handleTitleChange(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
                     required
                   />
@@ -739,7 +754,10 @@ export default function AdminDashboardPage() {
                     type="text"
                     placeholder="Ej. boda-maria-alejandro"
                     value={modalSlug}
-                    onChange={(e) => setModalSlug(e.target.value)}
+                    onChange={(e) => {
+                      setModalSlug(e.target.value);
+                      setSlugEditadoManualmente(true);
+                    }}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
                     required
                   />
