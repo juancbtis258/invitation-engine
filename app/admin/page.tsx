@@ -139,7 +139,7 @@ export default function AdminDashboardPage() {
   const [nuevaPreguntaOpciones, setNuevaPreguntaOpciones] = useState("");
   const [nuevaPreguntaRequerida, setNuevaPreguntaRequerida] = useState(false);
 
-  // ESTADOS DE COLABORADORES Y USUARIOS COMPLETO
+  // ESTADOS DE COLABORADORES Y USUARIOS
   const [usuarios, setUsuarios] = useState<UserItem[]>([
     {
       id: "u1",
@@ -397,7 +397,7 @@ export default function AdminDashboardPage() {
     );
   };
 
-  // MANEJO COMPLETO DE USUARIOS
+  // MANEJO DE USUARIOS
   const handleGuardarUsuario = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nuevoNombre || !nuevoCorreo) return;
@@ -470,6 +470,27 @@ export default function AdminDashboardPage() {
 
   const handleEliminarUsuario = (id: string) => {
     setUsuarios(usuarios.filter((u) => u.id !== id));
+  };
+
+  // ENVIAR ACCESOS DIRECTO POR WHATSAPP
+  const enviarAccesosPorWhatsapp = (u: UserItem) => {
+    const loginUrl = `${window.location.origin}/login`;
+    const portalUrl = u.eventoAsignadoSlug && u.eventoAsignadoSlug !== "todos"
+      ? `${window.location.origin}/respuestas/${u.eventoAsignadoSlug}`
+      : loginUrl;
+
+    const texto =
+      `¡Hola ${u.nombre}! 👋\n\n` +
+      `Tus credenciales de acceso a la plataforma ya están activas. Puedes consultar los detalles de tu evento y las confirmaciones de tus invitados:\n\n` +
+      `🌐 *Enlace de Login:* ${loginUrl}\n` +
+      `📊 *Portal Directo:* ${portalUrl}\n` +
+      `👤 *Usuario:* ${u.username || u.correo}\n` +
+      `🔑 *Contraseña:* ${u.password || "123456"}\n` +
+      `📌 *Evento Asignado:* /${u.eventoAsignadoSlug || "demo"}\n\n` +
+      `Cualquier duda quedamos a tus órdenes. ¡Excelente día! ✨`;
+
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
+    window.open(url, "_blank");
   };
 
   return (
@@ -846,7 +867,7 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* PESTAÑA 4: COLABORADORES Y USUARIOS PROFESIONAL */}
+        {/* PESTAÑA 4: COLABORADORES CON WHATSAPP DIRECTO */}
         {tabActiva === "colaboradores" && rolUsuarioActual === "ADMINISTRADOR" && (
           <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 md:p-8 space-y-6 shadow-2xl">
             <div className="border-b border-slate-800 pb-4">
@@ -854,18 +875,17 @@ export default function AdminDashboardPage() {
                 👥 GESTIÓN PROFESIONAL DE ACCESOS Y CLIENTES
               </h2>
               <p className="text-xs text-slate-400 mt-1">
-                Administra usuarios, credenciales de acceso, asignación de eventos y contraseñas.
+                Administra usuarios, credenciales de acceso, asignación de eventos y envía sus datos por WhatsApp.
               </p>
             </div>
 
-            {/* FORMULARIO AVANZADO */}
+            {/* FORMULARIO */}
             <form onSubmit={handleGuardarUsuario} className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4">
               <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider">
-                {usuarioEditandoId ? "✏️ Editar Credenciales de Colaborador" : "➕ Dar de Alta Nuevo Colaborador / Cliente"}
+                {usuarioEditandoId ? "✏️️ Editar Credenciales de Colaborador" : "➕ Dar de Alta Nuevo Colaborador / Cliente"}
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {/* NOMBRE REAL */}
                 <div>
                   <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
                     Nombre Completo *
@@ -880,7 +900,6 @@ export default function AdminDashboardPage() {
                   />
                 </div>
 
-                {/* NOMBRE DE USUARIO (USERNAME) */}
                 <div>
                   <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
                     Nombre de Usuario (Login)
@@ -894,7 +913,6 @@ export default function AdminDashboardPage() {
                   />
                 </div>
 
-                {/* CORREO */}
                 <div>
                   <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
                     Correo Electrónico *
@@ -909,7 +927,6 @@ export default function AdminDashboardPage() {
                   />
                 </div>
 
-                {/* CONTRASEÑA */}
                 <div>
                   <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
                     {usuarioEditandoId ? "Cambiar Contraseña" : "Asignar Contraseña *"}
@@ -923,7 +940,6 @@ export default function AdminDashboardPage() {
                   />
                 </div>
 
-                {/* ROL */}
                 <div>
                   <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
                     Rol de Sistema
@@ -938,7 +954,6 @@ export default function AdminDashboardPage() {
                   </select>
                 </div>
 
-                {/* EVENTO ASIGNADO */}
                 <div>
                   <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
                     Evento Asignado / Cliente
@@ -958,7 +973,6 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
-              {/* BOTONES Y ESTADO */}
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
                 <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer select-none">
                   <input
@@ -990,7 +1004,7 @@ export default function AdminDashboardPage() {
               </div>
             </form>
 
-            {/* TABLA PROFESIONAL DE USUARIOS */}
+            {/* TABLA DE USUARIOS CON ACCIÓN WHATSAPP */}
             <div className="overflow-x-auto border border-slate-800 rounded-2xl bg-slate-950">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
@@ -1007,7 +1021,6 @@ export default function AdminDashboardPage() {
                 <tbody className="divide-y divide-slate-800/60">
                   {usuarios.map((u) => (
                     <tr key={u.id} className="hover:bg-slate-900/40">
-                      {/* NOMBRE Y USERNAME */}
                       <td className="p-3 font-semibold text-slate-100">
                         {u.nombre}
                         <span className="block text-[10px] font-mono text-amber-400">
@@ -1015,17 +1028,14 @@ export default function AdminDashboardPage() {
                         </span>
                       </td>
 
-                      {/* CORREO */}
                       <td className="p-3 text-slate-300 font-mono text-[11px]">
                         {u.correo}
                       </td>
 
-                      {/* CONTRASEÑA */}
                       <td className="p-3 font-mono text-emerald-400 font-bold">
                         {u.password ? u.password : "••••••••"}
                       </td>
 
-                      {/* ROL Y EVENTO */}
                       <td className="p-3">
                         <span className="font-bold text-amber-400 block">{u.rol}</span>
                         <span className="text-[10px] text-sky-400 font-mono">
@@ -1033,12 +1043,10 @@ export default function AdminDashboardPage() {
                         </span>
                       </td>
 
-                      {/* FECHA DE ALTA */}
                       <td className="p-3 text-slate-500 font-mono text-[11px]">
                         📅 {u.createdAt || "2026-01-10"}
                       </td>
 
-                      {/* ESTADO CON BOTÓN CONMUTADOR */}
                       <td className="p-3">
                         <button
                           onClick={() => handleToggleEstadoUsuario(u.id)}
@@ -1052,21 +1060,29 @@ export default function AdminDashboardPage() {
                         </button>
                       </td>
 
-                      {/* ACCIONES */}
-                      <td className="p-3 text-right space-x-2">
+                      <td className="p-3 text-right space-x-1.5">
+                        <button
+                          onClick={() => enviarAccesosPorWhatsapp(u)}
+                          className="bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30 px-2.5 py-1 rounded-lg transition-all cursor-pointer font-bold"
+                          title="Enviar credenciales de acceso por WhatsApp"
+                        >
+                          💬 Enviar
+                        </button>
+
                         <button
                           onClick={() => handleEditarUsuario(u)}
                           className="bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800 px-2.5 py-1 rounded-lg transition-all cursor-pointer"
                           title="Editar usuario y contraseña"
                         >
-                          ✏️ Editar
+                          ✏️
                         </button>
+
                         <button
                           onClick={() => handleEliminarUsuario(u.id)}
                           className="bg-rose-950/40 text-rose-400 hover:bg-rose-900/60 border border-rose-900/50 px-2.5 py-1 rounded-lg transition-all cursor-pointer"
                           title="Eliminar usuario"
                         >
-                          🗑️ Eliminar
+                          🗑️
                         </button>
                       </td>
                     </tr>
