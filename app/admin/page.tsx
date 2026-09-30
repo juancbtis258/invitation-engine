@@ -84,7 +84,6 @@ const TIPO_LABELS: Record<QuestionType, { name: string; icon: string }> = {
   email_phone: { name: "Correo / Teléfono", icon: "📧" },
 };
 
-// CATALOGO DE PLANTILLAS MUESTRA PREDEFINIDAS
 const PLANTILLAS_MUESTRA: TemplatePreset[] = [
   {
     id: "preset-boda",
@@ -119,7 +118,7 @@ const PLANTILLAS_MUESTRA: TemplatePreset[] = [
         label: "Petición de Canción para el DJ",
         type: "text",
         required: false,
-        placeholder: "Artísta - Nombre de la canción",
+        placeholder: "Artista - Nombre de la canción",
       },
     ],
   },
@@ -163,6 +162,33 @@ const PLANTILLAS_MUESTRA: TemplatePreset[] = [
   },
 ];
 
+const EVENTOS_DEFAULT: EventItem[] = [
+  {
+    id: "1",
+    slug: "demo",
+    title: "Boda María & Alejandro",
+    targetDate: "2026-10-15",
+    plan: "PLUS",
+    active: true,
+    whatsappPhone: "5218115591681",
+    pasesAsignados: 2,
+    ownerUsername: "amejia",
+    questions: [],
+  },
+  {
+    id: "2",
+    slug: "yunnie-y-juan",
+    title: "Yunnie y Juan",
+    targetDate: "2026-09-21",
+    plan: "PLUS",
+    active: true,
+    whatsappPhone: "5218116122704",
+    pasesAsignados: 2,
+    ownerUsername: "yunnie",
+    questions: [],
+  },
+];
+
 export default function AdminDashboardPage() {
   const router = useRouter();
 
@@ -181,13 +207,17 @@ export default function AdminDashboardPage() {
   const [filtroEstado, setFiltroEstado] = useState<"todos" | "activos" | "inactivos">("todos");
   const [guardandoConfig, setGuardandoConfig] = useState(false);
 
-  // Estado del Modal de Plantillas Muestra
   const [mostrarModalPlantillas, setMostrarModalPlantillas] = useState(false);
   const [plantillasComunidad, setPlantillasComunidad] = useState<TemplatePreset[]>(PLANTILLAS_MUESTRA);
 
   const [eventoDestinoSlug, setEventoDestinoSlug] = useState("");
   const [mostrarPasswordIds, setMostrarPasswordIds] = useState<Record<string, boolean>>({});
 
+  // ESTADO DE EVENTOS CON PERSISTENCIA
+  const [eventos, setEventos] = useState<EventItem[]>(EVENTOS_DEFAULT);
+  const [eventoSeleccionadoId, setEventoSeleccionadoId] = useState<string>("2");
+
+  // CARGAR EVENTOS DE LOCALSTORAGE AL INICIAR
   useEffect(() => {
     const role = (localStorage.getItem("userRole") as "ADMINISTRADOR" | "CLIENTE") || "CLIENTE";
     const slug = localStorage.getItem("userSlug") || "todos";
@@ -204,8 +234,28 @@ export default function AdminDashboardPage() {
       setTabActiva(tabGuardada);
     }
 
+    // Restaurar eventos guardados previamente
+    const eventosGuardados = localStorage.getItem("app_eventos_lista");
+    if (eventosGuardados) {
+      try {
+        const parsed = JSON.parse(eventosGuardados);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setEventos(parsed);
+          setEventoSeleccionadoId(parsed[0].id);
+        }
+      } catch (err) {
+        console.error("Error al parsear eventos:", err);
+      }
+    }
+
     setCargandoSesion(false);
   }, []);
+
+  // GUARDAR EVENTOS EN LOCALSTORAGE AUTOMÁTICAMENTE
+  const actualizarEventos = (nuevosEventos: EventItem[]) => {
+    setEventos(nuevosEventos);
+    localStorage.setItem("app_eventos_lista", JSON.stringify(nuevosEventos));
+  };
 
   const cambiarTab = (
     tab: "eventos" | "disenador" | "respuestas" | "colaboradores"
@@ -213,35 +263,6 @@ export default function AdminDashboardPage() {
     setTabActiva(tab);
     localStorage.setItem("adminTabActiva", tab);
   };
-
-  const [eventos, setEventos] = useState<EventItem[]>([
-    {
-      id: "1",
-      slug: "demo",
-      title: "Boda María & Alejandro",
-      targetDate: "2026-10-15",
-      plan: "PLUS",
-      active: true,
-      whatsappPhone: "5218115591681",
-      pasesAsignados: 2,
-      ownerUsername: "amejia",
-      questions: [],
-    },
-    {
-      id: "2",
-      slug: "yunnie-y-juan",
-      title: "Yunnie y Juan",
-      targetDate: "2026-09-21",
-      plan: "PLUS",
-      active: true,
-      whatsappPhone: "5218116122704",
-      pasesAsignados: 2,
-      ownerUsername: "yunnie",
-      questions: [],
-    },
-  ]);
-
-  const [eventoSeleccionadoId, setEventoSeleccionadoId] = useState<string>("2");
 
   // Modal de Evento
   const [mostrarModalEvento, setMostrarModalEvento] = useState(false);
@@ -351,11 +372,11 @@ export default function AdminDashboardPage() {
           setRespuestas([]);
         }
         if (data.data?.questions) {
-          setEventos((prev) =>
-            prev.map((e) =>
-              e.id === eventoActual.id ? { ...e, questions: data.data.questions } : e
-            )
+          const actualizados = eventos.map((e) =>
+            e.id === eventoActual.id ? { ...e, questions: data.data.questions } : e
           );
+          setEventos(actualizados);
+          localStorage.setItem("app_eventos_lista", JSON.stringify(actualizados));
         }
       })
       .catch((err) => console.error("Error al cargar datos del evento:", err));
@@ -380,7 +401,7 @@ export default function AdminDashboardPage() {
     setSlugEditadoManualmente(false);
     setModalDate("");
     setModalPlan("PLUS");
-    setModalWhatsapp("5218115591681");
+    setModalWhatsapp("5218116122704");
     setModalPases(2);
     setModalActive(true);
     setMostrarModalEvento(true);
@@ -395,7 +416,7 @@ export default function AdminDashboardPage() {
     
     const planEv = ev.plan || "PLUS";
     setModalPlan(planEv);
-    setModalWhatsapp(ev.whatsappPhone || "5218115591681");
+    setModalWhatsapp(ev.whatsappPhone || "5218116122704");
     setModalPases(planEv === "BASICO" ? 1 : ev.pasesAsignados || 2);
     setModalActive(ev.active);
     setMostrarModalEvento(true);
@@ -429,11 +450,11 @@ export default function AdminDashboardPage() {
       console.error("Error guardando en API:", error);
     }
 
+    let listaActualizada: EventItem[];
+
     if (editandoEventoId) {
-      setEventos(
-        eventos.map((ev) =>
-          ev.id === editandoEventoId ? { ...ev, ...eventoData } : ev
-        )
+      listaActualizada = eventos.map((ev) =>
+        ev.id === editandoEventoId ? { ...ev, ...eventoData } : ev
       );
     } else {
       const nuevo: EventItem = {
@@ -441,15 +462,17 @@ export default function AdminDashboardPage() {
         ...eventoData,
         questions: [],
       };
-      setEventos((prev) => [...prev, nuevo]);
+      listaActualizada = [...eventos, nuevo];
       setEventoSeleccionadoId(nuevo.id);
     }
+
+    actualizarEventos(listaActualizada);
     setMostrarModalEvento(false);
   };
 
   const handleEliminarEvento = (id: string) => {
     const filtrados = eventos.filter((e) => e.id !== id);
-    setEventos(filtrados);
+    actualizarEventos(filtrados);
     if (eventoSeleccionadoId === id && filtrados.length > 0) {
       setEventoSeleccionadoId(filtrados[0].id);
     }
@@ -538,11 +561,11 @@ export default function AdminDashboardPage() {
 
     const actualizadas = [...(eventoActual.questions || []), nuevaQ];
 
-    setEventos((prev) =>
-      prev.map((ev) =>
-        ev.id === eventoActual.id ? { ...ev, questions: actualizadas } : ev
-      )
+    const listaActualizada = eventos.map((ev) =>
+      ev.id === eventoActual.id ? { ...ev, questions: actualizadas } : ev
     );
+
+    actualizarEventos(listaActualizada);
 
     setNuevaPreguntaLabel("");
     setNuevaPreguntaOpciones("");
@@ -555,31 +578,29 @@ export default function AdminDashboardPage() {
     if (!eventoActual) return;
     const actualizadas = (eventoActual.questions || []).filter((q) => q.id !== qId);
 
-    setEventos((prev) =>
-      prev.map((ev) =>
-        ev.id === eventoActual.id ? { ...ev, questions: actualizadas } : ev
-      )
+    const listaActualizada = eventos.map((ev) =>
+      ev.id === eventoActual.id ? { ...ev, questions: actualizadas } : ev
     );
+
+    actualizarEventos(listaActualizada);
 
     await guardarPreguntasEnServidor(eventoActual.slug, actualizadas);
   };
 
-  // CARGAR PLANTILLA DESDE EL PANEL MUESTRA
   const handleAplicarPreset = async (preset: TemplatePreset) => {
     if (!eventoActual) return;
 
-    setEventos((prev) =>
-      prev.map((ev) =>
-        ev.id === eventoActual.id ? { ...ev, questions: preset.questions } : ev
-      )
+    const listaActualizada = eventos.map((ev) =>
+      ev.id === eventoActual.id ? { ...ev, questions: preset.questions } : ev
     );
+
+    actualizarEventos(listaActualizada);
 
     await guardarPreguntasEnServidor(eventoActual.slug, preset.questions);
     setMostrarModalPlantillas(false);
     alert(`¡Plantilla "${preset.title}" aplicada con éxito a ${eventoActual.title}!`);
   };
 
-  // COMPARTIR MI PLANTILLA ACTUAL CON OTROS USUARIOS
   const handleCompartirMiPlantilla = () => {
     if (!eventoActual || !eventoActual.questions || eventoActual.questions.length === 0) {
       alert("Tu plantilla actual está vacía. Agrega al menos una pregunta para compartirla.");
@@ -596,7 +617,7 @@ export default function AdminDashboardPage() {
     };
 
     setPlantillasComunidad((prev) => [nuevaPlantillaCompartida, ...prev]);
-    alert("¡Tu plantilla ha sido publicada en el Panel Muestra y ahora otros usuarios pueden inspirarse en ella!");
+    alert("¡Tu plantilla ha sido publicada en el Panel Muestra!");
   };
 
   const handleDuplicarPlantillaAEvento = async () => {
@@ -607,11 +628,11 @@ export default function AdminDashboardPage() {
 
     const preguntasCopiar = eventoActual.questions || [];
 
-    setEventos((prev) =>
-      prev.map((ev) =>
-        ev.slug === eventoDestinoSlug ? { ...ev, questions: preguntasCopiar } : ev
-      )
+    const listaActualizada = eventos.map((ev) =>
+      ev.slug === eventoDestinoSlug ? { ...ev, questions: preguntasCopiar } : ev
     );
+
+    actualizarEventos(listaActualizada);
 
     await guardarPreguntasEnServidor(eventoDestinoSlug, preguntasCopiar);
     alert(`¡Plantilla duplicada con éxito hacia el evento /${eventoDestinoSlug}!`);
@@ -624,9 +645,11 @@ export default function AdminDashboardPage() {
       return;
     }
 
-    setEventos((prev) =>
-      prev.map((ev) => (ev.id === eventoActual.id ? { ...ev, questions: [] } : ev))
+    const listaActualizada = eventos.map((ev) =>
+      ev.id === eventoActual.id ? { ...ev, questions: [] } : ev
     );
+
+    actualizarEventos(listaActualizada);
 
     await guardarPreguntasEnServidor(eventoActual.slug, []);
   };
@@ -997,7 +1020,7 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* PESTAÑA 2: DISEÑADOR CON PANEL MUESTRA Y COMUNIDAD */}
+        {/* PESTAÑA 2: DISEÑADOR */}
         {tabActiva === "disenador" && (
           <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 md:p-8 space-y-6 shadow-2xl">
             <div className="border-b border-slate-800 pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
@@ -1013,7 +1036,6 @@ export default function AdminDashboardPage() {
                 </p>
               </div>
 
-              {/* BARRA DE ACCIÓN: PANEL MUESTRA + COMPARTIR */}
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
@@ -1027,7 +1049,6 @@ export default function AdminDashboardPage() {
                   type="button"
                   onClick={handleCompartirMiPlantilla}
                   className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all"
-                  title="Compartir tus preguntas actuales en la galería pública"
                 >
                   🌐 Compartir mi Plantilla
                 </button>
@@ -1042,7 +1063,6 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            {/* DUPLICAR ENTRE TUS PROPIOS EVENTOS */}
             <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-3">
               <span className="text-xs font-bold text-slate-300">
                 📋 Copiar esta plantilla hacia otro evento de tu catálogo:
@@ -1072,7 +1092,6 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            {/* CREAR PREGUNTA LIBRE */}
             <form
               onSubmit={handleAgregarPregunta}
               className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4"
@@ -1266,7 +1285,6 @@ export default function AdminDashboardPage() {
                 </p>
               </div>
 
-              {/* FORMULARIO DE ALTA / EDICIÓN */}
               <form
                 onSubmit={handleGuardarUsuario}
                 className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4"
@@ -1363,7 +1381,6 @@ export default function AdminDashboardPage() {
                 </div>
               </form>
 
-              {/* TABLA DE CLIENTES */}
               <div className="overflow-x-auto border border-slate-800 rounded-2xl bg-slate-950">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
@@ -1401,11 +1418,6 @@ export default function AdminDashboardPage() {
                                   handleTogglePasswordVisibilidad(u.id)
                                 }
                                 className="text-slate-400 hover:text-amber-400 text-xs cursor-pointer select-none"
-                                title={
-                                  verPass
-                                    ? "Ocultar contraseña"
-                                    : "Mostrar contraseña"
-                                }
                               >
                                 {verPass ? "🙈" : "👁️"}
                               </button>
@@ -1433,7 +1445,6 @@ export default function AdminDashboardPage() {
                               type="button"
                               onClick={() => enviarAccesosPorWhatsapp(u)}
                               className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-lg font-bold cursor-pointer"
-                              title="Enviar accesos por WhatsApp"
                             >
                               💬 Enviar
                             </button>
@@ -1441,7 +1452,6 @@ export default function AdminDashboardPage() {
                               type="button"
                               onClick={() => handleEditarUsuario(u)}
                               className="bg-slate-900 text-slate-300 border border-slate-800 px-2.5 py-1 rounded-lg cursor-pointer hover:bg-slate-800"
-                              title="Editar usuario"
                             >
                               ✏️ Editar
                             </button>
@@ -1449,7 +1459,6 @@ export default function AdminDashboardPage() {
                               type="button"
                               onClick={() => handleEliminarUsuario(u.id)}
                               className="bg-rose-950/40 text-rose-400 border border-rose-900/50 px-2.5 py-1 rounded-lg cursor-pointer hover:bg-rose-900/60"
-                              title="Eliminar usuario"
                             >
                               🗑️
                             </button>
@@ -1464,7 +1473,7 @@ export default function AdminDashboardPage() {
           )}
       </div>
 
-      {/* MODAL 1: PANEL MUESTRA Y GALERÍA DE PLANTILLAS */}
+      {/* MODAL 1: PANEL MUESTRA */}
       {mostrarModalPlantillas && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-[#121c33] border border-slate-800 rounded-3xl p-6 md:p-8 w-full max-w-3xl space-y-6 shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -1474,7 +1483,7 @@ export default function AdminDashboardPage() {
                   ✨ GALERÍA Y PANEL MUESTRA DE PLANTILLAS
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Selecciona una plantilla predefinida por la comunidad o el sistema para aplicarla en{" "}
+                  Selecciona una plantilla para aplicar en{" "}
                   <strong className="text-amber-400">{eventoActual?.title}</strong>.
                 </p>
               </div>
