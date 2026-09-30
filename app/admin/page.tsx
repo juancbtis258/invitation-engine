@@ -78,11 +78,14 @@ const TIPO_LABELS: Record<QuestionType, { name: string; icon: string }> = {
 export default function AdminDashboardPage() {
   const router = useRouter();
 
+  // Estado para evitar el parpadeo de sesión (Flicker Fix)
+  const [cargandoSesion, setCargandoSesion] = useState(true);
+
   const [tabActiva, setTabActiva] = useState<
     "eventos" | "disenador" | "respuestas" | "colaboradores"
   >("eventos");
 
-  const [rolUsuarioActual, setRolUsuarioActual] = useState<"ADMINISTRADOR" | "CLIENTE">("ADMINISTRADOR");
+  const [rolUsuarioActual, setRolUsuarioActual] = useState<"ADMINISTRADOR" | "CLIENTE">("CLIENTE");
   const [slugAsignado, setSlugAsignado] = useState<string>("todos");
   const [nombreSesion, setNombreSesion] = useState<string>("");
   const [usernameSesion, setUsernameSesion] = useState<string>("");
@@ -92,11 +95,11 @@ export default function AdminDashboardPage() {
   const [filtroEstado, setFiltroEstado] = useState<"todos" | "activos" | "inactivos">("todos");
   const [guardandoConfig, setGuardandoConfig] = useState(false);
 
-  // Estado para visibilidad de contraseñas individuales por ID
+  // Visibilidad de contraseñas
   const [mostrarPasswordIds, setMostrarPasswordIds] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    const role = (localStorage.getItem("userRole") as "ADMINISTRADOR" | "CLIENTE") || "ADMINISTRADOR";
+    const role = (localStorage.getItem("userRole") as "ADMINISTRADOR" | "CLIENTE") || "CLIENTE";
     const slug = localStorage.getItem("userSlug") || "todos";
     const name = localStorage.getItem("userName") || "";
     const user = localStorage.getItem("userUsername") || "";
@@ -110,6 +113,9 @@ export default function AdminDashboardPage() {
     if (tabGuardada) {
       setTabActiva(tabGuardada);
     }
+
+    // Finaliza la carga de la sesión sin parpadeos
+    setCargandoSesion(false);
   }, []);
 
   const cambiarTab = (
@@ -254,7 +260,6 @@ export default function AdminDashboardPage() {
     return coincideTexto;
   });
 
-  // Carga respuestas y preguntas guardadas en el servidor para el evento activo
   useEffect(() => {
     if (!eventoActual) return;
     fetch(`/api/form-config?event=${eventoActual.slug}`)
@@ -425,7 +430,6 @@ export default function AdminDashboardPage() {
     document.body.removeChild(link);
   };
 
-  // PERSISTENCIA REAL DE PREGUNTAS EN API
   const guardarPreguntasEnServidor = async (nuevasPreguntas: Question[]) => {
     if (!eventoActual) return;
     setGuardandoConfig(true);
@@ -594,6 +598,18 @@ export default function AdminDashboardPage() {
     )}`;
     window.open(url, "_blank");
   };
+
+  // PANTALLA DE CARGA PARA EVITAR PARPADEO / DESTELO DE ADMINISTRADOR (FLICKER FIX)
+  if (cargandoSesion) {
+    return (
+      <div className="min-h-screen bg-[#0d1527] flex flex-col items-center justify-center space-y-4">
+        <div className="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-xs text-amber-500 font-bold tracking-widest uppercase">
+          Cargando Panel...
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0d1527] text-slate-100 p-4 md:p-8 font-sans">
@@ -841,7 +857,7 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* PESTAÑA 2: DISEÑADOR DE PREGUNTAS (100% PERSISTENTE CON INPUT DE OPCIONES) */}
+        {/* PESTAÑA 2: DISEÑADOR DE PREGUNTAS */}
         {tabActiva === "disenador" && (
           <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 md:p-8 space-y-6 shadow-2xl">
             <div className="border-b border-slate-800 pb-4 flex justify-between items-center">
@@ -901,7 +917,6 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
-              {/* Si selecciona tipo Opción única o Casillas, le mostramos el input para escribir las opciones */}
               {["choice", "checkbox"].includes(nuevaPreguntaTipo) && (
                 <div>
                   <label className="block text-[11px] text-slate-400 font-bold mb-1">
@@ -1150,7 +1165,7 @@ export default function AdminDashboardPage() {
                 </div>
               </form>
 
-              {/* TABLA DE CLIENTES CON OJO DE CONTRASEÑA */}
+              {/* TABLA DE CLIENTES */}
               <div className="overflow-x-auto border border-slate-800 rounded-2xl bg-slate-950">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
@@ -1247,7 +1262,7 @@ export default function AdminDashboardPage() {
           )}
       </div>
 
-      {/* MODAL CREAR / EDITAR EVENTO (REGLA PLAN BÁSICO A 1 PASE) */}
+      {/* MODAL CREAR / EDITAR EVENTO */}
       {mostrarModalEvento && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-[#121c33] border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl">
