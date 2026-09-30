@@ -90,6 +90,7 @@ export default function AdminDashboardPage() {
   const [copiadoTipo, setCopiadoTipo] = useState<string | null>(null);
   const [busquedaEvento, setBusquedaEvento] = useState("");
   const [filtroEstado, setFiltroEstado] = useState<"todos" | "activos" | "inactivos">("todos");
+  const [guardandoConfig, setGuardandoConfig] = useState(false);
 
   // Estado para visibilidad de contraseñas individuales por ID
   const [mostrarPasswordIds, setMostrarPasswordIds] = useState<Record<string, boolean>>({});
@@ -144,16 +145,16 @@ export default function AdminDashboardPage() {
       slug: "yunnie-y-juan",
       title: "Yunnie y Juan",
       targetDate: "2026-09-21",
-      plan: "PREMIUM",
+      plan: "PLUS",
       active: true,
-      whatsappPhone: "5218115591681",
-      pasesAsignados: 4,
+      whatsappPhone: "5218116122704",
+      pasesAsignados: 2,
       ownerUsername: "yunnie",
       questions: [],
     },
   ]);
 
-  const [eventoSeleccionadoId, setEventoSeleccionadoId] = useState<string>("1");
+  const [eventoSeleccionadoId, setEventoSeleccionadoId] = useState<string>("2");
 
   // Modal de Evento
   const [mostrarModalEvento, setMostrarModalEvento] = useState(false);
@@ -190,7 +191,7 @@ export default function AdminDashboardPage() {
       id: "u2",
       nombre: "Yunnie",
       username: "yunnie",
-      whatsapp: "5218115591681",
+      whatsapp: "5218116122704",
       password: "123",
       rol: "CLIENTE",
       eventoAsignadoSlug: "todos",
@@ -253,6 +254,7 @@ export default function AdminDashboardPage() {
     return coincideTexto;
   });
 
+  // Carga respuestas y preguntas guardadas en el servidor para el evento activo
   useEffect(() => {
     if (!eventoActual) return;
     fetch(`/api/form-config?event=${eventoActual.slug}`)
@@ -263,10 +265,16 @@ export default function AdminDashboardPage() {
         } else {
           setRespuestas([]);
         }
+        if (data.data?.questions) {
+          setEventos((prev) =>
+            prev.map((e) =>
+              e.id === eventoActual.id ? { ...e, questions: data.data.questions } : e
+            )
+          );
+        }
       })
       .catch((err) => {
-        console.error("Error al cargar respuestas:", err);
-        setRespuestas([]);
+        console.error("Error al cargar datos del evento:", err);
       });
   }, [eventoSeleccionadoId, eventoActual?.slug]);
 
@@ -305,8 +313,6 @@ export default function AdminDashboardPage() {
     const planEv = ev.plan || "PLUS";
     setModalPlan(planEv);
     setModalWhatsapp(ev.whatsappPhone || "5218115591681");
-    
-    // Regla estricta para Plan BÁSICO
     setModalPases(planEv === "BASICO" ? 1 : ev.pasesAsignados || 2);
     setModalActive(ev.active);
     setMostrarModalEvento(true);
@@ -316,7 +322,6 @@ export default function AdminDashboardPage() {
     e.preventDefault();
     if (!modalTitle || !modalSlug) return;
 
-    // Si el plan es BÁSICO, fijamos los pases a 1
     const pasesFinales = modalPlan === "BASICO" ? 1 : Number(modalPases);
 
     const eventoData = {
@@ -328,6 +333,7 @@ export default function AdminDashboardPage() {
       pasesAsignados: pasesFinales,
       active: modalActive,
       ownerUsername: usernameSesion || nombreSesion || "cliente",
+      questions: eventoActual?.questions || [],
     };
 
     try {
@@ -387,7 +393,6 @@ export default function AdminDashboardPage() {
     setTimeout(() => setCopiadoTipo(null), 2500);
   };
 
-  // Exportar a CSV con la corrección exacta de URL.createObjectURL
   const exportarRespuestasCSV = () => {
     if (!respuestas || respuestas.length === 0) return;
 
@@ -420,7 +425,31 @@ export default function AdminDashboardPage() {
     document.body.removeChild(link);
   };
 
-  const handleAgregarPregunta = (e: React.FormEvent) => {
+  // PERSISTENCIA REAL DE PREGUNTAS EN API
+  const guardarPreguntasEnServidor = async (nuevasPreguntas: Question[]) => {
+    if (!eventoActual) return;
+    setGuardandoConfig(true);
+
+    try {
+      await fetch("/api/form-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event: eventoActual.slug,
+          config: {
+            ...eventoActual,
+            questions: nuevasPreguntas,
+          },
+        }),
+      });
+    } catch (err) {
+      console.error("Error guardando preguntas:", err);
+    } finally {
+      setGuardandoConfig(false);
+    }
+  };
+
+  const handleAgregarPregunta = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nuevaPreguntaLabel || !eventoActual) return;
 
@@ -434,27 +463,32 @@ export default function AdminDashboardPage() {
       required: nuevaPreguntaRequerida,
     };
 
-    setEventos(
-      eventos.map((ev) =>
-        ev.id === eventoActual.id
-          ? { ...ev, questions: [...ev.questions, nuevaQ] }
-          : ev
+    const actualizadas = [...(eventoActual.questions || []), nuevaQ];
+
+    setEventos((prev) =>
+      prev.map((ev) =>
+        ev.id === eventoActual.id ? { ...ev, questions: actualizadas } : ev
       )
     );
+
     setNuevaPreguntaLabel("");
     setNuevaPreguntaOpciones("");
     setNuevaPreguntaRequerida(false);
+
+    await guardarPreguntasEnServidor(actualizadas);
   };
 
-  const handleEliminarPregunta = (qId: string) => {
+  const handleEliminarPregunta = async (qId: string) => {
     if (!eventoActual) return;
-    setEventos(
-      eventos.map((ev) =>
-        ev.id === eventoActual.id
-          ? { ...ev, questions: ev.questions.filter((q) => q.id !== qId) }
-          : ev
+    const actualizadas = (eventoActual.questions || []).filter((q) => q.id !== qId);
+
+    setEventos((prev) =>
+      prev.map((ev) =>
+        ev.id === eventoActual.id ? { ...ev, questions: actualizadas } : ev
       )
     );
+
+    await guardarPreguntasEnServidor(actualizadas);
   };
 
   // Manejo de Colaboradores
@@ -656,7 +690,7 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* PESTAÑA 1: EVENTOS CON BUSCADOR Y FILTROS */}
+        {/* PESTAÑA 1: EVENTOS */}
         {tabActiva === "eventos" && (
           <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 md:p-8 space-y-6 shadow-2xl">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-800 pb-4">
@@ -677,7 +711,7 @@ export default function AdminDashboardPage() {
               </button>
             </div>
 
-            {/* BARRA DE BÚSQUEDA Y FILTROS */}
+            {/* BÚSQUEDA Y FILTROS */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <input
                 type="text"
@@ -807,19 +841,27 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* PESTAÑA 2: DISEÑADOR DE PREGUNTAS */}
+        {/* PESTAÑA 2: DISEÑADOR DE PREGUNTAS (100% PERSISTENTE CON INPUT DE OPCIONES) */}
         {tabActiva === "disenador" && (
           <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 md:p-8 space-y-6 shadow-2xl">
-            <div className="border-b border-slate-800 pb-4">
-              <h2 className="text-xs font-black text-amber-500 uppercase tracking-wider">
-                🛠 DISEÑADOR DE FORMULARIO DE CONFIRMACIÓN
-              </h2>
-              <p className="text-xs text-slate-400 mt-1">
-                Editando campos del evento:{" "}
-                <span className="text-amber-400 font-bold">
-                  {eventoActual?.title || "Sin selección"} (/{eventoActual?.slug})
+            <div className="border-b border-slate-800 pb-4 flex justify-between items-center">
+              <div>
+                <h2 className="text-xs font-black text-amber-500 uppercase tracking-wider">
+                  🛠 DISEÑADOR DE FORMULARIO DE CONFIRMACIÓN
+                </h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  Editando campos del evento:{" "}
+                  <span className="text-amber-400 font-bold">
+                    {eventoActual?.title || "Sin selección"} (/{eventoActual?.slug})
+                  </span>
+                </p>
+              </div>
+
+              {guardandoConfig && (
+                <span className="text-xs text-amber-400 font-bold animate-pulse">
+                  💾 Guardando cambios...
                 </span>
-              </p>
+              )}
             </div>
 
             <form
@@ -834,7 +876,7 @@ export default function AdminDashboardPage() {
                 <div className="md:col-span-7">
                   <input
                     type="text"
-                    placeholder="Ej. ¿Requiere menú vegetariano o especial?"
+                    placeholder="Ej. ¿Requiere menú vegetariano, alergia o platillo especial?"
                     value={nuevaPreguntaLabel}
                     onChange={(e) => setNuevaPreguntaLabel(e.target.value)}
                     className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
@@ -859,33 +901,83 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
-              <div className="flex justify-end pt-1">
+              {/* Si selecciona tipo Opción única o Casillas, le mostramos el input para escribir las opciones */}
+              {["choice", "checkbox"].includes(nuevaPreguntaTipo) && (
+                <div>
+                  <label className="block text-[11px] text-slate-400 font-bold mb-1">
+                    Opciones separadas por comas (Ej: Carne, Pollo, Vegano):
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Opción 1, Opción 2, Opción 3"
+                    value={nuevaPreguntaOpciones}
+                    onChange={(e) => setNuevaPreguntaOpciones(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-xs text-amber-300 focus:outline-none focus:border-amber-500"
+                    required
+                  />
+                </div>
+              )}
+
+              <div className="flex justify-between items-center pt-1">
+                <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={nuevaPreguntaRequerida}
+                    onChange={(e) => setNuevaPreguntaRequerida(e.target.checked)}
+                    className="rounded border-slate-800"
+                  />
+                  <span>Respuesta Obligatoria</span>
+                </label>
+
                 <button
                   type="submit"
+                  disabled={guardandoConfig}
                   className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs px-6 py-2.5 rounded-xl cursor-pointer"
                 >
-                  + Agregar Campo
+                  + Guardar Pregunta
                 </button>
               </div>
             </form>
 
             <div className="space-y-3">
-              {eventoActual?.questions?.map((q, index) => (
-                <div
-                  key={q.id}
-                  className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex justify-between items-center"
-                >
-                  <span className="text-xs text-slate-200 font-bold">
-                    {index + 1}. {q.label}
-                  </span>
-                  <button
-                    onClick={() => handleEliminarPregunta(q.id)}
-                    className="text-rose-400 text-xs font-bold cursor-pointer"
-                  >
-                    🗑 Eliminar
-                  </button>
+              <h4 className="text-xs font-bold text-slate-400 uppercase">
+                Preguntas creadas para este evento ({eventoActual?.questions?.length || 0}):
+              </h4>
+
+              {eventoActual?.questions?.length === 0 ? (
+                <div className="text-center py-6 bg-slate-950/40 rounded-xl border border-dashed border-slate-800 text-xs text-slate-500">
+                  No hay preguntas personalizadas adicionales. Puedes agregar las que desees arriba.
                 </div>
-              ))}
+              ) : (
+                eventoActual?.questions?.map((q, index) => (
+                  <div
+                    key={q.id}
+                    className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex justify-between items-center"
+                  >
+                    <div>
+                      <span className="text-xs text-slate-200 font-bold">
+                        {index + 1}. {q.label}
+                      </span>
+                      <span className="ml-2 text-[10px] font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                        {TIPO_LABELS[q.type]?.name || q.type}
+                      </span>
+                      {q.options && q.options.length > 0 && (
+                        <p className="text-[11px] text-slate-400 mt-1">
+                          Opciones: {q.options.join(" | ")}
+                        </p>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={() => handleEliminarPregunta(q.id)}
+                      disabled={guardandoConfig}
+                      className="text-rose-400 hover:text-rose-300 text-xs font-bold cursor-pointer bg-rose-950/30 px-3 py-1.5 rounded-xl border border-rose-900/40"
+                    >
+                      🗑 Eliminar
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         )}
@@ -1204,7 +1296,6 @@ export default function AdminDashboardPage() {
                     onChange={(e) => {
                       const nuevoPlan = e.target.value as PlanType;
                       setModalPlan(nuevoPlan);
-                      // Bloquea los pases a 1 si selecciona BÁSICO
                       if (nuevoPlan === "BASICO") {
                         setModalPases(1);
                       }
@@ -1258,7 +1349,7 @@ export default function AdminDashboardPage() {
                     type="text"
                     value={modalWhatsapp}
                     onChange={(e) => setModalWhatsapp(e.target.value)}
-                    placeholder="5218115591681"
+                    placeholder="5218116122704"
                     className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 font-mono focus:outline-none focus:border-amber-500"
                   />
                 </div>
