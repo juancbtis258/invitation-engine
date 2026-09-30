@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-// Base de datos en memoria para guardar las configuraciones de cada evento de forma dinámica
+// Base de datos en memoria para guardar las configuraciones y respuestas
 const eventosDB: Record<string, any> = {
   demo: {
     title: "Boda María & Alejandro",
@@ -26,7 +26,6 @@ const eventosDB: Record<string, any> = {
   },
 };
 
-// GET: Obtener la configuración del evento por su slug
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const slug = searchParams.get("event") || "demo";
@@ -45,7 +44,6 @@ export async function GET(request: Request) {
   return NextResponse.json({ success: true, data: evento });
 }
 
-// POST: Actualizar configuración desde Admin O guardar respuesta del cliente
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -60,7 +58,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Asegurar que el evento exista en la BD
     if (!eventosDB[slug]) {
       eventosDB[slug] = {
         title: slug.replace(/-/g, " ").toUpperCase(),
@@ -71,21 +68,35 @@ export async function POST(request: Request) {
       };
     }
 
-    // CASO 1: Guardar cambios desde el Panel de Administración (Número de WhatsApp, Título, Preguntas)
+    // Actualizar configuración desde Admin
     if (config) {
       eventosDB[slug] = {
         ...eventosDB[slug],
-        ...config, // Aquí se sobrescribe whatsappPhone con el número que pusiste en la casilla
+        ...config,
       };
       return NextResponse.json({ success: true, data: eventosDB[slug] });
     }
 
-    // CASO 2: Guardar respuesta enviada por un invitado desde la invitación
+    // Guardar respuesta del cliente estandarizando los nombres
     if (response || action === "save_response") {
       if (!eventosDB[slug].responses) {
         eventosDB[slug].responses = [];
       }
-      const nuevaRespuesta = response;
+
+      const raw = response || {};
+
+      // Normalizar la respuesta para que la entienda cualquier vista
+      const nuevaRespuesta = {
+        name: raw.name || raw.nombreInvitado || "Anónimo",
+        attending: raw.attending !== undefined ? Boolean(raw.attending) : Boolean(raw.asistira),
+        pasesConfirmados: Number(raw.pasesConfirmados || raw.pasesSeleccionados || (raw.asistira ? 1 : 0)),
+        phone: raw.phone || raw.telefonoWhatsapp || "",
+        asistentes: raw.asistentes || [],
+        mensaje: raw.mensaje || raw.mensajeDeseos || "",
+        customAnswers: raw.customAnswers || raw.preguntasAdicionales || {},
+        createdAt: raw.createdAt || raw.fechaRespuesta || new Date().toISOString(),
+      };
+
       eventosDB[slug].responses.unshift(nuevaRespuesta);
 
       return NextResponse.json({ success: true, data: eventosDB[slug] });
