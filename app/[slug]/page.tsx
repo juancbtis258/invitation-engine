@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 
 interface Question {
@@ -18,14 +18,16 @@ interface EventConfig {
   questions: Question[];
 }
 
-export default function PublicEventPage() {
+function PublicEventContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const slug = params?.slug as string;
 
-  // Leer parámetro ?pases=X de la URL (por defecto 4 pases si no existe)
+  // Leer parámetro ?pases=X de la URL (por defecto 2 pases si no se pasa nada)
   const pasesParam = searchParams.get("pases");
-  const maxPases = pasesParam && !isNaN(Number(pasesParam)) ? parseInt(pasesParam, 10) : 4;
+  const maxPases = pasesParam && !isNaN(Number(pasesParam)) && Number(pasesParam) > 0 
+    ? parseInt(pasesParam, 10) 
+    : 2;
 
   const [config, setConfig] = useState<EventConfig | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,7 +53,7 @@ export default function PublicEventPage() {
       .finally(() => setLoading(false));
   }, [slug]);
 
-  // Actualizar la lista de nombres cuando cambia la cantidad de pases
+  // Actualizar la lista de campos de nombres al cambiar la cantidad seleccionada
   const handlePasesChange = (cantidad: number) => {
     setPasesSeleccionados(cantidad);
     const nuevosNombres = Array(cantidad)
@@ -104,136 +106,142 @@ export default function PublicEventPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#0f172a] text-slate-100 flex items-center justify-center p-4">
+      <div className="flex items-center justify-center p-8">
         <p className="text-sm font-medium text-slate-400">Cargando invitación...</p>
-      </main>
+      </div>
     );
   }
 
   if (!config || !config.active) {
     return (
-      <main className="min-h-screen bg-[#0f172a] text-slate-100 flex items-center justify-center p-4">
-        <div className="bg-slate-900 border border-slate-800 p-8 rounded-3xl text-center max-w-md space-y-3">
-          <h1 className="text-xl font-bold text-amber-500">Invitación no disponible</h1>
-          <p className="text-xs text-slate-400">
-            Esta invitación no existe o se encuentra desactivada actualmente.
-          </p>
-        </div>
-      </main>
+      <div className="bg-slate-900 border border-slate-800 p-8 rounded-3xl text-center max-w-md space-y-3">
+        <h1 className="text-xl font-bold text-amber-500">Invitación no disponible</h1>
+        <p className="text-xs text-slate-400">
+          Esta invitación no existe o se encuentra desactivada actualmente.
+        </p>
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#0f172a] text-slate-100 flex items-center justify-center p-4 md:p-8">
-      <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-2xl space-y-6">
-        
-        {/* Encabezado */}
-        <div className="text-center space-y-2 border-b border-slate-800 pb-5">
-          <h1 className="text-2xl font-extrabold text-amber-500">{config.title}</h1>
-          <p className="text-xs font-semibold text-slate-400">
-            📅 Fecha del Evento: <span className="text-slate-200">{config.targetDate}</span>
+    <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-2xl space-y-6">
+      
+      {/* Encabezado */}
+      <div className="text-center space-y-2 border-b border-slate-800 pb-5">
+        <h1 className="text-2xl font-extrabold text-amber-500">{config.title}</h1>
+        <p className="text-xs font-semibold text-slate-400">
+          📅 Fecha del Evento: <span className="text-slate-200">{config.targetDate}</span>
+        </p>
+      </div>
+
+      {submitted ? (
+        <div className="bg-emerald-500/10 border border-emerald-500/30 p-6 rounded-2xl text-center space-y-2">
+          <h2 className="text-lg font-bold text-emerald-400">¡Confirmación Recibida!</h2>
+          <p className="text-xs text-slate-300">
+            Hemos registrado correctamente tu asistencia para <strong>{pasesSeleccionados}</strong> {pasesSeleccionados === 1 ? "lugar" : "lugares"}.
           </p>
         </div>
-
-        {submitted ? (
-          <div className="bg-emerald-500/10 border border-emerald-500/30 p-6 rounded-2xl text-center space-y-2">
-            <h2 className="text-lg font-bold text-emerald-400">¡Confirmación Recibida!</h2>
-            <p className="text-xs text-slate-300">
-              Hemos registrado correctamente tu asistencia para <strong>{pasesSeleccionados}</strong> {pasesSeleccionados === 1 ? "lugar" : "lugares"}.
-            </p>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-6">
-            
-            {/* Control Inteligente de Pases */}
-            <div className="bg-slate-950/80 border border-slate-800 p-4 rounded-2xl space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-amber-400 mb-1">
-                  ¿Cuántos pases utilizarás? (Máximo asignado: {maxPases})
-                </label>
-                <select
-                  value={pasesSeleccionados}
-                  onChange={(e) => handlePasesChange(parseInt(e.target.value, 10))}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm font-semibold text-white focus:outline-none focus:border-amber-500"
-                >
-                  {Array.from({ length: maxPases }, (_, i) => i + 1).map((num) => (
-                    <option key={num} value={num}>
-                      {num} {num === 1 ? "Pase / Asistente" : "Pases / Asistentes"}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Campos dinámicos para los nombres */}
-              <div className="space-y-3 pt-2">
-                <label className="block text-xs font-bold text-slate-300">
-                  Nombres de los asistentes:
-                </label>
-                {nombresAsistentes.map((nombre, idx) => (
-                  <div key={idx}>
-                    <span className="block text-[11px] text-slate-500 mb-1">
-                      Asistente {idx + 1}:
-                    </span>
-                    <input
-                      type="text"
-                      placeholder={`Nombre completo del asistente ${idx + 1}`}
-                      value={nombre}
-                      onChange={(e) => handleNombreChange(idx, e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs font-medium focus:outline-none focus:border-amber-500"
-                      required
-                    />
-                  </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-6">
+          
+          {/* Selector de pases dinámico en base al parámetro URL */}
+          <div className="bg-slate-950/80 border border-slate-800 p-4 rounded-2xl space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-amber-400 mb-1">
+                ¿Cuántas personas asistirán? (Pases asignados: {maxPases})
+              </label>
+              <select
+                value={pasesSeleccionados}
+                onChange={(e) => handlePasesChange(parseInt(e.target.value, 10))}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm font-semibold text-white focus:outline-none focus:border-amber-500"
+              >
+                {Array.from({ length: maxPases }, (_, i) => i + 1).map((num) => (
+                  <option key={num} value={num}>
+                    {num} {num === 1 ? "persona" : "personas"}
+                  </option>
                 ))}
-              </div>
+              </select>
             </div>
 
-            {/* Preguntas adicionales configuradas en el diseñador */}
-            {config.questions && config.questions.length > 0 && (
-              <div className="space-y-4">
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  Información Adicional
-                </h3>
-                {config.questions.map((q) => (
-                  <div key={q.id}>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                      {q.label}
-                    </label>
+            {/* Campos para ingresar nombres según los pases elegidos */}
+            <div className="space-y-3 pt-2">
+              <label className="block text-xs font-bold text-slate-300">
+                Nombres de los asistentes:
+              </label>
+              {nombresAsistentes.map((nombre, idx) => (
+                <div key={idx}>
+                  <span className="block text-[11px] text-slate-500 mb-1">
+                    Asistente {idx + 1}:
+                  </span>
+                  <input
+                    type="text"
+                    placeholder={`Nombre del asistente ${idx + 1}`}
+                    value={nombre}
+                    onChange={(e) => handleNombreChange(idx, e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs font-medium focus:outline-none focus:border-amber-500"
+                    required
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
 
-                    {q.type === "choice" ? (
-                      <select
-                        onChange={(e) => setExtraAnswers({ ...extraAnswers, [q.label]: e.target.value })}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
-                      >
-                        <option value="">-- Selecciona una opción --</option>
-                        {q.options?.map((opt, i) => (
-                          <option key={i} value={opt}>
-                            {opt}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type={q.type === "number" ? "number" : "text"}
-                        onChange={(e) => setExtraAnswers({ ...extraAnswers, [q.label]: e.target.value })}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+          {/* Preguntas adicionales de la invitación */}
+          {config.questions && config.questions.length > 0 && (
+            <div className="space-y-4">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                Información Adicional
+              </h3>
+              {config.questions.map((q) => (
+                <div key={q.id}>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    {q.label}
+                  </label>
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-sm py-3.5 rounded-xl shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
-            >
-              {submitting ? "Confirmando..." : "Confirmar Asistencia"}
-            </button>
-          </form>
-        )}
+                  {q.type === "choice" ? (
+                    <select
+                      onChange={(e) => setExtraAnswers({ ...extraAnswers, [q.label]: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                    >
+                      <option value="">-- Selecciona una opción --</option>
+                      {q.options?.map((opt, i) => (
+                        <option key={i} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type={q.type === "number" ? "number" : "text"}
+                      onChange={(e) => setExtraAnswers({ ...extraAnswers, [q.label]: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
 
-      </div>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-sm py-3.5 rounded-xl shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
+          >
+            {submitting ? "Confirmando..." : "Confirmar Asistencia"}
+          </button>
+        </form>
+      )}
+
+    </div>
+  );
+}
+
+export default function PublicEventPage() {
+  return (
+    <main className="min-h-screen bg-[#0f172a] text-slate-100 flex items-center justify-center p-4 md:p-8">
+      <Suspense fallback={<p className="text-sm font-medium text-slate-400">Cargando pases...</p>}>
+        <PublicEventContent />
+      </Suspense>
     </main>
   );
 }
