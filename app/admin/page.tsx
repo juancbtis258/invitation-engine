@@ -75,6 +75,37 @@ const TIPO_LABELS: Record<QuestionType, { name: string; icon: string }> = {
   email_phone: { name: "Correo / Teléfono", icon: "📧" },
 };
 
+const PLANTILLA_PREDETERMINADA: Question[] = [
+  {
+    id: "p1",
+    label: "¿Tienes alguna alergia o restricción alimenticia?",
+    type: "text",
+    required: false,
+    placeholder: "Ej. Vegano, alergia a cacahuates...",
+  },
+  {
+    id: "p2",
+    label: "Selección de Platillo / Menú",
+    type: "choice",
+    options: ["Carne de Res", "Pechuga de Pollo", "Opción Vegetariana"],
+    required: true,
+  },
+  {
+    id: "p3",
+    label: "¿Qué canción no puede faltar en la fiesta?",
+    type: "text",
+    required: false,
+    placeholder: "Canción y Artista...",
+  },
+  {
+    id: "p4",
+    label: "¿Requieres lugar en el autobús del evento?",
+    type: "choice",
+    options: ["Sí, requiero autobús", "No, iré en coche propio"],
+    required: false,
+  },
+];
+
 export default function AdminDashboardPage() {
   const router = useRouter();
 
@@ -92,6 +123,9 @@ export default function AdminDashboardPage() {
   const [busquedaEvento, setBusquedaEvento] = useState("");
   const [filtroEstado, setFiltroEstado] = useState<"todos" | "activos" | "inactivos">("todos");
   const [guardandoConfig, setGuardandoConfig] = useState(false);
+
+  // Selector para duplicar plantilla a otro evento
+  const [eventoDestinoSlug, setEventoDestinoSlug] = useState("");
 
   const [mostrarPasswordIds, setMostrarPasswordIds] = useState<Record<string, boolean>>({});
 
@@ -247,7 +281,6 @@ export default function AdminDashboardPage() {
     return coincideTexto;
   });
 
-  // Carga preguntas guardadas reales del backend
   useEffect(() => {
     if (!eventoActual) return;
     fetch(`/api/form-config?event=${eventoActual.slug}`)
@@ -266,9 +299,7 @@ export default function AdminDashboardPage() {
           );
         }
       })
-      .catch((err) => {
-        console.error("Error al cargar datos del evento:", err);
-      });
+      .catch((err) => console.error("Error al cargar datos del evento:", err));
   }, [eventoSeleccionadoId, eventoActual?.slug]);
 
   const handleCerrarSesion = () => {
@@ -365,7 +396,6 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // NAVEGACIÓN DIRECTA EN NUEVA PESTAÑA PARA LOS BOTONES
   const abrirDemoLink = (slug: string) => {
     window.open(`/${slug}`, "_blank");
   };
@@ -410,18 +440,18 @@ export default function AdminDashboardPage() {
     document.body.removeChild(link);
   };
 
-  const guardarPreguntasEnServidor = async (nuevasPreguntas: Question[]) => {
-    if (!eventoActual) return;
+  const guardarPreguntasEnServidor = async (targetSlug: string, nuevasPreguntas: Question[]) => {
     setGuardandoConfig(true);
+    const evTarget = eventos.find((e) => e.slug === targetSlug) || eventoActual;
 
     try {
       await fetch("/api/form-config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          event: eventoActual.slug,
+          event: targetSlug,
           config: {
-            ...eventoActual,
+            ...evTarget,
             questions: nuevasPreguntas,
           },
         }),
@@ -459,7 +489,7 @@ export default function AdminDashboardPage() {
     setNuevaPreguntaOpciones("");
     setNuevaPreguntaRequerida(true);
 
-    await guardarPreguntasEnServidor(actualizadas);
+    await guardarPreguntasEnServidor(eventoActual.slug, actualizadas);
   };
 
   const handleEliminarPregunta = async (qId: string) => {
@@ -472,7 +502,60 @@ export default function AdminDashboardPage() {
       )
     );
 
-    await guardarPreguntasEnServidor(actualizadas);
+    await guardarPreguntasEnServidor(eventoActual.slug, actualizadas);
+  };
+
+  // FUNCIÓN 1: CARGAR PLANTILLA PREDETERMINADA
+  const handleCargarPlantillaEstandar = async () => {
+    if (!eventoActual) return;
+    if (
+      eventoActual.questions?.length > 0 &&
+      !confirm("¿Deseas reemplazar la plantilla actual por la plantilla estándar predeterminada?")
+    ) {
+      return;
+    }
+
+    setEventos((prev) =>
+      prev.map((ev) =>
+        ev.id === eventoActual.id ? { ...ev, questions: PLANTILLA_PREDETERMINADA } : ev
+      )
+    );
+
+    await guardarPreguntasEnServidor(eventoActual.slug, PLANTILLA_PREDETERMINADA);
+  };
+
+  // FUNCIÓN 2: DUPLICAR/COPIAR PLANTILLA A OTRO EVENTO
+  const handleDuplicarPlantillaAEvento = async () => {
+    if (!eventoActual || !eventoDestinoSlug) {
+      alert("Por favor selecciona un evento destino para copiar la plantilla.");
+      return;
+    }
+
+    const preguntasCopiar = eventoActual.questions || [];
+
+    setEventos((prev) =>
+      prev.map((ev) =>
+        ev.slug === eventoDestinoSlug ? { ...ev, questions: preguntasCopiar } : ev
+      )
+    );
+
+    await guardarPreguntasEnServidor(eventoDestinoSlug, preguntasCopiar);
+    alert(`¡Plantilla duplicada con éxito hacia el evento /${eventoDestinoSlug}!`);
+    setEventoDestinoSlug("");
+  };
+
+  // FUNCIÓN 3: LIMPIAR TODO
+  const handleLimpiarPreguntas = async () => {
+    if (!eventoActual) return;
+    if (!confirm("¿Seguro que deseas eliminar todas las preguntas de este evento y dejarlo en blanco?")) {
+      return;
+    }
+
+    setEventos((prev) =>
+      prev.map((ev) => (ev.id === eventoActual.id ? { ...ev, questions: [] } : ev))
+    );
+
+    await guardarPreguntasEnServidor(eventoActual.slug, []);
   };
 
   const handleGuardarUsuario = (e: React.FormEvent) => {
@@ -728,7 +811,7 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            {/* TARJETAS DE EVENTOS CON BOTONES NAVEGABLES */}
+            {/* TARJETAS DE EVENTOS */}
             {eventosFiltrados.length === 0 ? (
               <div className="text-center py-12 bg-slate-950/40 rounded-2xl border border-dashed border-slate-800 space-y-3">
                 <p className="text-slate-400 text-xs">No hay eventos para mostrar aún.</p>
@@ -823,7 +906,7 @@ export default function AdminDashboardPage() {
                           onClick={() => abrirModalEditar(ev)}
                           className="text-xs bg-slate-900 text-slate-300 border border-slate-800 px-2.5 py-1 rounded-lg cursor-pointer hover:bg-slate-800"
                         >
-                          ✏️️ Editar
+                          ✏ Editar
                         </button>
                         <button
                           type="button"
@@ -841,35 +924,80 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* PESTAÑA 2: DISEÑADOR */}
+        {/* PESTAÑA 2: DISEÑADOR Y GESTIÓN DE PLANTILLAS AVANZADA */}
         {tabActiva === "disenador" && (
           <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 md:p-8 space-y-6 shadow-2xl">
-            <div className="border-b border-slate-800 pb-4 flex justify-between items-center">
+            <div className="border-b border-slate-800 pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
               <div>
                 <h2 className="text-xs font-black text-amber-500 uppercase tracking-wider">
-                  🛠 DISEÑADOR Y PLANTILLA DE PREGUNTAS DEL EVENTO
+                  🛠 DISEÑADOR Y PLANTILLA DE PREGUNTAS
                 </h2>
                 <p className="text-xs text-slate-400 mt-1">
-                  Crea y configura libremente tus preguntas para:{" "}
+                  Evento actual:{" "}
                   <span className="text-amber-400 font-bold">
                     {eventoActual?.title || "Sin selección"} (/{eventoActual?.slug})
                   </span>
                 </p>
               </div>
 
-              {guardandoConfig && (
-                <span className="text-xs text-amber-400 font-bold animate-pulse">
-                  💾 Guardando cambios...
-                </span>
-              )}
+              {/* BARRA DE HERRAMIENTAS RÁPIDAS PARA PLANTILLAS */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCargarPlantillaEstandar}
+                  className="bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all"
+                  title="Cargar preguntas comunes predeterminadas"
+                >
+                  ⚡ Cargar Plantilla Estándar
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleLimpiarPreguntas}
+                  className="bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 border border-rose-900/50 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all"
+                >
+                  🗑 Limpiar Todo
+                </button>
+              </div>
             </div>
 
+            {/* HERRAMIENTA PARA DUPLICAR PLANTILLA A OTRO EVENTO */}
+            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-3">
+              <span className="text-xs font-bold text-slate-300">
+                📋 Duplicar esta plantilla hacia otro evento de tu catálogo:
+              </span>
+              <div className="flex items-center gap-2 w-full md:w-auto">
+                <select
+                  value={eventoDestinoSlug}
+                  onChange={(e) => setEventoDestinoSlug(e.target.value)}
+                  className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-amber-400 font-bold focus:outline-none"
+                >
+                  <option value="">Seleccionar evento destino...</option>
+                  {eventosVisibles
+                    .filter((ev) => ev.slug !== eventoActual?.slug)
+                    .map((ev) => (
+                      <option key={ev.id} value={ev.slug}>
+                        {ev.title} (/{ev.slug})
+                      </option>
+                    ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={handleDuplicarPlantillaAEvento}
+                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs px-3.5 py-1.5 rounded-xl cursor-pointer transition-all whitespace-nowrap"
+                >
+                  Copiar Plantilla
+                </button>
+              </div>
+            </div>
+
+            {/* FORMULARIO DE CREAR PREGUNTA LIBRE */}
             <form
               onSubmit={handleAgregarPregunta}
               className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4"
             >
               <h3 className="text-xs font-bold text-amber-400 uppercase">
-                ➕ CREAR NUEVA PREGUNTA O CAMPO PARA LA INVITACIÓN
+                ➕ CREAR NUEVA PREGUNTA O CAMPO PERSONALIZADO
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
@@ -940,13 +1068,15 @@ export default function AdminDashboardPage() {
 
             <div className="space-y-3">
               <h4 className="text-xs font-bold text-slate-400 uppercase">
-                Plantilla de Preguntas del Evento ({eventoActual?.questions?.length || 0}):
+                Plantilla de Preguntas de este Evento ({eventoActual?.questions?.length || 0}):
               </h4>
 
               {eventoActual?.questions?.length === 0 ? (
-                <div className="text-center py-8 bg-slate-950/40 rounded-xl border border-dashed border-slate-800 text-xs text-slate-400 space-y-1">
-                  <p className="font-bold text-slate-300">¡Tu plantilla está totalmente limpia y vacía!</p>
-                  <p className="text-[11px]">Usa el formulario de arriba para agregar las preguntas exactas que deseas que tus invitados respondan.</p>
+                <div className="text-center py-8 bg-slate-950/40 rounded-xl border border-dashed border-slate-800 text-xs text-slate-400 space-y-2">
+                  <p className="font-bold text-slate-300">¡La plantilla de este evento está limpia!</p>
+                  <p className="text-[11px]">
+                    Usa el botón <strong className="text-sky-400">⚡ Cargar Plantilla Estándar</strong> arriba para cargar preguntas sugeridas o crea tus preguntas personalizadas.
+                  </p>
                 </div>
               ) : (
                 eventoActual?.questions?.map((q, index) => (
