@@ -16,7 +16,7 @@ interface EventConfig {
   plan: string;
   active: boolean;
   questions: Question[];
-  whatsappPhone?: string; // Número de WhatsApp para confirmaciones
+  whatsappPhone?: string;
 }
 
 function PublicEventContent() {
@@ -24,7 +24,7 @@ function PublicEventContent() {
   const searchParams = useSearchParams();
   const slug = params?.slug as string;
 
-  // Leer parámetro ?pases=X de la URL (por defecto 2)
+  // Leer parámetro ?pases=X de la URL (por defecto 2 pases)
   const pasesParam = searchParams.get("pases");
   const maxPases = pasesParam && !isNaN(Number(pasesParam)) && Number(pasesParam) > 0 
     ? parseInt(pasesParam, 10) 
@@ -33,15 +33,16 @@ function PublicEventContent() {
   const [config, setConfig] = useState<EventConfig | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Estados del flujo paso a paso
-  const [step, setStep] = useState<"asistencia" | "detalles" | "finalizado">("asistencia");
+  // Pasos del formulario: 'asistencia' -> 'detalles' -> 'mensaje' -> 'finalizado'
+  const [step, setStep] = useState<"asistencia" | "detalles" | "mensaje" | "finalizado">("asistencia");
   const [asistira, setAsistira] = useState<boolean | null>(null);
 
-  // Datos del formulario
+  // Datos recopilados
   const [nombreInvitado, setNombreInvitado] = useState("");
   const [telefonoWhatsapp, setTelefonoWhatsapp] = useState("");
   const [pasesSeleccionados, setPasesSeleccionados] = useState<number>(1);
   const [nombresAsistentes, setNombresAsistentes] = useState<string[]>([""]);
+  const [mensajeDeseos, setMensajeDeseos] = useState("");
   const [extraAnswers, setExtraAnswers] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -59,7 +60,6 @@ function PublicEventContent() {
       .finally(() => setLoading(false));
   }, [slug]);
 
-  // Cambiar cantidad de pases y ajustar array de nombres
   const handlePasesChange = (cantidad: number) => {
     setPasesSeleccionados(cantidad);
     const nuevosNombres = Array(cantidad)
@@ -74,22 +74,36 @@ function PublicEventContent() {
     setNombresAsistentes(copia);
   };
 
-  // Manejo de la decisión inicial de asistencia
+  // Paso 1 -> Avanzar según la respuesta de asistencia
   const handleDecisionAsistencia = (asiste: boolean) => {
     setAsistira(asiste);
     if (asiste) {
       setStep("detalles");
     } else {
-      enviarRespuestaNoAsistira();
+      setStep("mensaje"); // Si dice que no, pasa a escribir el mensaje de disculpas/buenos deseos
     }
   };
 
-  const enviarRespuestaNoAsistira = async () => {
+  // Paso 2 (Detalles) -> Avanzar a escribir el mensaje bonito
+  const handleContinuarAMensaje = (e: React.FormEvent) => {
+    e.preventDefault();
+    setStep("mensaje");
+  };
+
+  // Guardar respuestas finales en el backend
+  const handleGuardarYFinalizar = async (e: React.FormEvent) => {
+    e.preventDefault();
     setSubmitting(true);
+
     const respuestaFinal = {
-      asistira: false,
+      asistira,
       nombreInvitado,
       telefonoWhatsapp,
+      pasesConfirmados: asistira ? pasesSeleccionados : 0,
+      pasesDisponibles: maxPases,
+      asistentes: asistira ? nombresAsistentes : [],
+      mensajeDeseos,
+      preguntasAdicionales: extraAnswers,
       fechaRespuesta: new Date().toISOString(),
     };
 
@@ -104,64 +118,33 @@ function PublicEventContent() {
         }),
       });
     } catch (err) {
-      console.error(err);
+      console.error("Error al guardar respuesta en servidor:", err);
     } finally {
       setSubmitting(false);
       setStep("finalizado");
     }
   };
 
-  const handleSubmitFinal = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-
-    const respuestaFinal = {
-      asistira: true,
-      nombreInvitado,
-      telefonoWhatsapp,
-      pasesConfirmados: pasesSeleccionados,
-      pasesDisponibles: maxPases,
-      asistentes: nombresAsistentes,
-      preguntasAdicionales: extraAnswers,
-      fechaRespuesta: new Date().toISOString(),
-    };
-
-    try {
-      const res = await fetch("/api/form-config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "save_response",
-          eventSlug: slug,
-          response: respuestaFinal,
-        }),
-      });
-
-      if (res.ok) {
-        setStep("finalizado");
-      } else {
-        alert("Ocurrió un error al enviar tu confirmación.");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Error al conectar con el servidor.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // Generar mensaje dinámico para WhatsApp
+  // Abrir WhatsApp con el formato adecuado
   const abrirWhatsapp = () => {
-    const numero = config?.whatsappPhone || "5210000000000"; // Cambiar o configurar número de WhatsApp del organizador
-    let mensaje = "";
+    const numero = config?.whatsappPhone || "5210000000000";
+    let texto = "";
 
     if (asistira) {
-      mensaje = `¡Hola! Confirmo mi asistencia para ${config?.title}.\n- Nombre: ${nombreInvitado || "Invitado"}\n- Lugares confirmados: ${pasesSeleccionados}\n- Acompañantes: ${nombresAsistentes.join(", ")}`;
+      texto = `¡Hola! Confirmo mi asistencia para ${config?.title}.\n\n` +
+              `👤 *Nombre:* ${nombreInvitado || "Invitado"}\n` +
+              `🎟️ *Pases:* ${pasesSeleccionados}\n` +
+              `👥 *Asistentes:* ${nombresAsistentes.join(", ")}\n`;
     } else {
-      mensaje = `¡Hola! Lamentablemente no podré asistir a ${config?.title}.\n- Nombre: ${nombreInvitado || "Invitado"}`;
+      texto = `¡Hola! Lamentablemente no podré asistir a ${config?.title}.\n\n` +
+              `👤 *Nombre:* ${nombreInvitado || "Invitado"}\n`;
     }
 
-    const url = `https://wa.me/${numero.replace(/\D/g, "")}?text=${encodeURIComponent(mensaje)}`;
+    if (mensajeDeseos.trim()) {
+      texto += `\n💬 *Mensaje:* "${mensajeDeseos}"`;
+    }
+
+    const url = `https://wa.me/${numero.replace(/\D/g, "")}?text=${encodeURIComponent(texto)}`;
     window.open(url, "_blank");
   };
 
@@ -195,17 +178,17 @@ function PublicEventContent() {
         </p>
       </div>
 
-      {/* ---------------- PASO 1: PREGUNTA DE ASISTENCIA ---------------- */}
+      {/* ---------------- PASO 1: ASISTENCIA ---------------- */}
       {step === "asistencia" && (
         <div className="space-y-6">
           <div className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Ingresa tu nombre *
+                Ingresa tu nombre completo *
               </label>
               <input
                 type="text"
-                placeholder="Tu nombre completo"
+                placeholder="Ej. Juan Pérez"
                 value={nombreInvitado}
                 onChange={(e) => setNombreInvitado(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
@@ -234,42 +217,41 @@ function PublicEventContent() {
             <div className="grid grid-cols-2 gap-4">
               <button
                 type="button"
-                disabled={!nombreInvitado.trim() || submitting}
+                disabled={!nombreInvitado.trim()}
                 onClick={() => handleDecisionAsistencia(true)}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl shadow-lg transition-all"
+                className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl shadow-lg transition-all cursor-pointer"
               >
                 ¡Sí, asistiré! 🎉
               </button>
               <button
                 type="button"
-                disabled={!nombreInvitado.trim() || submitting}
+                disabled={!nombreInvitado.trim()}
                 onClick={() => handleDecisionAsistencia(false)}
-                className="w-full bg-rose-900/60 hover:bg-rose-800 disabled:opacity-50 text-rose-200 border border-rose-700/50 font-bold py-3 rounded-xl transition-all"
+                className="w-full bg-rose-900/60 hover:bg-rose-800 disabled:opacity-50 text-rose-200 border border-rose-700/50 font-bold py-3 rounded-xl transition-all cursor-pointer"
               >
                 No podré asistir 😔
               </button>
             </div>
             {!nombreInvitado.trim() && (
               <p className="text-[11px] text-center text-amber-500/80">
-                * Por favor ingresa tu nombre antes de responder.
+                * Escribe tu nombre arriba para continuar.
               </p>
             )}
           </div>
         </div>
       )}
 
-      {/* ---------------- PASO 2: DETALLES DE ACOMPAÑANTES Y PREGUNTAS (SI DIJO SÍ) ---------------- */}
+      {/* ---------------- PASO 2: DETALLES DE PASES (SI ASISTIRÁ) ---------------- */}
       {step === "detalles" && (
-        <form onSubmit={handleSubmitFinal} className="space-y-6">
+        <form onSubmit={handleContinuarAMensaje} className="space-y-6">
           <button
             type="button"
             onClick={() => setStep("asistencia")}
             className="text-xs text-amber-400 hover:underline flex items-center gap-1"
           >
-            ← Cambiar respuesta de asistencia
+            ← Volver a pregunta de asistencia
           </button>
 
-          {/* Selector de pases */}
           <div className="bg-slate-950/80 border border-slate-800 p-4 rounded-2xl space-y-4">
             <div>
               <label className="block text-xs font-bold text-amber-400 mb-1">
@@ -288,7 +270,6 @@ function PublicEventContent() {
               </select>
             </div>
 
-            {/* Nombres de los acompañantes */}
             <div className="space-y-3 pt-2">
               <label className="block text-xs font-bold text-slate-300">
                 Nombres de los asistentes:
@@ -311,7 +292,7 @@ function PublicEventContent() {
             </div>
           </div>
 
-          {/* Preguntas adicionales personalizadas (Filtrando las de nombre/asistencia/whatsapp) */}
+          {/* Preguntas adicionales personalizadas */}
           {config.questions && config.questions.length > 0 && (
             <div className="space-y-4">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
@@ -356,27 +337,66 @@ function PublicEventContent() {
 
           <button
             type="submit"
-            disabled={submitting}
             className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-sm py-3.5 rounded-xl shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
           >
-            {submitting ? "Guardando..." : "Confirmar y Finalizar"}
+            Siguiente →
           </button>
         </form>
       )}
 
-      {/* ---------------- PASO 3: PANTALLA FINAL Y ENVÍO A WHATSAPP ---------------- */}
+      {/* ---------------- PASO 3: MENSAJE O PALABRAS PARA LOS FESTEJADOS ---------------- */}
+      {step === "mensaje" && (
+        <form onSubmit={handleGuardarYFinalizar} className="space-y-6">
+          <button
+            type="button"
+            onClick={() => setStep(asistira ? "detalles" : "asistencia")}
+            className="text-xs text-amber-400 hover:underline flex items-center gap-1"
+          >
+            ← Regresar al paso anterior
+          </button>
+
+          <div className="space-y-3">
+            <h2 className="text-sm font-bold text-slate-200">
+              {asistira 
+                ? "✨ Escribe un mensaje especial o felicitación para los festejados:" 
+                : "💌 Escribe un mensaje o disculpa para los festejados:"}
+            </h2>
+            <textarea
+              rows={4}
+              placeholder={
+                asistira 
+                  ? "¡Muchas felicidades! Nos vemos muy pronto para celebrar..." 
+                  : "Lamento mucho no poder acompañarlos en este día tan especial. ¡Les deseo lo mejor!"
+              }
+              value={mensajeDeseos}
+              onChange={(e) => setMensajeDeseos(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500 resize-none"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-sm py-3.5 rounded-xl shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
+          >
+            {submitting ? "Guardando confirmación..." : "Confirmar Asistencia"}
+          </button>
+        </form>
+      )}
+
+      {/* ---------------- PASO 4: PANTALLA FINAL Y WHATSAPP ---------------- */}
       {step === "finalizado" && (
         <div className="text-center space-y-6 py-4">
           {asistira ? (
             <div className="bg-emerald-500/10 border border-emerald-500/30 p-6 rounded-2xl space-y-2">
-              <h2 className="text-lg font-bold text-emerald-400">¡Asistencia Confirmada! 🎉</h2>
+              <h2 className="text-lg font-bold text-emerald-400">¡Asistencia Registrada! 🎉</h2>
               <p className="text-xs text-slate-300">
                 Hemos registrado tu confirmación para <strong>{pasesSeleccionados}</strong> {pasesSeleccionados === 1 ? "lugar" : "lugares"}.
               </p>
             </div>
           ) : (
             <div className="bg-slate-800/50 border border-slate-700/50 p-6 rounded-2xl space-y-2">
-              <h2 className="text-lg font-bold text-slate-300">Respuesta registrada ✉️</h2>
+              <h2 className="text-lg font-bold text-slate-300">Respuesta Registrada ✉️</h2>
               <p className="text-xs text-slate-400">
                 Gracias por avisarnos, lamentamos que no puedas acompañarnos.
               </p>
@@ -385,7 +405,7 @@ function PublicEventContent() {
 
           <div className="space-y-3">
             <p className="text-xs text-slate-400">
-              Haz clic abajo para enviar tu respuesta directamente por WhatsApp al organizador:
+              Haz clic abajo para enviar tu mensaje y confirmación directamente al WhatsApp del organizador:
             </p>
             <button
               type="button"
