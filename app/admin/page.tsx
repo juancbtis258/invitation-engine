@@ -2,12 +2,25 @@
 
 import { useState, useEffect } from "react";
 
-interface Question {
+// Tipos de campo expandidos estilo Tally
+export type QuestionType =
+  | "text"
+  | "paragraph"
+  | "number"
+  | "fraction"
+  | "choice"
+  | "checkbox"
+  | "boolean"
+  | "date"
+  | "email_phone";
+
+export interface Question {
   id: string;
   label: string;
-  type: "text" | "choice" | "boolean";
+  type: QuestionType;
   options?: string[];
   required: boolean;
+  placeholder?: string;
 }
 
 interface EventItem {
@@ -29,24 +42,35 @@ interface UserItem {
   activo: boolean;
 }
 
-// Función auxiliar para convertir texto a Slug limpio (URL Friendly)
 function generateSlug(text: string): string {
   return text
     .toString()
     .toLowerCase()
     .trim()
-    .normalize("NFD") // Separa acentos de letras
-    .replace(/[\u0300-\u036f]/g, "") // Elimina acentos
-    .replace(/&/g, "-and-") // Cambia & por and
-    .replace(/[^a-z0-9 -]/g, "") // Elimina caracteres especiales
-    .replace(/\s+/g, "-") // Reemplaza espacios con guiones
-    .replace(/-+/g, "-"); // Elimina guiones dobles
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/&/g, "-and-")
+    .replace(/[^a-z0-9 -]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
 }
+
+const TIPO_LABELS: Record<QuestionType, { name: string; icon: string }> = {
+  text: { name: "Texto corto", icon: "📝" },
+  paragraph: { name: "Texto largo (Párrafo)", icon: "📜" },
+  number: { name: "Número entero", icon: "🔢" },
+  fraction: { name: "Fracción / Decimal", icon: "➗" },
+  choice: { name: "Opción única (Radio)", icon: "🔘" },
+  checkbox: { name: "Casillas (Múltiples)", icon: "☑️" },
+  boolean: { name: "Sí / No", icon: "👍" },
+  date: { name: "Fecha / Hora", icon: "📅" },
+  email_phone: { name: "Correo / Teléfono", icon: "📧" },
+};
 
 export default function AdminDashboardPage() {
   const [tabActiva, setTabActiva] = useState<
     "eventos" | "disenador" | "respuestas" | "colaboradores"
-  >("eventos");
+  >("disenador");
 
   const [eventos, setEventos] = useState<EventItem[]>([
     {
@@ -63,6 +87,13 @@ export default function AdminDashboardPage() {
           label: "¿Tienes alguna restricción alimenticia?",
           type: "text",
           required: false,
+          placeholder: "Ej. Vegano, alergia a nueces...",
+        },
+        {
+          id: "q2",
+          label: "¿Cuántos pases de niños necesitas?",
+          type: "number",
+          required: false,
         },
       ],
     },
@@ -70,7 +101,7 @@ export default function AdminDashboardPage() {
 
   const [eventoSeleccionadoId, setEventoSeleccionadoId] = useState<string>("1");
 
-  // Modal / Formulario para Crear / Editar Evento
+  // Modal / Formulario Eventos
   const [mostrarModalEvento, setMostrarModalEvento] = useState(false);
   const [modalTitle, setModalTitle] = useState("");
   const [modalSlug, setModalSlug] = useState("");
@@ -81,38 +112,26 @@ export default function AdminDashboardPage() {
   const [modalActive, setModalActive] = useState(true);
   const [editandoEventoId, setEditandoEventoId] = useState<string | null>(null);
 
-  // DISEÑADOR DE PREGUNTAS
+  // ESTADOS DEL DISEÑADOR (NUEVO CAMPO)
   const [nuevaPreguntaLabel, setNuevaPreguntaLabel] = useState("");
-  const [nuevaPreguntaTipo, setNuevaPreguntaTipo] = useState<
-    "text" | "choice" | "boolean"
-  >("text");
+  const [nuevaPreguntaTipo, setNuevaPreguntaTipo] = useState<QuestionType>("text");
   const [nuevaPreguntaOpciones, setNuevaPreguntaOpciones] = useState("");
   const [nuevaPreguntaRequerida, setNuevaPreguntaRequerida] = useState(false);
 
-  // COLABORADORES
+  // USUARIOS & RESPUESTAS
   const [usuarios, setUsuarios] = useState<UserItem[]>([
     {
       id: "u1",
-      nombre: "Alejandro Mejía (Tú)",
+      nombre: "Alejandro Mejía",
       correo: "admin@mi-invitacion.com",
       rol: "ADMINISTRADOR",
       activo: true,
     },
-    {
-      id: "u2",
-      nombre: "Cliente Demo",
-      correo: "cliente@bodamaria.com",
-      rol: "CLIENTE",
-      activo: true,
-    },
   ]);
-
   const [nuevoNombre, setNuevoNombre] = useState("");
   const [nuevoCorreo, setNuevoCorreo] = useState("");
   const [nuevoRol, setNuevoRol] = useState<"ADMINISTRADOR" | "CLIENTE">("CLIENTE");
   const [usuarioEditandoId, setUsuarioEditandoId] = useState<string | null>(null);
-
-  // RESPUESTAS RECIBIDAS
   const [respuestas, setRespuestas] = useState<any[]>([]);
 
   const eventoActual = eventos.find((e) => e.id === eventoSeleccionadoId) || eventos[0];
@@ -122,14 +141,14 @@ export default function AdminDashboardPage() {
     fetch(`/api/form-config?event=${eventoActual.slug}`)
       .then((res) => res.json())
       .then((data) => {
-        if (data.data && data.data.responses) {
+        if (data.data?.responses) {
           setRespuestas(data.data.responses);
         }
       })
-      .catch((err) => console.error("Error al sincronizar respuestas:", err));
+      .catch((err) => console.error(err));
   }, [eventoSeleccionadoId, eventoActual?.slug]);
 
-  // Manejador para actualizar el título y auto-generar el Slug
+  // Manejador del Título & Slug
   const handleTitleChange = (val: string) => {
     setModalTitle(val);
     if (!slugEditadoManualmente) {
@@ -195,20 +214,10 @@ export default function AdminDashboardPage() {
       setEventos([...eventos, nuevo]);
       setEventoSeleccionadoId(nuevo.id);
     }
-
     setMostrarModalEvento(false);
   };
 
-  const handleDuplicarEvento = (ev: EventItem) => {
-    const duplicado: EventItem = {
-      ...ev,
-      id: Date.now().toString(),
-      slug: `${ev.slug}-copia`,
-      title: `${ev.title} (Copia)`,
-    };
-    setEventos([...eventos, duplicado]);
-  };
-
+  // FUNCIONES DEL DISEÑADOR
   const handleAgregarPregunta = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nuevaPreguntaLabel || !eventoActual) return;
@@ -218,8 +227,8 @@ export default function AdminDashboardPage() {
       label: nuevaPreguntaLabel,
       type: nuevaPreguntaTipo,
       options:
-        nuevaPreguntaTipo === "choice"
-          ? nuevaPreguntaOpciones.split(",").map((o) => o.trim())
+        ["choice", "checkbox"].includes(nuevaPreguntaTipo)
+          ? nuevaPreguntaOpciones.split(",").map((o) => o.trim()).filter(Boolean)
           : undefined,
       required: nuevaPreguntaRequerida,
     };
@@ -236,6 +245,26 @@ export default function AdminDashboardPage() {
     setNuevaPreguntaRequerida(false);
   };
 
+  // Edición directa de cualquier propiedad de una pregunta existente
+  const handleUpdatePregunta = (
+    qId: string,
+    field: keyof Question,
+    value: any
+  ) => {
+    if (!eventoActual) return;
+    const actualizados = eventos.map((ev) => {
+      if (ev.id !== eventoActual.id) return ev;
+      return {
+        ...ev,
+        questions: ev.questions.map((q) => {
+          if (q.id !== qId) return q;
+          return { ...q, [field]: value };
+        }),
+      };
+    });
+    setEventos(actualizados);
+  };
+
   const handleEliminarPregunta = (qId: string) => {
     if (!eventoActual) return;
     const actualizados = eventos.map((ev) =>
@@ -246,50 +275,11 @@ export default function AdminDashboardPage() {
     setEventos(actualizados);
   };
 
-  const handleGuardarUsuario = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!nuevoNombre || !nuevoCorreo) return;
-
-    if (usuarioEditandoId) {
-      setUsuarios(
-        usuarios.map((u) =>
-          u.id === usuarioEditandoId
-            ? { ...u, nombre: nuevoNombre, correo: nuevoCorreo, rol: nuevoRol }
-            : u
-        )
-      );
-      setUsuarioEditandoId(null);
-    } else {
-      const nuevoU: UserItem = {
-        id: Date.now().toString(),
-        nombre: nuevoNombre,
-        correo: nuevoCorreo,
-        rol: nuevoRol,
-        activo: true,
-      };
-      setUsuarios([...usuarios, nuevoU]);
-    }
-
-    setNuevoNombre("");
-    setNuevoCorreo("");
-  };
-
-  const handleEditarUsuario = (u: UserItem) => {
-    setUsuarioEditandoId(u.id);
-    setNuevoNombre(u.nombre);
-    setNuevoCorreo(u.correo);
-    setNuevoRol(u.rol);
-  };
-
-  const handleEliminarUsuario = (uId: string) => {
-    setUsuarios(usuarios.filter((u) => u.id !== uId));
-  };
-
   return (
     <div className="min-h-screen bg-[#0d1527] text-slate-100 p-4 md:p-8 font-sans">
       <div className="max-w-6xl mx-auto space-y-6">
 
-        {/* HEADER Y PESTAÑAS */}
+        {/* HEADER */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-black text-amber-500 tracking-tight">
@@ -320,7 +310,7 @@ export default function AdminDashboardPage() {
                   : "bg-slate-800/80 text-slate-300 hover:bg-slate-800"
               }`}
             >
-              🛠️ Diseñador
+              🛠️ Diseñador Tally
             </button>
 
             <button
@@ -344,494 +334,215 @@ export default function AdminDashboardPage() {
             >
               👥 Colaboradores
             </button>
-
-            <button
-              onClick={() => (window.location.href = "/")}
-              className="px-4 py-2 bg-rose-950/40 border border-rose-900/50 text-rose-400 hover:bg-rose-900/50 rounded-xl text-xs font-bold transition-all"
-            >
-              🚪 Salir
-            </button>
           </div>
         </div>
 
-        {/* PESTAÑA 1: MIS EVENTOS */}
-        {tabActiva === "eventos" && (
-          <div className="space-y-6">
-            <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
-              <h2 className="text-xs font-black text-amber-500 uppercase tracking-wider">
-                CATÁLOGO DE EVENTOS REGISTRADOS
-              </h2>
-
-              <button
-                onClick={abrirModalCrear}
-                className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-amber-500/20 cursor-pointer"
-              >
-                + Crear Nuevo Evento
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4">
-              {eventos.map((ev) => (
-                <div
-                  key={ev.id}
-                  className={`bg-[#121c33] border ${
-                    eventoSeleccionadoId === ev.id
-                      ? "border-amber-500/60 ring-1 ring-amber-500/30"
-                      : "border-slate-800/80"
-                  } rounded-2xl p-6 space-y-4 shadow-xl transition-all`}
-                >
-                  <div className="flex items-start justify-between gap-4 border-b border-slate-800/80 pb-3">
-                    <div>
-                      <h3 className="text-base font-extrabold text-slate-100">{ev.title}</h3>
-                      <p className="text-xs text-amber-500/80 font-mono mt-0.5">/{ev.slug}</p>
-                    </div>
-
-                    <span
-                      className={`px-3 py-1 rounded-full text-[10px] font-black tracking-wider ${
-                        ev.active
-                          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
-                          : "bg-rose-500/10 text-rose-400 border border-rose-500/30"
-                      }`}
-                    >
-                      • {ev.active ? "ACTIVO" : "INACTIVO"}
-                    </span>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400">
-                    <div>📅 Fecha: <span className="text-slate-200 font-semibold">{ev.targetDate || "Sin fecha"}</span></div>
-                    <div>📦 Plan: <span className="text-amber-400 font-bold">{ev.plan}</span></div>
-                    {ev.whatsappPhone && (
-                      <div>📱 WhatsApp: <span className="text-slate-200 font-semibold">{ev.whatsappPhone}</span></div>
-                    )}
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800/80">
-                    <button
-                      onClick={() => abrirModalEditar(ev)}
-                      className="bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-xs font-bold px-4 py-2 rounded-xl transition-all"
-                    >
-                      ⚙️ Editar
-                    </button>
-
-                    <button
-                      onClick={() => handleDuplicarEvento(ev)}
-                      className="bg-slate-800/80 hover:bg-slate-700 text-amber-400 text-xs font-bold px-4 py-2 rounded-xl transition-all"
-                    >
-                      📋 Duplicar
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setEventoSeleccionadoId(ev.id);
-                        setTabActiva("disenador");
-                      }}
-                      className="bg-slate-800/80 hover:bg-slate-700 text-emerald-400 text-xs font-bold px-4 py-2 rounded-xl transition-all"
-                    >
-                      🛠 Diseñar Preguntas
-                    </button>
-
-                    <a
-                      href={`/?event=${ev.slug}&p=2`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="bg-slate-800/80 hover:bg-slate-700 text-amber-400 text-xs font-bold px-4 py-2 rounded-xl transition-all"
-                    >
-                      🔗 Ver Demo (2 pases)
-                    </a>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* PESTAÑA 2: DISEÑADOR */}
+        {/* PESTAÑA: DISEÑADOR ESTILO TALLY */}
         {tabActiva === "disenador" && (
           <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 md:p-8 space-y-6 shadow-2xl">
-            <div className="border-b border-slate-800 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+            <div className="border-b border-slate-800 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
-                <h2 className="text-xs font-black text-amber-500 uppercase tracking-wider">
-                  🛠️ DISEÑADOR DE PREGUNTAS Y CAMPOS DEL FORMULARIO
+                <h2 className="text-xs font-black text-amber-500 uppercase tracking-wider flex items-center gap-2">
+                  <span>🛠️</span> CONSTRUCTOR DE FORMULARIO INTERACTIVO
                 </h2>
                 <p className="text-xs text-slate-400 mt-1">
                   Evento actual: <span className="text-amber-400 font-bold">{eventoActual?.title}</span>
                 </p>
               </div>
 
-              <select
-                value={eventoSeleccionadoId}
-                onChange={(e) => setEventoSeleccionadoId(e.target.value)}
-                className="bg-slate-950 border border-slate-800 text-xs text-amber-400 font-bold rounded-xl px-3 py-2 focus:outline-none"
-              >
-                {eventos.map((ev) => (
-                  <option key={ev.id} value={ev.id}>
-                    {ev.title} ({ev.slug})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <form onSubmit={handleAgregarPregunta} className="bg-slate-950 p-5 rounded-xl border border-slate-800 space-y-4">
-              <h3 className="text-xs font-bold text-slate-200 uppercase">
-                + Agregar Nueva Pregunta
-              </h3>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <input
-                  type="text"
-                  placeholder="Ej. ¿Alergias o requerimiento de menú especial?"
-                  value={nuevaPreguntaLabel}
-                  onChange={(e) => setNuevaPreguntaLabel(e.target.value)}
-                  className="bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
-                  required
-                />
-
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400">Evento:</span>
                 <select
-                  value={nuevaPreguntaTipo}
-                  onChange={(e) => setNuevaPreguntaTipo(e.target.value as any)}
-                  className="bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-300 focus:outline-none focus:border-amber-500"
+                  value={eventoSeleccionadoId}
+                  onChange={(e) => setEventoSeleccionadoId(e.target.value)}
+                  className="bg-slate-950 border border-slate-800 text-xs text-amber-400 font-bold rounded-xl px-3 py-2 focus:outline-none focus:border-amber-500"
                 >
-                  <option value="text">Texto abierto</option>
-                  <option value="choice">Opción múltiple</option>
-                  <option value="boolean">Sí / No</option>
+                  {eventos.map((ev) => (
+                    <option key={ev.id} value={ev.id}>
+                      {ev.title} ({ev.slug})
+                    </option>
+                  ))}
                 </select>
               </div>
+            </div>
 
-              {nuevaPreguntaTipo === "choice" && (
-                <input
-                  type="text"
-                  placeholder="Opciones separadas por coma (ej. Carne, Vegano, Infantil)"
-                  value={nuevaPreguntaOpciones}
-                  onChange={(e) => setNuevaPreguntaOpciones(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
-                />
+            {/* CREAR NUEVO CAMPO */}
+            <form onSubmit={handleAgregarPregunta} className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4">
+              <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                <span>➕</span> Agregar Nuevo Campo al Formulario
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                <div className="md:col-span-7">
+                  <input
+                    type="text"
+                    placeholder="Título o Pregunta (ej. ¿Número de acompañantes o menú preferencia?)"
+                    value={nuevaPreguntaLabel}
+                    onChange={(e) => setNuevaPreguntaLabel(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500"
+                    required
+                  />
+                </div>
+
+                <div className="md:col-span-5">
+                  <select
+                    value={nuevaPreguntaTipo}
+                    onChange={(e) => setNuevaPreguntaTipo(e.target.value as QuestionType)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-amber-400 font-medium focus:outline-none focus:border-amber-500"
+                  >
+                    {Object.entries(TIPO_LABELS).map(([key, item]) => (
+                      <option key={key} value={key}>
+                        {item.icon} {item.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {["choice", "checkbox"].includes(nuevaPreguntaTipo) && (
+                <div>
+                  <input
+                    type="text"
+                    placeholder="Opciones separadas por coma (ej. Opción A, Opción B, Opción C)"
+                    value={nuevaPreguntaOpciones}
+                    onChange={(e) => setNuevaPreguntaOpciones(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
               )}
 
-              <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+              <div className="flex items-center justify-between pt-1">
+                <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={nuevaPreguntaRequerida}
                     onChange={(e) => setNuevaPreguntaRequerida(e.target.checked)}
                     className="w-4 h-4 accent-amber-500 rounded"
                   />
-                  Obligatoria
+                  <span>Campo obligatorio</span>
                 </label>
 
                 <button
                   type="submit"
-                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs px-5 py-2 rounded-xl transition-all cursor-pointer"
+                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs px-6 py-2.5 rounded-xl transition-all shadow-lg shadow-amber-500/20 cursor-pointer"
                 >
-                  + Agregar Campo
+                  + Insertar Campo
                 </button>
               </div>
             </form>
 
-            <div className="space-y-3">
-              <h3 className="text-xs font-bold text-slate-400 uppercase">
-                Campos activos en la invitación ({eventoActual?.questions?.length || 0})
-              </h3>
+            {/* LISTADO Y EDICIÓN EN TIEMPO REAL */}
+            <div className="space-y-4 pt-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider">
+                  Campos Activos ({eventoActual?.questions?.length || 0})
+                </h3>
+                <span className="text-[11px] text-slate-500">
+                  Puedes modificar los títulos, tipos y opciones directamente abajo.
+                </span>
+              </div>
 
               {(!eventoActual?.questions || eventoActual.questions.length === 0) ? (
-                <p className="text-xs text-slate-500 bg-slate-950 p-4 rounded-xl border border-slate-800 text-center">
-                  No has añadido preguntas personalizadas a esta invitación.
-                </p>
+                <div className="text-center py-12 bg-slate-950/60 rounded-2xl border border-slate-800">
+                  <p className="text-xs text-slate-500">
+                    No has añadido preguntas personalizadas a este evento aún.
+                  </p>
+                </div>
               ) : (
-                eventoActual.questions.map((q) => (
+                eventoActual.questions.map((q, index) => (
                   <div
                     key={q.id}
-                    className="flex items-center justify-between bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs"
+                    className="bg-slate-950 p-4 md:p-5 rounded-2xl border border-slate-800/90 hover:border-slate-700 transition-all space-y-3"
                   >
-                    <div>
-                      <p className="font-semibold text-slate-200">{q.label}</p>
-                      <span className="text-[10px] text-amber-500 font-mono">
-                        Tipo: {q.type} {q.required ? "• Obligatoria" : ""}
+                    <div className="flex items-center justify-between gap-2 border-b border-slate-900 pb-3">
+                      <span className="text-[10px] font-mono font-bold text-amber-500 bg-amber-500/10 px-2.5 py-1 rounded-md border border-amber-500/20">
+                        Campo #{index + 1}
                       </span>
+
+                      <button
+                        onClick={() => handleEliminarPregunta(q.id)}
+                        className="text-rose-400 hover:text-rose-300 font-bold text-xs px-3 py-1 rounded-lg bg-rose-950/40 border border-rose-900/50 hover:bg-rose-900/60 transition-all cursor-pointer"
+                      >
+                        🗑️ Eliminar
+                      </button>
                     </div>
 
-                    <button
-                      onClick={() => handleEliminarPregunta(q.id)}
-                      className="text-rose-400 hover:text-rose-300 font-bold text-xs px-3 py-1 rounded-lg bg-rose-950/30 border border-rose-800/40"
-                    >
-                      Eliminar
-                    </button>
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                      {/* Editar Título */}
+                      <div className="md:col-span-7">
+                        <label className="block text-[10px] uppercase text-slate-500 font-bold mb-1">
+                          Título del campo
+                        </label>
+                        <input
+                          type="text"
+                          value={q.label}
+                          onChange={(e) =>
+                            handleUpdatePregunta(q.id, "label", e.target.value)
+                          }
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-100 font-semibold focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+
+                      {/* Editar Tipo de Campo en todo momento */}
+                      <div className="md:col-span-5">
+                        <label className="block text-[10px] uppercase text-slate-500 font-bold mb-1">
+                          Tipo de entrada
+                        </label>
+                        <select
+                          value={q.type}
+                          onChange={(e) =>
+                            handleUpdatePregunta(q.id, "type", e.target.value as QuestionType)
+                          }
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-amber-400 font-bold focus:outline-none focus:border-amber-500"
+                        >
+                          {Object.entries(TIPO_LABELS).map(([key, item]) => (
+                            <option key={key} value={key}>
+                              {item.icon} {item.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Editar Opciones si aplica */}
+                    {["choice", "checkbox"].includes(q.type) && (
+                      <div>
+                        <label className="block text-[10px] uppercase text-slate-500 font-bold mb-1">
+                          Opciones (separadas por coma)
+                        </label>
+                        <input
+                          type="text"
+                          value={q.options ? q.options.join(", ") : ""}
+                          onChange={(e) =>
+                            handleUpdatePregunta(
+                              q.id,
+                              "options",
+                              e.target.value.split(",").map((s) => s.trim()).filter(Boolean)
+                            )
+                          }
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                          placeholder="Opción 1, Opción 2, Opción 3"
+                        />
+                      </div>
+                    )}
+
+                    {/* Checkbox Obligatorio */}
+                    <div className="pt-1 flex items-center justify-between text-xs">
+                      <label className="flex items-center gap-2 text-slate-400 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={q.required}
+                          onChange={(e) =>
+                            handleUpdatePregunta(q.id, "required", e.target.checked)
+                          }
+                          className="w-4 h-4 accent-amber-500 rounded"
+                        />
+                        <span>Obligatorio responder</span>
+                      </label>
+                    </div>
                   </div>
                 ))
               )}
-            </div>
-          </div>
-        )}
-
-        {/* PESTAÑA 3: RESPUESTAS */}
-        {tabActiva === "respuestas" && (
-          <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 md:p-8 space-y-4 shadow-2xl">
-            <h2 className="text-xs font-black text-amber-500 tracking-wider uppercase border-b border-slate-800 pb-3">
-              📊 RESPUESTAS RECIBIDAS - {eventoActual?.title}
-            </h2>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-300">
-                <thead className="bg-slate-950 text-slate-400 uppercase text-[10px] tracking-wider">
-                  <tr>
-                    <th className="p-3">Nombre</th>
-                    <th className="p-3">Asistencia</th>
-                    <th className="p-3">Pases</th>
-                    <th className="p-3">Mensaje</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60">
-                  {respuestas.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="text-center p-6 text-slate-500">
-                        No hay registros guardados para este evento.
-                      </td>
-                    </tr>
-                  ) : (
-                    respuestas.map((r, idx) => (
-                      <tr key={idx}>
-                        <td className="p-3 font-semibold text-slate-100">{r.nombreInvitado || "Anónimo"}</td>
-                        <td className="p-3">
-                          {r.asistira ? (
-                            <span className="text-emerald-400 font-bold">Sí asistirá 🎉</span>
-                          ) : (
-                            <span className="text-rose-400 font-bold">No asistirá 😔</span>
-                          )}
-                        </td>
-                        <td className="p-3 font-bold text-amber-400">{r.pasesConfirmados || 0}</td>
-                        <td className="p-3 italic text-slate-400">{r.mensajeDeseos || "-"}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* PESTAÑA 4: COLABORADORES */}
-        {tabActiva === "colaboradores" && (
-          <div className="space-y-6">
-            <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 space-y-4 shadow-xl">
-              <h2 className="text-xs font-black text-amber-500 tracking-wider uppercase">
-                {usuarioEditandoId ? "EDITAR COLABORADOR O CLIENTE" : "REGISTRAR NUEVO COLABORADOR O CLIENTE"}
-              </h2>
-
-              <form onSubmit={handleGuardarUsuario} className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-center">
-                <div>
-                  <input
-                    type="text"
-                    placeholder="Nombre completo"
-                    value={nuevoNombre}
-                    onChange={(e) => setNuevoNombre(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <input
-                    type="email"
-                    placeholder="Correo electrónico"
-                    value={nuevoCorreo}
-                    onChange={(e) => setNuevoCorreo(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <select
-                    value={nuevoRol}
-                    onChange={(e) => setNuevoRol(e.target.value as any)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-300 focus:outline-none focus:border-amber-500 cursor-pointer"
-                  >
-                    <option value="CLIENTE">Cliente (Acceso a su evento)</option>
-                    <option value="ADMINISTRADOR">Administrador (Acceso total)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <button
-                    type="submit"
-                    className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs py-2.5 rounded-xl shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
-                  >
-                    {usuarioEditandoId ? "Actualizar" : "+ Dar Acceso"}
-                  </button>
-                </div>
-              </form>
-            </div>
-
-            <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 space-y-4 shadow-xl">
-              <h2 className="text-xs font-black text-amber-500 tracking-wider uppercase">
-                USUARIOS REGISTRADOS EN LA PLATAFORMA
-              </h2>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-[#0a101f] text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
-                    <tr>
-                      <th className="p-3">Nombre</th>
-                      <th className="p-3">Correo</th>
-                      <th className="p-3">Rol</th>
-                      <th className="p-3">Estado</th>
-                      <th className="p-3 text-right">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60">
-                    {usuarios.map((u) => (
-                      <tr key={u.id} className="hover:bg-slate-800/30 transition-colors">
-                        <td className="p-3 font-semibold text-slate-100">{u.nombre}</td>
-                        <td className="p-3 text-slate-400">{u.correo}</td>
-                        <td className="p-3">
-                          {u.rol === "ADMINISTRADOR" ? (
-                            <span className="bg-amber-500/20 text-amber-400 border border-amber-500/40 px-2.5 py-1 rounded text-[10px] font-black tracking-wider">
-                              ADMINISTRADOR
-                            </span>
-                          ) : (
-                            <span className="bg-blue-600/20 text-blue-400 border border-blue-500/40 px-2.5 py-1 rounded text-[10px] font-black tracking-wider">
-                              CLIENTE
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-3">
-                          <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-full text-[10px] font-bold">
-                            • ACTIVO
-                          </span>
-                        </td>
-                        <td className="p-3 text-right space-x-2">
-                          <button
-                            onClick={() => handleEditarUsuario(u)}
-                            className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold text-[11px] px-3 py-1 rounded-lg transition-all"
-                          >
-                            ✏️ Editar
-                          </button>
-                          {u.rol !== "ADMINISTRADOR" && (
-                            <button
-                              onClick={() => handleEliminarUsuario(u.id)}
-                              className="bg-rose-950/40 hover:bg-rose-900/50 text-rose-400 border border-rose-800/40 font-bold text-[11px] px-3 py-1 rounded-lg transition-all"
-                            >
-                              Eliminar
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* MODAL CREAR / EDITAR EVENTO */}
-        {mostrarModalEvento && (
-          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-[#121c33] border border-slate-800 w-full max-w-lg rounded-2xl p-6 md:p-8 space-y-5 shadow-2xl">
-              <h2 className="text-sm font-extrabold text-amber-500 uppercase tracking-wider">
-                {editandoEventoId ? "⚙️ Editar Configuración de Evento" : "✨ Crear Nuevo Evento"}
-              </h2>
-
-              <form onSubmit={handleGuardarEvento} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Título del Evento
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Ej. Boda María & Alejandro"
-                    value={modalTitle}
-                    onChange={(e) => handleTitleChange(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Slug / Identificador de la URL
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Ej. boda-maria-alejandro"
-                    value={modalSlug}
-                    onChange={(e) => {
-                      setModalSlug(e.target.value);
-                      setSlugEditadoManualmente(true);
-                    }}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Fecha del Evento
-                  </label>
-                  <input
-                    type="date"
-                    value={modalDate}
-                    onChange={(e) => setModalDate(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                <div className="bg-amber-500/10 border border-amber-500/20 p-3.5 rounded-xl space-y-1">
-                  <label className="block text-xs font-bold text-amber-400">
-                    📱 WhatsApp Receptor de Confirmaciones
-                  </label>
-                  <input
-                    type="tel"
-                    placeholder="Ej. 5218112345678"
-                    value={modalWhatsapp}
-                    onChange={(e) => setModalWhatsapp(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Plan
-                  </label>
-                  <select
-                    value={modalPlan}
-                    onChange={(e) => setModalPlan(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none"
-                  >
-                    <option value="PLUS">PLUS</option>
-                    <option value="BASIC">BASIC</option>
-                    <option value="PREMIUM">PREMIUM</option>
-                  </select>
-                </div>
-
-                <div className="flex items-center gap-2 pt-1">
-                  <input
-                    type="checkbox"
-                    id="modalActiveCheck"
-                    checked={modalActive}
-                    onChange={(e) => setModalActive(e.target.checked)}
-                    className="w-4 h-4 accent-amber-500 rounded"
-                  />
-                  <label htmlFor="modalActiveCheck" className="text-xs text-slate-300 cursor-pointer">
-                    Evento activo / publicado
-                  </label>
-                </div>
-
-                <div className="flex items-center justify-end gap-3 pt-3">
-                  <button
-                    type="button"
-                    onClick={() => setMostrarModalEvento(false)}
-                    className="bg-slate-800 text-slate-300 font-bold text-xs px-4 py-2.5 rounded-xl"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs px-5 py-2.5 rounded-xl shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
-                  >
-                    {editandoEventoId ? "Guardar Cambios" : "Crear Evento"}
-                  </button>
-                </div>
-              </form>
             </div>
           </div>
         )}
