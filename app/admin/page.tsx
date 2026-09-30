@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 
-// Tipos de campo Tally expandidos
 export type QuestionType =
   | "text"
   | "paragraph"
@@ -31,6 +30,7 @@ interface EventItem {
   plan: string;
   active: boolean;
   whatsappPhone: string;
+  pasesAsignados?: number; // Configuración de Pases
   questions: Question[];
 }
 
@@ -70,7 +70,9 @@ const TIPO_LABELS: Record<QuestionType, { name: string; icon: string }> = {
 export default function AdminDashboardPage() {
   const [tabActiva, setTabActiva] = useState<
     "eventos" | "disenador" | "respuestas" | "colaboradores"
-  >("disenador");
+  >("eventos");
+
+  const [copiadoSlug, setCopiadoSlug] = useState<string | null>(null);
 
   const [eventos, setEventos] = useState<EventItem[]>([
     {
@@ -81,6 +83,7 @@ export default function AdminDashboardPage() {
       plan: "PLUS",
       active: true,
       whatsappPhone: "5218112345678",
+      pasesAsignados: 2,
       questions: [
         {
           id: "q1",
@@ -109,6 +112,7 @@ export default function AdminDashboardPage() {
   const [modalDate, setModalDate] = useState("");
   const [modalPlan, setModalPlan] = useState("PLUS");
   const [modalWhatsapp, setModalWhatsapp] = useState("");
+  const [modalPases, setModalPases] = useState<number>(2);
   const [modalActive, setModalActive] = useState(true);
   const [editandoEventoId, setEditandoEventoId] = useState<string | null>(null);
 
@@ -163,6 +167,7 @@ export default function AdminDashboardPage() {
     setModalDate("");
     setModalPlan("PLUS");
     setModalWhatsapp("");
+    setModalPases(2);
     setModalActive(true);
     setMostrarModalEvento(true);
   };
@@ -175,6 +180,7 @@ export default function AdminDashboardPage() {
     setModalDate(ev.targetDate);
     setModalPlan(ev.plan);
     setModalWhatsapp(ev.whatsappPhone || "");
+    setModalPases(ev.pasesAsignados || 2);
     setModalActive(ev.active);
     setMostrarModalEvento(true);
   };
@@ -194,6 +200,7 @@ export default function AdminDashboardPage() {
                 targetDate: modalDate,
                 plan: modalPlan,
                 whatsappPhone: modalWhatsapp,
+                pasesAsignados: Number(modalPases),
                 active: modalActive,
               }
             : ev
@@ -208,6 +215,7 @@ export default function AdminDashboardPage() {
         plan: modalPlan,
         active: modalActive,
         whatsappPhone: modalWhatsapp,
+        pasesAsignados: Number(modalPases),
         questions: [],
       };
       setEventos([...eventos, nuevo]);
@@ -222,6 +230,13 @@ export default function AdminDashboardPage() {
     if (eventoSeleccionadoId === id && filtrados.length > 0) {
       setEventoSeleccionadoId(filtrados[0].id);
     }
+  };
+
+  const copiarLinkEvento = (slug: string) => {
+    const url = `${window.location.origin}/${slug}`;
+    navigator.clipboard.writeText(url);
+    setCopiadoSlug(slug);
+    setTimeout(() => setCopiadoSlug(null), 2500);
   };
 
   // Diseñador
@@ -352,7 +367,7 @@ export default function AdminDashboardPage() {
                   : "bg-slate-800/80 text-slate-300 hover:bg-slate-800"
               }`}
             >
-              🛠️ Diseñador
+              🛠️️ Diseñador
             </button>
 
             <button
@@ -418,10 +433,24 @@ export default function AdminDashboardPage() {
                         {ev.active ? "ACTIVO" : "INACTIVO"}
                       </span>
                     </div>
-                    <p className="text-xs font-mono text-amber-400 mt-1">/{ev.slug}</p>
+
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-xs font-mono text-amber-400">/{ev.slug}</p>
+                      
+                      {/* BOTÓN COMPARTIR LINK RÁPIDO */}
+                      <button
+                        onClick={() => copiarLinkEvento(ev.slug)}
+                        className="text-[11px] font-bold text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-2.5 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1"
+                        title="Copiar enlace de invitación"
+                      >
+                        {copiadoSlug === ev.slug ? "¡Copiado! 🚀" : "🔗 Compartir Link"}
+                      </button>
+                    </div>
+
                     <div className="text-[11px] text-slate-400 mt-3 space-y-1">
                       <p>📅 Fecha: {ev.targetDate || "Sin fecha"}</p>
                       <p>💎 Plan: {ev.plan}</p>
+                      <p>🎫 Pases Asignados: <span className="text-slate-200 font-bold">{ev.pasesAsignados ?? 2} pases</span></p>
                       <p>📱 WhatsApp: {ev.whatsappPhone || "No asignado"}</p>
                     </div>
                   </div>
@@ -585,7 +614,7 @@ export default function AdminDashboardPage() {
 
                       <div className="md:col-span-5">
                         <label className="block text-[10px] uppercase text-slate-500 font-bold mb-1">
-                          Tipo de campo (Modificable en cualquier momento)
+                          Tipo de campo
                         </label>
                         <select
                           value={q.type}
@@ -887,15 +916,27 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-slate-400 font-bold mb-1">WhatsApp Notificaciones</label>
-                <input
-                  type="text"
-                  placeholder="5218112345678"
-                  value={modalWhatsapp}
-                  onChange={(e) => setModalWhatsapp(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-amber-500"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-400 font-bold mb-1">Pases Asignados (Boletos)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={modalPases}
+                    onChange={(e) => setModalPases(Number(e.target.value))}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-400 font-bold mb-1">WhatsApp Notificaciones</label>
+                  <input
+                    type="text"
+                    placeholder="5218112345678"
+                    value={modalWhatsapp}
+                    onChange={(e) => setModalWhatsapp(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
               </div>
 
               <div className="pt-2 flex items-center justify-between">
