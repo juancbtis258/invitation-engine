@@ -22,13 +22,13 @@ export default function InvitacionPublicaPage() {
 
   // Estados de configuración del evento
   const [cargando, setCargando] = useState(true);
+  const [eventoConfig, setEventoConfig] = useState<any>(null);
   const [tituloEvento, setTituloEvento] = useState("Mi Evento");
   const [fechaEvento, setFechaEvento] = useState("");
   const [whatsappNotif, setWhatsappNotif] = useState("");
   const [preguntasExtra, setPreguntasExtra] = useState<Question[]>([]);
 
-  // Estado del flujo paso a paso (Tally-Style)
-  // Pasos: "asistencia" -> "pases" -> "nombres_asistentes" -> "preguntas_extra" -> "mensaje_final"
+  // Estado del flujo paso a paso
   const [pasoActual, setPasoActual] = useState<
     "asistencia" | "pases" | "nombres_asistentes" | "preguntas_extra" | "mensaje_final"
   >("asistencia");
@@ -49,6 +49,7 @@ export default function InvitacionPublicaPage() {
       .then((res) => res.json())
       .then((data) => {
         if (data.data) {
+          setEventoConfig(data.data);
           setTituloEvento(data.data.title || "Mi Evento");
           setFechaEvento(data.data.targetDate || "");
           setWhatsappNotif(data.data.whatsappPhone || "");
@@ -59,16 +60,27 @@ export default function InvitacionPublicaPage() {
       .finally(() => setCargando(false));
   }, [slug]);
 
+  const esBasico = eventoConfig?.plan === "BASICO";
+
   // Manejador del Paso 1: Nombre, WhatsApp y Asistencia
   const handlePaso1Siguiente = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nombreInvitado.trim() || asistira === null) return;
 
     if (asistira === false) {
-      // LÓGICA CONDICIONAL TALLY: Si no asistirá, brinca directo al mensaje de despedida
+      // Si NO asistirá, brinca directo al mensaje final
       setPasoActual("mensaje_final");
+    } else if (esBasico) {
+      // SI ES PLAN BÁSICO: Salta pases y nombres_asistentes
+      setPasesSeleccionados(1);
+      setNombresAcompanantes([nombreInvitado]);
+      if (preguntasExtra.length > 0) {
+        setPasoActual("preguntas_extra");
+      } else {
+        setPasoActual("mensaje_final");
+      }
     } else {
-      // Si asistirá, avanza al paso de pases
+      // SI ES PLUS/PREMIUM: Avanza al selector de pases
       setPasoActual("pases");
     }
   };
@@ -76,7 +88,6 @@ export default function InvitacionPublicaPage() {
   // Manejador del Paso 2: Selección de pases
   const handlePaso2Pases = (e: React.FormEvent) => {
     e.preventDefault();
-    // Ajustar array de acompañantes según la cantidad elegida
     const arrNombres = Array.from({ length: pasesSeleccionados }, (_, i) =>
       i === 0 ? nombreInvitado : nombresAcompanantes[i] || ""
     );
@@ -103,9 +114,6 @@ export default function InvitacionPublicaPage() {
   // Enviar confirmación final y redirigir a WhatsApp
   const handleFinalizarYEnviar = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Verificamos si el plan configurado es BÁSICO
-    const esBasico = (event as any)?.plan === "BASICO";
 
     const payload = {
       eventSlug: slug,
@@ -134,7 +142,7 @@ export default function InvitacionPublicaPage() {
     if (whatsappInvitado) textoWA += `📱 *WhatsApp:* ${whatsappInvitado}%0A`;
     textoWA += `✨ *¿Asistirá?:* ${asistira ? "SÍ, ¡ahí estaré! 🎉" : "NO podré asistir 😔"}%0A`;
 
-    // SOLO si NO es plan Básico y SÍ asistirá, incluimos pases, acompañantes y preguntas
+    // Solo para planes no básicos incluimos detalle de pases
     if (!esBasico && asistira) {
       textoWA += `🎫 *Pases Confirmados:* ${pasesSeleccionados}%0A`;
       if (nombresAcompanantes.length > 0) {
@@ -186,7 +194,7 @@ export default function InvitacionPublicaPage() {
             <div className="space-y-1">
               <h2 className="text-lg font-bold text-slate-100">Confirma tu asistencia</h2>
               <p className="text-xs text-slate-400">
-                Gracias por confirmar tu asistencia. Completa la siguiente información para reservar tus lugares.
+                Gracias por confirmar tu asistencia. Completa la siguiente información para confirmar tu lugar.
               </p>
             </div>
 
@@ -267,8 +275,8 @@ export default function InvitacionPublicaPage() {
           </form>
         )}
 
-        {/* PASO 2: SELECCIÓN DE CANTIDAD DE PASES */}
-        {pasoActual === "pases" && (
+        {/* PASO 2: SELECCIÓN DE CANTIDAD DE PASES (SOLO SI NO ES BÁSICO) */}
+        {pasoActual === "pases" && !esBasico && (
           <form onSubmit={handlePaso2Pases} className="space-y-5 animate-fadeIn">
             <button
               type="button"
@@ -278,7 +286,7 @@ export default function InvitacionPublicaPage() {
               ← Back
             </button>
 
-           <div className={(event as any)?.plan === "BASICO" ? "hidden" : "block"}>
+            <div>
               <label className="block text-slate-400 font-bold mb-1">
                 ¿Cuántas personas asistirán? *
               </label>
@@ -304,8 +312,8 @@ export default function InvitacionPublicaPage() {
           </form>
         )}
 
-        {/* PASO 3: NOMBRES DE ASISTENTES DINÁMICOS */}
-        {pasoActual === "nombres_asistentes" && (
+        {/* PASO 3: NOMBRES DE ASISTENTES DINÁMICOS (SOLO SI NO ES BÁSICO) */}
+        {pasoActual === "nombres_asistentes" && !esBasico && (
           <form onSubmit={handlePaso3Nombres} className="space-y-5 animate-fadeIn">
             <button
               type="button"
@@ -357,7 +365,9 @@ export default function InvitacionPublicaPage() {
           <form onSubmit={handlePaso4Extra} className="space-y-5 animate-fadeIn">
             <button
               type="button"
-              onClick={() => setPasoActual("nombres_asistentes")}
+              onClick={() =>
+                setPasoActual(esBasico ? "asistencia" : "nombres_asistentes")
+              }
               className="text-xs text-slate-400 hover:text-slate-200 font-bold flex items-center gap-1 cursor-pointer"
             >
               ← Back
@@ -370,7 +380,6 @@ export default function InvitacionPublicaPage() {
                     {q.label} {q.required && <span className="text-rose-400">*</span>}
                   </label>
 
-                  {/* Renderizado de tipo texto */}
                   {["text", "paragraph", "email_phone", "number"].includes(q.type) && (
                     <input
                       type={q.type === "number" ? "number" : "text"}
@@ -387,7 +396,6 @@ export default function InvitacionPublicaPage() {
                     />
                   )}
 
-                  {/* Renderizado de Opción Única */}
                   {q.type === "choice" && q.options && (
                     <select
                       required={q.required}
@@ -430,6 +438,10 @@ export default function InvitacionPublicaPage() {
                 setPasoActual(
                   asistira === false
                     ? "asistencia"
+                    : esBasico
+                    ? preguntasExtra.length > 0
+                      ? "preguntas_extra"
+                      : "asistencia"
                     : preguntasExtra.length > 0
                     ? "preguntas_extra"
                     : "nombres_asistentes"
