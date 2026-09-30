@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export type QuestionType =
   | "text"
@@ -70,6 +71,8 @@ const TIPO_LABELS: Record<QuestionType, { name: string; icon: string }> = {
 };
 
 export default function AdminDashboardPage() {
+  const router = useRouter();
+
   const [tabActiva, setTabActiva] = useState<
     "eventos" | "disenador" | "respuestas" | "colaboradores"
   >("eventos");
@@ -184,6 +187,12 @@ export default function AdminDashboardPage() {
       });
   }, [eventoSeleccionadoId, eventoActual?.slug]);
 
+  // Función para cerrar sesión y redirigir al Login
+  const handleCerrarSesion = () => {
+    // Redirige al login de la plataforma
+    router.push("/login");
+  };
+
   const handleTitleChange = (val: string) => {
     setModalTitle(val);
     if (!slugEditadoManualmente) {
@@ -198,7 +207,7 @@ export default function AdminDashboardPage() {
     setSlugEditadoManualmente(false);
     setModalDate("");
     setModalPlan("PLUS");
-    setModalWhatsapp("");
+    setModalWhatsapp("5218115591681");
     setModalPases(2);
     setModalActive(true);
     setMostrarModalEvento(true);
@@ -211,7 +220,7 @@ export default function AdminDashboardPage() {
     setSlugEditadoManualmente(true);
     setModalDate(ev.targetDate);
     setModalPlan(ev.plan);
-    setModalWhatsapp(ev.whatsappPhone || "");
+    setModalWhatsapp(ev.whatsappPhone || "5218115591681");
     setModalPases(ev.pasesAsignados || 2);
     setModalActive(ev.active);
     setMostrarModalEvento(true);
@@ -231,7 +240,6 @@ export default function AdminDashboardPage() {
       active: modalActive,
     };
 
-    // Envía los datos actualizados a la API backend
     try {
       await fetch("/api/form-config", {
         method: "POST",
@@ -480,6 +488,15 @@ export default function AdminDashboardPage() {
                 👥 Colaboradores
               </button>
             )}
+
+            {/* BOTÓN DE CERRAR SESIÓN */}
+            <button
+              onClick={handleCerrarSesion}
+              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-950/50 hover:bg-rose-900/80 text-rose-300 border border-rose-800/60 transition-all cursor-pointer flex items-center gap-1.5 ml-2"
+              title="Cerrar sesión y regresar al Login"
+            >
+              <span>🚪 Salir</span>
+            </button>
           </div>
         </div>
 
