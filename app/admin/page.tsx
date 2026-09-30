@@ -155,7 +155,7 @@ export default function AdminDashboardPage() {
 
   const [eventoSeleccionadoId, setEventoSeleccionadoId] = useState<string>("1");
 
-  // Modal
+  // Modal de Evento
   const [mostrarModalEvento, setMostrarModalEvento] = useState(false);
   const [modalTitle, setModalTitle] = useState("");
   const [modalSlug, setModalSlug] = useState("");
@@ -167,13 +167,13 @@ export default function AdminDashboardPage() {
   const [modalActive, setModalActive] = useState(true);
   const [editandoEventoId, setEditandoEventoId] = useState<string | null>(null);
 
-  // Diseñador
+  // Diseñador de Preguntas
   const [nuevaPreguntaLabel, setNuevaPreguntaLabel] = useState("");
   const [nuevaPreguntaTipo, setNuevaPreguntaTipo] = useState<QuestionType>("text");
   const [nuevaPreguntaOpciones, setNuevaPreguntaOpciones] = useState("");
   const [nuevaPreguntaRequerida, setNuevaPreguntaRequerida] = useState(false);
 
-  // Usuarios
+  // Usuarios y Colaboradores
   const [usuarios, setUsuarios] = useState<UserItem[]>([
     {
       id: "u1",
@@ -301,9 +301,13 @@ export default function AdminDashboardPage() {
     setModalSlug(ev.slug);
     setSlugEditadoManualmente(true);
     setModalDate(ev.targetDate);
-    setModalPlan(ev.plan || "PLUS");
+    
+    const planEv = ev.plan || "PLUS";
+    setModalPlan(planEv);
     setModalWhatsapp(ev.whatsappPhone || "5218115591681");
-    setModalPases(ev.pasesAsignados || 2);
+    
+    // Regla estricta para Plan BÁSICO
+    setModalPases(planEv === "BASICO" ? 1 : ev.pasesAsignados || 2);
     setModalActive(ev.active);
     setMostrarModalEvento(true);
   };
@@ -312,13 +316,16 @@ export default function AdminDashboardPage() {
     e.preventDefault();
     if (!modalTitle || !modalSlug) return;
 
+    // Si el plan es BÁSICO, fijamos los pases a 1
+    const pasesFinales = modalPlan === "BASICO" ? 1 : Number(modalPases);
+
     const eventoData = {
       title: modalTitle,
       slug: modalSlug,
       targetDate: modalDate,
       plan: modalPlan,
       whatsappPhone: modalWhatsapp,
-      pasesAsignados: Number(modalPases),
+      pasesAsignados: pasesFinales,
       active: modalActive,
       ownerUsername: usernameSesion || nombreSesion || "cliente",
     };
@@ -380,6 +387,7 @@ export default function AdminDashboardPage() {
     setTimeout(() => setCopiadoTipo(null), 2500);
   };
 
+  // Exportar a CSV con la corrección exacta de URL.createObjectURL
   const exportarRespuestasCSV = () => {
     if (!respuestas || respuestas.length === 0) return;
 
@@ -403,13 +411,13 @@ export default function AdminDashboardPage() {
     });
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-const url = URL.createObjectURL(blob);
-const link = document.createElement("a");
-link.setAttribute("href", url);
-link.setAttribute("download", `Lista_Invitados_${eventoActual?.slug || "evento"}.csv`);
-document.body.appendChild(link);
-link.click();
-document.body.removeChild(link);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Lista_Invitados_${eventoActual?.slug || "evento"}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleAgregarPregunta = (e: React.FormEvent) => {
@@ -735,7 +743,7 @@ document.body.removeChild(link);
 
                       <div className="text-[11px] text-slate-400 mt-3 space-y-1">
                         <p>📅 Fecha: {ev.targetDate || "Sin fecha"}</p>
-                        <p>🎫 Pases por defecto: {ev.pasesAsignados || 2}</p>
+                        <p>🎫 Pases por defecto: {ev.plan === "BASICO" ? 1 : ev.pasesAsignados || 2}</p>
                         <p>📱 WhatsApp: {ev.whatsappPhone || "No asignado"}</p>
                       </div>
 
@@ -749,7 +757,7 @@ document.body.removeChild(link);
                           </button>
                           <button
                             onClick={() =>
-                              copiarLinkPases(ev.slug, ev.pasesAsignados || 2)
+                              copiarLinkPases(ev.slug, ev.plan === "BASICO" ? 1 : ev.pasesAsignados || 2)
                             }
                             className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-1.5 rounded-lg text-center truncate cursor-pointer"
                           >
@@ -804,7 +812,7 @@ document.body.removeChild(link);
           <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 md:p-8 space-y-6 shadow-2xl">
             <div className="border-b border-slate-800 pb-4">
               <h2 className="text-xs font-black text-amber-500 uppercase tracking-wider">
-                🛠️️ DISEÑADOR DE FORMULARIO DE CONFIRMACIÓN
+                🛠 DISEÑADOR DE FORMULARIO DE CONFIRMACIÓN
               </h2>
               <p className="text-xs text-slate-400 mt-1">
                 Editando campos del evento:{" "}
@@ -961,7 +969,7 @@ document.body.removeChild(link);
                 <div className="flex justify-between items-center border-b border-slate-900 pb-2">
                   <h3 className="text-xs font-bold text-amber-400 uppercase">
                     {usuarioEditandoId
-                      ? "✏️️ EDITAR COLABORADOR / CLIENTE"
+                      ? "✏ EDITAR COLABORADOR / CLIENTE"
                       : "➕ DAR DE ALTA NUEVO COLABORADOR / CLIENTE"}
                   </h3>
                   {usuarioEditandoId && (
@@ -1050,7 +1058,7 @@ document.body.removeChild(link);
                 </div>
               </form>
 
-              {/* TABLA DE CLIENTES */}
+              {/* TABLA DE CLIENTES CON OJO DE CONTRASEÑA */}
               <div className="overflow-x-auto border border-slate-800 rounded-2xl bg-slate-950">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
@@ -1147,7 +1155,7 @@ document.body.removeChild(link);
           )}
       </div>
 
-      {/* MODAL CREAR / EDITAR EVENTO (INCLUYE PLANES Y PASES) */}
+      {/* MODAL CREAR / EDITAR EVENTO (REGLA PLAN BÁSICO A 1 PASE) */}
       {mostrarModalEvento && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-[#121c33] border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl">
@@ -1193,7 +1201,14 @@ document.body.removeChild(link);
                   </label>
                   <select
                     value={modalPlan}
-                    onChange={(e) => setModalPlan(e.target.value as PlanType)}
+                    onChange={(e) => {
+                      const nuevoPlan = e.target.value as PlanType;
+                      setModalPlan(nuevoPlan);
+                      // Bloquea los pases a 1 si selecciona BÁSICO
+                      if (nuevoPlan === "BASICO") {
+                        setModalPases(1);
+                      }
+                    }}
                     className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-amber-400 font-bold focus:outline-none focus:border-amber-500"
                   >
                     <option value="BASICO">BÁSICO</option>
@@ -1210,9 +1225,14 @@ document.body.removeChild(link);
                     type="number"
                     min={1}
                     max={20}
-                    value={modalPases}
+                    value={modalPlan === "BASICO" ? 1 : modalPases}
+                    disabled={modalPlan === "BASICO"}
                     onChange={(e) => setModalPases(Number(e.target.value))}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 font-mono focus:outline-none focus:border-amber-500"
+                    className={`w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 font-mono focus:outline-none ${
+                      modalPlan === "BASICO"
+                        ? "opacity-50 cursor-not-allowed bg-slate-950"
+                        : "focus:border-amber-500"
+                    }`}
                   />
                 </div>
               </div>
