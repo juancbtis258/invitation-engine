@@ -444,7 +444,13 @@ export default function AdminDashboardPage() {
       await fetch("/api/form-config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ event: modalSlug, config: eventoData }),
+        body: JSON.stringify({ 
+          event: modalSlug, 
+          config: {
+            ...eventoData,
+            plan: modalPlan, // Aseguramos la persistencia explícita del plan
+          } 
+        }),
       });
     } catch (error) {
       console.error("Error guardando en API:", error);
@@ -454,7 +460,9 @@ export default function AdminDashboardPage() {
 
     if (editandoEventoId) {
       listaActualizada = eventos.map((ev) =>
-        ev.id === editandoEventoId ? { ...ev, ...eventoData } : ev
+        ev.id === editandoEventoId 
+          ? { ...ev, ...eventoData, plan: modalPlan } 
+          : ev
       );
     } else {
       const nuevo: EventItem = {
