@@ -78,7 +78,6 @@ const TIPO_LABELS: Record<QuestionType, { name: string; icon: string }> = {
 export default function AdminDashboardPage() {
   const router = useRouter();
 
-  // Estado para evitar el parpadeo de sesión (Flicker Fix)
   const [cargandoSesion, setCargandoSesion] = useState(true);
 
   const [tabActiva, setTabActiva] = useState<
@@ -90,12 +89,10 @@ export default function AdminDashboardPage() {
   const [nombreSesion, setNombreSesion] = useState<string>("");
   const [usernameSesion, setUsernameSesion] = useState<string>("");
 
-  const [copiadoTipo, setCopiadoTipo] = useState<string | null>(null);
   const [busquedaEvento, setBusquedaEvento] = useState("");
   const [filtroEstado, setFiltroEstado] = useState<"todos" | "activos" | "inactivos">("todos");
   const [guardandoConfig, setGuardandoConfig] = useState(false);
 
-  // Visibilidad de contraseñas
   const [mostrarPasswordIds, setMostrarPasswordIds] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -114,7 +111,6 @@ export default function AdminDashboardPage() {
       setTabActiva(tabGuardada);
     }
 
-    // Finaliza la carga de la sesión sin parpadeos
     setCargandoSesion(false);
   }, []);
 
@@ -136,15 +132,7 @@ export default function AdminDashboardPage() {
       whatsappPhone: "5218115591681",
       pasesAsignados: 2,
       ownerUsername: "amejia",
-      questions: [
-        {
-          id: "q1",
-          label: "¿Tienes alguna restricción alimenticia?",
-          type: "text",
-          required: false,
-          placeholder: "Ej. Vegano, alergia a nueces...",
-        },
-      ],
+      questions: [],
     },
     {
       id: "2",
@@ -178,9 +166,9 @@ export default function AdminDashboardPage() {
   const [nuevaPreguntaLabel, setNuevaPreguntaLabel] = useState("");
   const [nuevaPreguntaTipo, setNuevaPreguntaTipo] = useState<QuestionType>("text");
   const [nuevaPreguntaOpciones, setNuevaPreguntaOpciones] = useState("");
-  const [nuevaPreguntaRequerida, setNuevaPreguntaRequerida] = useState(false);
+  const [nuevaPreguntaRequerida, setNuevaPreguntaRequerida] = useState(true);
 
-  // Usuarios y Colaboradores
+  // Colaboradores
   const [usuarios, setUsuarios] = useState<UserItem[]>([
     {
       id: "u1",
@@ -217,7 +205,6 @@ export default function AdminDashboardPage() {
 
   const [respuestas, setRespuestas] = useState<any[]>([]);
 
-  // Lógica multievento para visibilidad
   const eventosVisibles = eventos.filter((e) => {
     if (rolUsuarioActual === "ADMINISTRADOR" || slugAsignado === "todos") {
       return true;
@@ -260,6 +247,7 @@ export default function AdminDashboardPage() {
     return coincideTexto;
   });
 
+  // Carga preguntas guardadas reales del backend
   useEffect(() => {
     if (!eventoActual) return;
     fetch(`/api/form-config?event=${eventoActual.slug}`)
@@ -338,7 +326,7 @@ export default function AdminDashboardPage() {
       pasesAsignados: pasesFinales,
       active: modalActive,
       ownerUsername: usernameSesion || nombreSesion || "cliente",
-      questions: eventoActual?.questions || [],
+      questions: editandoEventoId ? (eventoActual?.questions || []) : [],
     };
 
     try {
@@ -377,25 +365,17 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const copiarLinkGeneral = (slug: string) => {
-    const url = `${window.location.origin}/${slug}`;
-    navigator.clipboard.writeText(url);
-    setCopiadoTipo(`demo-${slug}`);
-    setTimeout(() => setCopiadoTipo(null), 2500);
+  // NAVEGACIÓN DIRECTA EN NUEVA PESTAÑA PARA LOS BOTONES
+  const abrirDemoLink = (slug: string) => {
+    window.open(`/${slug}`, "_blank");
   };
 
-  const copiarLinkPases = (slug: string, pases: number = 2) => {
-    const url = `${window.location.origin}/${slug}?pases=${pases}`;
-    navigator.clipboard.writeText(url);
-    setCopiadoTipo(`pases-${slug}`);
-    setTimeout(() => setCopiadoTipo(null), 2500);
+  const abrirPasesLink = (slug: string, pases: number = 2) => {
+    window.open(`/${slug}?pases=${pases}`, "_blank");
   };
 
-  const copiarLinkPortalCliente = (slug: string) => {
-    const url = `${window.location.origin}/respuestas/${slug}`;
-    navigator.clipboard.writeText(url);
-    setCopiadoTipo(`portal-${slug}`);
-    setTimeout(() => setCopiadoTipo(null), 2500);
+  const abrirPortalLink = (slug: string) => {
+    window.open(`/respuestas/${slug}`, "_blank");
   };
 
   const exportarRespuestasCSV = () => {
@@ -477,7 +457,7 @@ export default function AdminDashboardPage() {
 
     setNuevaPreguntaLabel("");
     setNuevaPreguntaOpciones("");
-    setNuevaPreguntaRequerida(false);
+    setNuevaPreguntaRequerida(true);
 
     await guardarPreguntasEnServidor(actualizadas);
   };
@@ -495,7 +475,6 @@ export default function AdminDashboardPage() {
     await guardarPreguntasEnServidor(actualizadas);
   };
 
-  // Manejo de Colaboradores
   const handleGuardarUsuario = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nuevoNombre || !nuevoWhatsapp) return;
@@ -599,7 +578,6 @@ export default function AdminDashboardPage() {
     window.open(url, "_blank");
   };
 
-  // PANTALLA DE CARGA PARA EVITAR PARPADEO / DESTELO DE ADMINISTRADOR (FLICKER FIX)
   if (cargandoSesion) {
     return (
       <div className="min-h-screen bg-[#0d1527] flex flex-col items-center justify-center space-y-4">
@@ -750,7 +728,7 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            {/* TARJETAS DE EVENTOS */}
+            {/* TARJETAS DE EVENTOS CON BOTONES NAVEGABLES */}
             {eventosFiltrados.length === 0 ? (
               <div className="text-center py-12 bg-slate-950/40 rounded-2xl border border-dashed border-slate-800 space-y-3">
                 <p className="text-slate-400 text-xs">No hay eventos para mostrar aún.</p>
@@ -800,22 +778,25 @@ export default function AdminDashboardPage() {
                       <div className="mt-4 pt-3 border-t border-slate-900 flex flex-col gap-2">
                         <div className="grid grid-cols-3 gap-2">
                           <button
-                            onClick={() => copiarLinkGeneral(ev.slug)}
-                            className="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-1.5 rounded-lg text-center truncate cursor-pointer"
+                            type="button"
+                            onClick={() => abrirDemoLink(ev.slug)}
+                            className="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-1.5 rounded-lg text-center truncate cursor-pointer hover:bg-amber-500/20"
                           >
                             🔗 Demo
                           </button>
                           <button
+                            type="button"
                             onClick={() =>
-                              copiarLinkPases(ev.slug, ev.plan === "BASICO" ? 1 : ev.pasesAsignados || 2)
+                              abrirPasesLink(ev.slug, ev.plan === "BASICO" ? 1 : ev.pasesAsignados || 2)
                             }
-                            className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-1.5 rounded-lg text-center truncate cursor-pointer"
+                            className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-1.5 rounded-lg text-center truncate cursor-pointer hover:bg-emerald-500/20"
                           >
                             🎫 Pases
                           </button>
                           <button
-                            onClick={() => copiarLinkPortalCliente(ev.slug)}
-                            className="text-[10px] font-bold text-sky-400 bg-sky-500/10 border border-sky-500/30 px-2 py-1.5 rounded-lg text-center truncate cursor-pointer"
+                            type="button"
+                            onClick={() => abrirPortalLink(ev.slug)}
+                            className="text-[10px] font-bold text-sky-400 bg-sky-500/10 border border-sky-500/30 px-2 py-1.5 rounded-lg text-center truncate cursor-pointer hover:bg-sky-500/20"
                           >
                             📊 Portal
                           </button>
@@ -825,6 +806,7 @@ export default function AdminDashboardPage() {
 
                     <div className="flex items-center justify-between pt-3 border-t border-slate-900">
                       <button
+                        type="button"
                         onClick={() => setEventoSeleccionadoId(ev.id)}
                         className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
                           ev.id === eventoSeleccionadoId
@@ -837,12 +819,14 @@ export default function AdminDashboardPage() {
 
                       <div className="flex gap-1.5">
                         <button
+                          type="button"
                           onClick={() => abrirModalEditar(ev)}
                           className="text-xs bg-slate-900 text-slate-300 border border-slate-800 px-2.5 py-1 rounded-lg cursor-pointer hover:bg-slate-800"
                         >
-                          ✏️ Editar
+                          ✏️️ Editar
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleEliminarEvento(ev.id)}
                           className="text-xs bg-rose-950/40 text-rose-400 border border-rose-900/50 px-2 py-1 rounded-lg cursor-pointer hover:bg-rose-900/60"
                         >
@@ -857,16 +841,16 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* PESTAÑA 2: DISEÑADOR DE PREGUNTAS */}
+        {/* PESTAÑA 2: DISEÑADOR */}
         {tabActiva === "disenador" && (
           <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 md:p-8 space-y-6 shadow-2xl">
             <div className="border-b border-slate-800 pb-4 flex justify-between items-center">
               <div>
                 <h2 className="text-xs font-black text-amber-500 uppercase tracking-wider">
-                  🛠 DISEÑADOR DE FORMULARIO DE CONFIRMACIÓN
+                  🛠 DISEÑADOR Y PLANTILLA DE PREGUNTAS DEL EVENTO
                 </h2>
                 <p className="text-xs text-slate-400 mt-1">
-                  Editando campos del evento:{" "}
+                  Crea y configura libremente tus preguntas para:{" "}
                   <span className="text-amber-400 font-bold">
                     {eventoActual?.title || "Sin selección"} (/{eventoActual?.slug})
                   </span>
@@ -885,14 +869,14 @@ export default function AdminDashboardPage() {
               className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4"
             >
               <h3 className="text-xs font-bold text-amber-400 uppercase">
-                ➕ AGREGAR PREGUNTA PERSONALIZADA
+                ➕ CREAR NUEVA PREGUNTA O CAMPO PARA LA INVITACIÓN
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
                 <div className="md:col-span-7">
                   <input
                     type="text"
-                    placeholder="Ej. ¿Requiere menú vegetariano, alergia o platillo especial?"
+                    placeholder="Ej. Escribe tu nombre completo, alergias, ¿requieres autobús?, etc."
                     value={nuevaPreguntaLabel}
                     onChange={(e) => setNuevaPreguntaLabel(e.target.value)}
                     className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
@@ -949,19 +933,20 @@ export default function AdminDashboardPage() {
                   disabled={guardandoConfig}
                   className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs px-6 py-2.5 rounded-xl cursor-pointer"
                 >
-                  + Guardar Pregunta
+                  + Agregar a la Invitación
                 </button>
               </div>
             </form>
 
             <div className="space-y-3">
               <h4 className="text-xs font-bold text-slate-400 uppercase">
-                Preguntas creadas para este evento ({eventoActual?.questions?.length || 0}):
+                Plantilla de Preguntas del Evento ({eventoActual?.questions?.length || 0}):
               </h4>
 
               {eventoActual?.questions?.length === 0 ? (
-                <div className="text-center py-6 bg-slate-950/40 rounded-xl border border-dashed border-slate-800 text-xs text-slate-500">
-                  No hay preguntas personalizadas adicionales. Puedes agregar las que desees arriba.
+                <div className="text-center py-8 bg-slate-950/40 rounded-xl border border-dashed border-slate-800 text-xs text-slate-400 space-y-1">
+                  <p className="font-bold text-slate-300">¡Tu plantilla está totalmente limpia y vacía!</p>
+                  <p className="text-[11px]">Usa el formulario de arriba para agregar las preguntas exactas que deseas que tus invitados respondan.</p>
                 </div>
               ) : (
                 eventoActual?.questions?.map((q, index) => (
@@ -984,6 +969,7 @@ export default function AdminDashboardPage() {
                     </div>
 
                     <button
+                      type="button"
                       onClick={() => handleEliminarPregunta(q.id)}
                       disabled={guardandoConfig}
                       className="text-rose-400 hover:text-rose-300 text-xs font-bold cursor-pointer bg-rose-950/30 px-3 py-1.5 rounded-xl border border-rose-900/40"
@@ -1011,6 +997,7 @@ export default function AdminDashboardPage() {
               </div>
 
               <button
+                type="button"
                 onClick={exportarRespuestasCSV}
                 className="bg-emerald-500 text-slate-950 font-bold text-xs px-4 py-2 rounded-xl cursor-pointer"
               >
@@ -1219,6 +1206,7 @@ export default function AdminDashboardPage() {
                           </td>
                           <td className="p-3">
                             <button
+                              type="button"
                               onClick={() => handleToggleEstadoUsuario(u.id)}
                               className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold cursor-pointer ${
                                 u.activo
@@ -1231,6 +1219,7 @@ export default function AdminDashboardPage() {
                           </td>
                           <td className="p-3 text-right space-x-1.5">
                             <button
+                              type="button"
                               onClick={() => enviarAccesosPorWhatsapp(u)}
                               className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-lg font-bold cursor-pointer"
                               title="Enviar accesos por WhatsApp"
@@ -1238,6 +1227,7 @@ export default function AdminDashboardPage() {
                               💬 Enviar
                             </button>
                             <button
+                              type="button"
                               onClick={() => handleEditarUsuario(u)}
                               className="bg-slate-900 text-slate-300 border border-slate-800 px-2.5 py-1 rounded-lg cursor-pointer hover:bg-slate-800"
                               title="Editar usuario"
@@ -1245,6 +1235,7 @@ export default function AdminDashboardPage() {
                               ✏️ Editar
                             </button>
                             <button
+                              type="button"
                               onClick={() => handleEliminarUsuario(u.id)}
                               className="bg-rose-950/40 text-rose-400 border border-rose-900/50 px-2.5 py-1 rounded-lg cursor-pointer hover:bg-rose-900/60"
                               title="Eliminar usuario"
