@@ -30,7 +30,7 @@ interface EventItem {
   plan: string;
   active: boolean;
   whatsappPhone: string;
-  pasesAsignados?: number; // Configuración de Pases
+  pasesAsignados?: number;
   questions: Question[];
 }
 
@@ -72,7 +72,7 @@ export default function AdminDashboardPage() {
     "eventos" | "disenador" | "respuestas" | "colaboradores"
   >("eventos");
 
-  const [copiadoSlug, setCopiadoSlug] = useState<string | null>(null);
+  const [copiadoTipo, setCopiadoTipo] = useState<string | null>(null);
 
   const [eventos, setEventos] = useState<EventItem[]>([
     {
@@ -92,13 +92,18 @@ export default function AdminDashboardPage() {
           required: false,
           placeholder: "Ej. Vegano, alergia a nueces...",
         },
-        {
-          id: "q2",
-          label: "¿Cuántos pases de niños necesitas?",
-          type: "number",
-          required: false,
-        },
       ],
+    },
+    {
+      id: "2",
+      slug: "yunnie-y-juan",
+      title: "yunnie y juan",
+      targetDate: "1996-09-21",
+      plan: "PREMIUM",
+      active: true,
+      whatsappPhone: "528115591681",
+      pasesAsignados: 4,
+      questions: [],
     },
   ]);
 
@@ -232,11 +237,20 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const copiarLinkEvento = (slug: string) => {
+  // COPIAR LINK DE DEMO / GENERAL
+  const copiarLinkGeneral = (slug: string) => {
     const url = `${window.location.origin}/${slug}`;
     navigator.clipboard.writeText(url);
-    setCopiadoSlug(slug);
-    setTimeout(() => setCopiadoSlug(null), 2500);
+    setCopiadoTipo(`demo-${slug}`);
+    setTimeout(() => setCopiadoTipo(null), 2500);
+  };
+
+  // COPIAR LINK CON PASES
+  const copiarLinkPases = (slug: string, pases: number = 2) => {
+    const url = `${window.location.origin}/${slug}?pases=${pases}`;
+    navigator.clipboard.writeText(url);
+    setCopiadoTipo(`pases-${slug}`);
+    setTimeout(() => setCopiadoTipo(null), 2500);
   };
 
   // Diseñador
@@ -367,7 +381,7 @@ export default function AdminDashboardPage() {
                   : "bg-slate-800/80 text-slate-300 hover:bg-slate-800"
               }`}
             >
-              🛠️️ Diseñador
+              🛠 Diseñador
             </button>
 
             <button
@@ -418,7 +432,7 @@ export default function AdminDashboardPage() {
               {eventos.map((ev) => (
                 <div
                   key={ev.id}
-                  className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-3 flex flex-col justify-between"
+                  className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4 flex flex-col justify-between"
                 >
                   <div>
                     <div className="flex justify-between items-start gap-2">
@@ -434,24 +448,49 @@ export default function AdminDashboardPage() {
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between mt-1">
-                      <p className="text-xs font-mono text-amber-400">/{ev.slug}</p>
-                      
-                      {/* BOTÓN COMPARTIR LINK RÁPIDO */}
-                      <button
-                        onClick={() => copiarLinkEvento(ev.slug)}
-                        className="text-[11px] font-bold text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-2.5 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1"
-                        title="Copiar enlace de invitación"
-                      >
-                        {copiadoSlug === ev.slug ? "¡Copiado! 🚀" : "🔗 Compartir Link"}
-                      </button>
-                    </div>
+                    <p className="text-xs font-mono text-amber-400 mt-1">/{ev.slug}</p>
 
                     <div className="text-[11px] text-slate-400 mt-3 space-y-1">
                       <p>📅 Fecha: {ev.targetDate || "Sin fecha"}</p>
                       <p>💎 Plan: {ev.plan}</p>
-                      <p>🎫 Pases Asignados: <span className="text-slate-200 font-bold">{ev.pasesAsignados ?? 2} pases</span></p>
+                      <p>
+                        🎫 Pases Asignados:{" "}
+                        <span className="text-amber-400 font-bold">
+                          {ev.pasesAsignados ?? 2} pases
+                        </span>
+                      </p>
                       <p>📱 WhatsApp: {ev.whatsappPhone || "No asignado"}</p>
+                    </div>
+
+                    {/* BOTONES DE ENLACES RAPIDOS */}
+                    <div className="mt-4 pt-3 border-t border-slate-900 flex flex-col gap-2">
+                      <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase">
+                        <span>Enlaces del Evento:</span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        {/* 1. LINK DEMO / GENERAL */}
+                        <button
+                          onClick={() => copiarLinkGeneral(ev.slug)}
+                          className="text-[10px] font-bold text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-2 py-1.5 rounded-lg transition-all cursor-pointer text-center truncate"
+                          title="Copiar link general de la invitación"
+                        >
+                          {copiadoTipo === `demo-${ev.slug}`
+                            ? "¡Copiado! 🚀"
+                            : "🔗 Link Demo"}
+                        </button>
+
+                        {/* 2. LINK PASES */}
+                        <button
+                          onClick={() => copiarLinkPases(ev.slug, ev.pasesAsignados || 2)}
+                          className="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 px-2 py-1.5 rounded-lg transition-all cursor-pointer text-center truncate"
+                          title="Copiar link con pases incluidos"
+                        >
+                          {copiadoTipo === `pases-${ev.slug}`
+                            ? "¡Copiado! 🚀"
+                            : `🎫 Link Pases (${ev.pasesAsignados ?? 2})`}
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -504,7 +543,6 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            {/* FORMULARIO AGREGAR */}
             <form onSubmit={handleAgregarPregunta} className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4">
               <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
                 <span>➕</span> AGREGAR NUEVA PREGUNTA
@@ -569,7 +607,6 @@ export default function AdminDashboardPage() {
               </div>
             </form>
 
-            {/* LISTA Y EDICIÓN EN VIVO */}
             <div className="space-y-4 pt-2">
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider">
                 CAMPOS ACTIVOS EN LA INVITACIÓN ({eventoActual?.questions?.length || 0})
