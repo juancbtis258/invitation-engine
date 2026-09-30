@@ -50,6 +50,15 @@ interface UserItem {
   createdAt: string;
 }
 
+interface TemplatePreset {
+  id: string;
+  title: string;
+  category: "Boda" | "XV Años" | "Cumpleaños" | "Graduación" | "Comunidad";
+  description: string;
+  author: string;
+  questions: Question[];
+}
+
 function generateSlug(text: string): string {
   return text
     .toString()
@@ -75,34 +84,82 @@ const TIPO_LABELS: Record<QuestionType, { name: string; icon: string }> = {
   email_phone: { name: "Correo / Teléfono", icon: "📧" },
 };
 
-const PLANTILLA_PREDETERMINADA: Question[] = [
+// CATALOGO DE PLANTILLAS MUESTRA PREDEFINIDAS
+const PLANTILLAS_MUESTRA: TemplatePreset[] = [
   {
-    id: "p1",
-    label: "¿Tienes alguna alergia o restricción alimenticia?",
-    type: "text",
-    required: false,
-    placeholder: "Ej. Vegano, alergia a cacahuates...",
+    id: "preset-boda",
+    title: "👰 Boda Completa y Menú",
+    category: "Boda",
+    description: "Ideal para bodas con selección de banquete, transporte y música.",
+    author: "Sistema",
+    questions: [
+      {
+        id: "b1",
+        label: "Selección de Platillo / Menú",
+        type: "choice",
+        options: ["Medallón de Res en Salsa Oporto", "Pechuga de Pollo Cordon Bleu", "Opción Vegetariana / Vegana"],
+        required: true,
+      },
+      {
+        id: "b2",
+        label: "¿Tienes alguna alergia o restricción alimenticia?",
+        type: "text",
+        required: false,
+        placeholder: "Ej. Alergia a nueces, celíaco...",
+      },
+      {
+        id: "b3",
+        label: "¿Requieres lugar en el autobús de traslado al salón?",
+        type: "choice",
+        options: ["Sí, requiero autobús", "No, me trasladaré en vehículo propio"],
+        required: true,
+      },
+      {
+        id: "b4",
+        label: "Petición de Canción para el DJ",
+        type: "text",
+        required: false,
+        placeholder: "Artísta - Nombre de la canción",
+      },
+    ],
   },
   {
-    id: "p2",
-    label: "Selección de Platillo / Menú",
-    type: "choice",
-    options: ["Carne de Res", "Pechuga de Pollo", "Opción Vegetariana"],
-    required: true,
+    id: "preset-xv",
+    title: "👑 Mis XV Años",
+    category: "XV Años",
+    description: "Preguntas dinámicas para fiestas de quinceañeras.",
+    author: "Sistema",
+    questions: [
+      {
+        id: "xv1",
+        label: "¿Asistirás a la ceremonia religiosa o solo a la recepción?",
+        type: "choice",
+        options: ["Misa y Recepción", "Solo a la Recepción"],
+        required: true,
+      },
+      {
+        id: "xv2",
+        label: "¿Cuál es tu canción favorita para bailar?",
+        type: "text",
+        required: false,
+      },
+    ],
   },
   {
-    id: "p3",
-    label: "¿Qué canción no puede faltar en la fiesta?",
-    type: "text",
-    required: false,
-    placeholder: "Canción y Artista...",
-  },
-  {
-    id: "p4",
-    label: "¿Requieres lugar en el autobús del evento?",
-    type: "choice",
-    options: ["Sí, requiero autobús", "No, iré en coche propio"],
-    required: false,
+    id: "preset-cumple",
+    title: "🎂 Cumpleaños / Fiesta",
+    category: "Cumpleaños",
+    description: "Formulario rápido para confirmación de fiestas informales.",
+    author: "Sistema",
+    questions: [
+      {
+        id: "c1",
+        label: "¿Qué tipo de bebida prefieres?",
+        type: "choice",
+        options: ["Cerveza", "Vino / Coctelería", "Sin alcohol / Refresco"],
+        required: false,
+      },
+    ],
   },
 ];
 
@@ -124,9 +181,11 @@ export default function AdminDashboardPage() {
   const [filtroEstado, setFiltroEstado] = useState<"todos" | "activos" | "inactivos">("todos");
   const [guardandoConfig, setGuardandoConfig] = useState(false);
 
-  // Selector para duplicar plantilla a otro evento
-  const [eventoDestinoSlug, setEventoDestinoSlug] = useState("");
+  // Estado del Modal de Plantillas Muestra
+  const [mostrarModalPlantillas, setMostrarModalPlantillas] = useState(false);
+  const [plantillasComunidad, setPlantillasComunidad] = useState<TemplatePreset[]>(PLANTILLAS_MUESTRA);
 
+  const [eventoDestinoSlug, setEventoDestinoSlug] = useState("");
   const [mostrarPasswordIds, setMostrarPasswordIds] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -505,26 +564,41 @@ export default function AdminDashboardPage() {
     await guardarPreguntasEnServidor(eventoActual.slug, actualizadas);
   };
 
-  // FUNCIÓN 1: CARGAR PLANTILLA PREDETERMINADA
-  const handleCargarPlantillaEstandar = async () => {
+  // CARGAR PLANTILLA DESDE EL PANEL MUESTRA
+  const handleAplicarPreset = async (preset: TemplatePreset) => {
     if (!eventoActual) return;
-    if (
-      eventoActual.questions?.length > 0 &&
-      !confirm("¿Deseas reemplazar la plantilla actual por la plantilla estándar predeterminada?")
-    ) {
-      return;
-    }
 
     setEventos((prev) =>
       prev.map((ev) =>
-        ev.id === eventoActual.id ? { ...ev, questions: PLANTILLA_PREDETERMINADA } : ev
+        ev.id === eventoActual.id ? { ...ev, questions: preset.questions } : ev
       )
     );
 
-    await guardarPreguntasEnServidor(eventoActual.slug, PLANTILLA_PREDETERMINADA);
+    await guardarPreguntasEnServidor(eventoActual.slug, preset.questions);
+    setMostrarModalPlantillas(false);
+    alert(`¡Plantilla "${preset.title}" aplicada con éxito a ${eventoActual.title}!`);
   };
 
-  // FUNCIÓN 2: DUPLICAR/COPIAR PLANTILLA A OTRO EVENTO
+  // COMPARTIR MI PLANTILLA ACTUAL CON OTROS USUARIOS
+  const handleCompartirMiPlantilla = () => {
+    if (!eventoActual || !eventoActual.questions || eventoActual.questions.length === 0) {
+      alert("Tu plantilla actual está vacía. Agrega al menos una pregunta para compartirla.");
+      return;
+    }
+
+    const nuevaPlantillaCompartida: TemplatePreset = {
+      id: `preset-user-${Date.now()}`,
+      title: `✨ Plantilla de ${eventoActual.title}`,
+      category: "Comunidad",
+      description: `Creada por @${usernameSesion || "usuario"} (${eventoActual.questions.length} preguntas)`,
+      author: usernameSesion || "Cliente",
+      questions: eventoActual.questions,
+    };
+
+    setPlantillasComunidad((prev) => [nuevaPlantillaCompartida, ...prev]);
+    alert("¡Tu plantilla ha sido publicada en el Panel Muestra y ahora otros usuarios pueden inspirarse en ella!");
+  };
+
   const handleDuplicarPlantillaAEvento = async () => {
     if (!eventoActual || !eventoDestinoSlug) {
       alert("Por favor selecciona un evento destino para copiar la plantilla.");
@@ -544,7 +618,6 @@ export default function AdminDashboardPage() {
     setEventoDestinoSlug("");
   };
 
-  // FUNCIÓN 3: LIMPIAR TODO
   const handleLimpiarPreguntas = async () => {
     if (!eventoActual) return;
     if (!confirm("¿Seguro que deseas eliminar todas las preguntas de este evento y dejarlo en blanco?")) {
@@ -924,13 +997,13 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* PESTAÑA 2: DISEÑADOR Y GESTIÓN DE PLANTILLAS AVANZADA */}
+        {/* PESTAÑA 2: DISEÑADOR CON PANEL MUESTRA Y COMUNIDAD */}
         {tabActiva === "disenador" && (
           <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 md:p-8 space-y-6 shadow-2xl">
             <div className="border-b border-slate-800 pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
               <div>
                 <h2 className="text-xs font-black text-amber-500 uppercase tracking-wider">
-                  🛠 DISEÑADOR Y PLANTILLA DE PREGUNTAS
+                  🛠 DISEÑADOR Y PANEL MUESTRA DE PLANTILLAS
                 </h2>
                 <p className="text-xs text-slate-400 mt-1">
                   Evento actual:{" "}
@@ -940,15 +1013,23 @@ export default function AdminDashboardPage() {
                 </p>
               </div>
 
-              {/* BARRA DE HERRAMIENTAS RÁPIDAS PARA PLANTILLAS */}
+              {/* BARRA DE ACCIÓN: PANEL MUESTRA + COMPARTIR */}
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={handleCargarPlantillaEstandar}
-                  className="bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all"
-                  title="Cargar preguntas comunes predeterminadas"
+                  onClick={() => setMostrarModalPlantillas(true)}
+                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-3.5 py-1.5 rounded-xl text-xs font-black cursor-pointer transition-all shadow-lg shadow-amber-500/20"
                 >
-                  ⚡ Cargar Plantilla Estándar
+                  ✨ Ver Panel Muestra / Plantillas
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCompartirMiPlantilla}
+                  className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all"
+                  title="Compartir tus preguntas actuales en la galería pública"
+                >
+                  🌐 Compartir mi Plantilla
                 </button>
 
                 <button
@@ -956,15 +1037,15 @@ export default function AdminDashboardPage() {
                   onClick={handleLimpiarPreguntas}
                   className="bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 border border-rose-900/50 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all"
                 >
-                  🗑 Limpiar Todo
+                  🗑 Limpiar
                 </button>
               </div>
             </div>
 
-            {/* HERRAMIENTA PARA DUPLICAR PLANTILLA A OTRO EVENTO */}
+            {/* DUPLICAR ENTRE TUS PROPIOS EVENTOS */}
             <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-3">
               <span className="text-xs font-bold text-slate-300">
-                📋 Duplicar esta plantilla hacia otro evento de tu catálogo:
+                📋 Copiar esta plantilla hacia otro evento de tu catálogo:
               </span>
               <div className="flex items-center gap-2 w-full md:w-auto">
                 <select
@@ -984,20 +1065,20 @@ export default function AdminDashboardPage() {
                 <button
                   type="button"
                   onClick={handleDuplicarPlantillaAEvento}
-                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs px-3.5 py-1.5 rounded-xl cursor-pointer transition-all whitespace-nowrap"
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs px-3.5 py-1.5 rounded-xl cursor-pointer transition-all whitespace-nowrap"
                 >
-                  Copiar Plantilla
+                  Copiar
                 </button>
               </div>
             </div>
 
-            {/* FORMULARIO DE CREAR PREGUNTA LIBRE */}
+            {/* CREAR PREGUNTA LIBRE */}
             <form
               onSubmit={handleAgregarPregunta}
               className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4"
             >
               <h3 className="text-xs font-bold text-amber-400 uppercase">
-                ➕ CREAR NUEVA PREGUNTA O CAMPO PERSONALIZADO
+                ➕ AGREGAR PREGUNTA O CAMPO PERSONALIZADO
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
@@ -1075,7 +1156,7 @@ export default function AdminDashboardPage() {
                 <div className="text-center py-8 bg-slate-950/40 rounded-xl border border-dashed border-slate-800 text-xs text-slate-400 space-y-2">
                   <p className="font-bold text-slate-300">¡La plantilla de este evento está limpia!</p>
                   <p className="text-[11px]">
-                    Usa el botón <strong className="text-sky-400">⚡ Cargar Plantilla Estándar</strong> arriba para cargar preguntas sugeridas o crea tus preguntas personalizadas.
+                    Haz clic en el botón <strong className="text-amber-400">✨ Ver Panel Muestra / Plantillas</strong> para abrir la galería por categorías.
                   </p>
                 </div>
               ) : (
@@ -1383,7 +1464,71 @@ export default function AdminDashboardPage() {
           )}
       </div>
 
-      {/* MODAL CREAR / EDITAR EVENTO */}
+      {/* MODAL 1: PANEL MUESTRA Y GALERÍA DE PLANTILLAS */}
+      {mostrarModalPlantillas && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-[#121c33] border border-slate-800 rounded-3xl p-6 md:p-8 w-full max-w-3xl space-y-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-4">
+              <div>
+                <h3 className="text-sm font-black text-amber-500 uppercase tracking-wider">
+                  ✨ GALERÍA Y PANEL MUESTRA DE PLANTILLAS
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Selecciona una plantilla predefinida por la comunidad o el sistema para aplicarla en{" "}
+                  <strong className="text-amber-400">{eventoActual?.title}</strong>.
+                </p>
+              </div>
+              <button
+                onClick={() => setMostrarModalPlantillas(false)}
+                className="text-slate-400 hover:text-slate-100 text-sm font-bold bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800 cursor-pointer"
+              >
+                ✕ Cerrar
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {plantillasComunidad.map((preset) => (
+                <div
+                  key={preset.id}
+                  className="bg-slate-950 p-5 rounded-2xl border border-slate-800 hover:border-amber-500/50 transition-all flex flex-col justify-between space-y-4"
+                >
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-start">
+                      <h4 className="text-sm font-bold text-slate-100">{preset.title}</h4>
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                        {preset.category}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400">{preset.description}</p>
+                    <p className="text-[10px] text-slate-500 italic">Por: {preset.author}</p>
+
+                    <div className="pt-2 border-t border-slate-900 space-y-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">
+                        Incluye {preset.questions.length} preguntas:
+                      </span>
+                      {preset.questions.map((q, i) => (
+                        <p key={i} className="text-[11px] text-slate-300 truncate">
+                          • {q.label}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleAplicarPreset(preset)}
+                    className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs py-2.5 rounded-xl transition-all cursor-pointer shadow-md shadow-amber-500/10"
+                  >
+                    Usar esta Plantilla →
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: CREAR / EDITAR EVENTO */}
       {mostrarModalEvento && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-[#121c33] border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl">
