@@ -34,7 +34,7 @@ interface EventItem {
   active: boolean;
   whatsappPhone: string;
   pasesAsignados?: number;
-  ownerUsername?: string; // Para asociar eventos a cada cliente
+  ownerUsername?: string;
   questions: Question[];
 }
 
@@ -148,7 +148,7 @@ export default function AdminDashboardPage() {
       active: true,
       whatsappPhone: "5218115591681",
       pasesAsignados: 4,
-      ownerUsername: "amejia",
+      ownerUsername: "yunnie",
       questions: [],
     },
   ]);
@@ -186,6 +186,17 @@ export default function AdminDashboardPage() {
       activo: true,
       createdAt: "2026-01-10",
     },
+    {
+      id: "u2",
+      nombre: "Yunnie",
+      username: "yunnie",
+      whatsapp: "5218115591681",
+      password: "123",
+      rol: "CLIENTE",
+      eventoAsignadoSlug: "todos",
+      activo: true,
+      createdAt: "2026-01-10",
+    },
   ]);
 
   const [nuevoNombre, setNuevoNombre] = useState("");
@@ -193,19 +204,34 @@ export default function AdminDashboardPage() {
   const [nuevoWhatsapp, setNuevoWhatsapp] = useState("");
   const [nuevoPassword, setNuevoPassword] = useState("");
   const [nuevoRol, setNuevoRol] = useState<"ADMINISTRADOR" | "CLIENTE">("CLIENTE");
-  const [nuevoEventoSlug, setNuevoEventoSlug] = useState("demo");
+  const [nuevoEventoSlug, setNuevoEventoSlug] = useState("todos");
   const [nuevoActivo, setNuevoActivo] = useState(true);
   const [usuarioEditandoId, setUsuarioEditandoId] = useState<string | null>(null);
 
   const [respuestas, setRespuestas] = useState<any[]>([]);
 
-  // Lógica multievento para cliente: muestra los del cliente o todos si es ADMIN/todos
-  const eventosVisibles =
-    rolUsuarioActual === "ADMINISTRADOR" || slugAsignado === "todos"
-      ? eventos
-      : eventos.filter(
-          (e) => e.ownerUsername === usernameSesion || e.slug === slugAsignado
-        );
+  // LÓGICA MULTIEVENTO CORREGIDA: Garantiza que cualquier cliente vea sus eventos
+  const eventosVisibles = eventos.filter((e) => {
+    if (rolUsuarioActual === "ADMINISTRADOR" || slugAsignado === "todos") {
+      return true;
+    }
+
+    const userSesionLwr = (usernameSesion || "").toLowerCase().trim();
+    const nombreSesionLwr = (nombreSesion || "").toLowerCase().trim();
+    const ownerLwr = (e.ownerUsername || "").toLowerCase().trim();
+
+    const esDuenio =
+      ownerLwr === "" ||
+      ownerLwr === userSesionLwr ||
+      ownerLwr === nombreSesionLwr;
+
+    const coincideSlug =
+      slugAsignado &&
+      slugAsignado !== "todos" &&
+      e.slug.toLowerCase() === slugAsignado.toLowerCase();
+
+    return esDuenio || coincideSlug;
+  });
 
   const eventoActual =
     eventosVisibles.find((e) => e.id === eventoSeleccionadoId) || eventosVisibles[0];
@@ -294,7 +320,7 @@ export default function AdminDashboardPage() {
       whatsappPhone: modalWhatsapp,
       pasesAsignados: Number(modalPases),
       active: modalActive,
-      ownerUsername: usernameSesion || "amejia",
+      ownerUsername: usernameSesion || nombreSesion || "cliente",
     };
 
     try {
@@ -319,7 +345,7 @@ export default function AdminDashboardPage() {
         ...eventoData,
         questions: [],
       };
-      setEventos([...eventos, nuevo]);
+      setEventos((prev) => [...prev, nuevo]);
       setEventoSeleccionadoId(nuevo.id);
     }
     setMostrarModalEvento(false);
@@ -539,7 +565,7 @@ export default function AdminDashboardPage() {
             <p className="text-xs text-slate-400 mt-0.5">
               Bienvenido{" "}
               <span className="text-amber-400 font-bold">
-                {nombreSesion || "Usuario"}
+                {nombreSesion || usernameSesion || "Usuario"}
               </span>{" "}
               ({rolUsuarioActual})
             </p>
@@ -602,7 +628,7 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* SELECTOR GLOBAL DE EVENTO ACTIVO PARA TRABAJAR (SI TIENE MÁS DE 1) */}
+        {/* SELECTOR GLOBAL DE EVENTO ACTIVO PARA TRABAJAR */}
         {eventosVisibles.length > 0 && (
           <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3 flex flex-col md:flex-row items-center justify-between gap-3">
             <span className="text-xs font-bold text-slate-400">
@@ -667,91 +693,103 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* TARJETAS DE EVENTOS */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {eventosFiltrados.map((ev) => (
-                <div
-                  key={ev.id}
-                  className={`bg-slate-950 p-5 rounded-2xl border transition-all space-y-4 flex flex-col justify-between ${
-                    ev.id === eventoSeleccionadoId
-                      ? "border-amber-500/80 ring-1 ring-amber-500/20"
-                      : "border-slate-800"
-                  }`}
+            {eventosFiltrados.length === 0 ? (
+              <div className="text-center py-12 bg-slate-950/40 rounded-2xl border border-dashed border-slate-800 space-y-3">
+                <p className="text-slate-400 text-xs">No hay eventos para mostrar aún.</p>
+                <button
+                  onClick={abrirModalCrear}
+                  className="bg-amber-500 text-slate-950 font-bold text-xs px-4 py-2 rounded-xl cursor-pointer"
                 >
-                  <div>
-                    <div className="flex justify-between items-start gap-2">
-                      <h3 className="text-sm font-bold text-slate-100">
-                        {ev.title}
-                      </h3>
-                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                        {ev.active ? "ACTIVO" : "INACTIVO"}
-                      </span>
+                  + Crear Tu Primer Evento
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {eventosFiltrados.map((ev) => (
+                  <div
+                    key={ev.id}
+                    className={`bg-slate-950 p-5 rounded-2xl border transition-all space-y-4 flex flex-col justify-between ${
+                      ev.id === eventoSeleccionadoId
+                        ? "border-amber-500/80 ring-1 ring-amber-500/20"
+                        : "border-slate-800"
+                    }`}
+                  >
+                    <div>
+                      <div className="flex justify-between items-start gap-2">
+                        <h3 className="text-sm font-bold text-slate-100">
+                          {ev.title}
+                        </h3>
+                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          {ev.active ? "ACTIVO" : "INACTIVO"}
+                        </span>
+                      </div>
+
+                      <p className="text-xs font-mono text-amber-400 mt-1">
+                        /{ev.slug}
+                      </p>
+
+                      <div className="text-[11px] text-slate-400 mt-3 space-y-1">
+                        <p>📅 Fecha: {ev.targetDate || "Sin fecha"}</p>
+                        <p>📱 WhatsApp: {ev.whatsappPhone || "No asignado"}</p>
+                      </div>
+
+                      <div className="mt-4 pt-3 border-t border-slate-900 flex flex-col gap-2">
+                        <div className="grid grid-cols-3 gap-2">
+                          <button
+                            onClick={() => copiarLinkGeneral(ev.slug)}
+                            className="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-1.5 rounded-lg text-center truncate cursor-pointer"
+                          >
+                            🔗 Demo
+                          </button>
+                          <button
+                            onClick={() =>
+                              copiarLinkPases(ev.slug, ev.pasesAsignados || 2)
+                            }
+                            className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-1.5 rounded-lg text-center truncate cursor-pointer"
+                          >
+                            🎫 Pases
+                          </button>
+                          <button
+                            onClick={() => copiarLinkPortalCliente(ev.slug)}
+                            className="text-[10px] font-bold text-sky-400 bg-sky-500/10 border border-sky-500/30 px-2 py-1.5 rounded-lg text-center truncate cursor-pointer"
+                          >
+                            📊 Portal
+                          </button>
+                        </div>
+                      </div>
                     </div>
 
-                    <p className="text-xs font-mono text-amber-400 mt-1">
-                      /{ev.slug}
-                    </p>
+                    <div className="flex items-center justify-between pt-3 border-t border-slate-900">
+                      <button
+                        onClick={() => setEventoSeleccionadoId(ev.id)}
+                        className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                          ev.id === eventoSeleccionadoId
+                            ? "bg-amber-500 text-slate-950 border-amber-500"
+                            : "bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200"
+                        }`}
+                      >
+                        {ev.id === eventoSeleccionadoId ? "✓ Seleccionado" : "Seleccionar"}
+                      </button>
 
-                    <div className="text-[11px] text-slate-400 mt-3 space-y-1">
-                      <p>📅 Fecha: {ev.targetDate || "Sin fecha"}</p>
-                      <p>📱 WhatsApp: {ev.whatsappPhone || "No asignado"}</p>
-                    </div>
-
-                    <div className="mt-4 pt-3 border-t border-slate-900 flex flex-col gap-2">
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="flex gap-1.5">
                         <button
-                          onClick={() => copiarLinkGeneral(ev.slug)}
-                          className="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-1.5 rounded-lg text-center truncate cursor-pointer"
+                          onClick={() => abrirModalEditar(ev)}
+                          className="text-xs bg-slate-900 text-slate-300 border border-slate-800 px-2.5 py-1 rounded-lg cursor-pointer hover:bg-slate-800"
                         >
-                          🔗 Demo
+                          ✏️ Editar
                         </button>
                         <button
-                          onClick={() =>
-                            copiarLinkPases(ev.slug, ev.pasesAsignados || 2)
-                          }
-                          className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-1.5 rounded-lg text-center truncate cursor-pointer"
+                          onClick={() => handleEliminarEvento(ev.id)}
+                          className="text-xs bg-rose-950/40 text-rose-400 border border-rose-900/50 px-2 py-1 rounded-lg cursor-pointer hover:bg-rose-900/60"
                         >
-                          🎫 Pases
-                        </button>
-                        <button
-                          onClick={() => copiarLinkPortalCliente(ev.slug)}
-                          className="text-[10px] font-bold text-sky-400 bg-sky-500/10 border border-sky-500/30 px-2 py-1.5 rounded-lg text-center truncate cursor-pointer"
-                        >
-                          📊 Portal
+                          🗑️
                         </button>
                       </div>
                     </div>
                   </div>
-
-                  <div className="flex items-center justify-between pt-3 border-t border-slate-900">
-                    <button
-                      onClick={() => setEventoSeleccionadoId(ev.id)}
-                      className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
-                        ev.id === eventoSeleccionadoId
-                          ? "bg-amber-500 text-slate-950 border-amber-500"
-                          : "bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200"
-                      }`}
-                    >
-                      {ev.id === eventoSeleccionadoId ? "✓ Seleccionado" : "Seleccionar"}
-                    </button>
-
-                    <div className="flex gap-1.5">
-                      <button
-                        onClick={() => abrirModalEditar(ev)}
-                        className="text-xs bg-slate-900 text-slate-300 border border-slate-800 px-2.5 py-1 rounded-lg cursor-pointer hover:bg-slate-800"
-                      >
-                        ✏️ Editar
-                      </button>
-                      <button
-                        onClick={() => handleEliminarEvento(ev.id)}
-                        className="text-xs bg-rose-950/40 text-rose-400 border border-rose-900/50 px-2 py-1 rounded-lg cursor-pointer hover:bg-rose-900/60"
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -765,7 +803,7 @@ export default function AdminDashboardPage() {
               <p className="text-xs text-slate-400 mt-1">
                 Editando campos del evento:{" "}
                 <span className="text-amber-400 font-bold">
-                  {eventoActual?.title} (/{eventoActual?.slug})
+                  {eventoActual?.title || "Sin selección"} (/{eventoActual?.slug})
                 </span>
               </p>
             </div>
