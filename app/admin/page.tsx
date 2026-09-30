@@ -403,13 +403,13 @@ export default function AdminDashboardPage() {
     });
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.ObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Lista_Invitados_${eventoActual?.slug || "evento"}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+const url = URL.createObjectURL(blob);
+const link = document.createElement("a");
+link.setAttribute("href", url);
+link.setAttribute("download", `Lista_Invitados_${eventoActual?.slug || "evento"}.csv`);
+document.body.appendChild(link);
+link.click();
+document.body.removeChild(link);
   };
 
   const handleAgregarPregunta = (e: React.FormEvent) => {
