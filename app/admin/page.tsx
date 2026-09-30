@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 
-// Tipos de campos soportados por el diseñador de formularios
 export type QuestionType =
   | "text"
   | "paragraph"
@@ -45,7 +44,6 @@ interface UserItem {
   activo: boolean;
 }
 
-// Función auxiliar para convertir el título en una URL amigable (slug)
 function generateSlug(text: string): string {
   return text
     .toString()
@@ -76,14 +74,11 @@ export default function AdminDashboardPage() {
     "eventos" | "disenador" | "respuestas" | "colaboradores"
   >("eventos");
 
-  // Rol del usuario actual
   const [rolUsuarioActual] = useState<"ADMINISTRADOR" | "CLIENTE">("ADMINISTRADOR");
-
   const [copiadoTipo, setCopiadoTipo] = useState<string | null>(null);
   const [busquedaEvento, setBusquedaEvento] = useState("");
   const [filtroEstado, setFiltroEstado] = useState<"todos" | "activos" | "inactivos">("todos");
 
-  // Lista de eventos creados
   const [eventos, setEventos] = useState<EventItem[]>([
     {
       id: "1",
@@ -92,7 +87,7 @@ export default function AdminDashboardPage() {
       targetDate: "2026-10-15",
       plan: "PLUS",
       active: true,
-      whatsappPhone: "5218112345678",
+      whatsappPhone: "5218115591681",
       pasesAsignados: 2,
       questions: [
         {
@@ -111,7 +106,7 @@ export default function AdminDashboardPage() {
       targetDate: "1996-09-21",
       plan: "PREMIUM",
       active: true,
-      whatsappPhone: "528115591681",
+      whatsappPhone: "5218115591681",
       pasesAsignados: 4,
       questions: [],
     },
@@ -131,7 +126,7 @@ export default function AdminDashboardPage() {
   const [modalActive, setModalActive] = useState(true);
   const [editandoEventoId, setEditandoEventoId] = useState<string | null>(null);
 
-  // Campos del Diseñador
+  // Diseñador
   const [nuevaPreguntaLabel, setNuevaPreguntaLabel] = useState("");
   const [nuevaPreguntaTipo, setNuevaPreguntaTipo] = useState<QuestionType>("text");
   const [nuevaPreguntaOpciones, setNuevaPreguntaOpciones] = useState("");
@@ -153,10 +148,8 @@ export default function AdminDashboardPage() {
   const [usuarioEditandoId, setUsuarioEditandoId] = useState<string | null>(null);
   const [respuestas, setRespuestas] = useState<any[]>([]);
 
-  // Evento seleccionado actualmente
   const eventoActual = eventos.find((e) => e.id === eventoSeleccionadoId) || eventos[0];
 
-  // Métricas calculadas para el panel
   const totalRespuestas = respuestas.length;
   const totalConfirmados = respuestas.filter((r) => r.attending).length;
   const totalCancelados = respuestas.filter((r) => !r.attending).length;
@@ -164,7 +157,6 @@ export default function AdminDashboardPage() {
     .filter((r) => r.attending)
     .reduce((acc, curr) => acc + (Number(curr.pasesConfirmados) || 1), 0);
 
-  // Filtra eventos por texto y estado
   const eventosFiltrados = eventos.filter((ev) => {
     const coincideTexto =
       ev.title.toLowerCase().includes(busquedaEvento.toLowerCase()) ||
@@ -175,7 +167,6 @@ export default function AdminDashboardPage() {
     return coincideTexto;
   });
 
-  // Carga respuestas desde la API
   useEffect(() => {
     if (!eventoActual) return;
     fetch(`/api/form-config?event=${eventoActual.slug}`)
@@ -226,37 +217,41 @@ export default function AdminDashboardPage() {
     setMostrarModalEvento(true);
   };
 
-  const handleGuardarEvento = (e: React.FormEvent) => {
+  const handleGuardarEvento = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!modalTitle || !modalSlug) return;
+
+    const eventoData = {
+      title: modalTitle,
+      slug: modalSlug,
+      targetDate: modalDate,
+      plan: modalPlan,
+      whatsappPhone: modalWhatsapp,
+      pasesAsignados: Number(modalPases),
+      active: modalActive,
+    };
+
+    // Envía los datos actualizados a la API backend
+    try {
+      await fetch("/api/form-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ event: modalSlug, config: eventoData }),
+      });
+    } catch (error) {
+      console.error("Error guardando en API:", error);
+    }
 
     if (editandoEventoId) {
       setEventos(
         eventos.map((ev) =>
-          ev.id === editandoEventoId
-            ? {
-                ...ev,
-                title: modalTitle,
-                slug: modalSlug,
-                targetDate: modalDate,
-                plan: modalPlan,
-                whatsappPhone: modalWhatsapp,
-                pasesAsignados: Number(modalPases),
-                active: modalActive,
-              }
-            : ev
+          ev.id === editandoEventoId ? { ...ev, ...eventoData } : ev
         )
       );
     } else {
       const nuevo: EventItem = {
         id: Date.now().toString(),
-        slug: modalSlug,
-        title: modalTitle,
-        targetDate: modalDate,
-        plan: modalPlan,
-        active: modalActive,
-        whatsappPhone: modalWhatsapp,
-        pasesAsignados: Number(modalPases),
+        ...eventoData,
         questions: [],
       };
       setEventos([...eventos, nuevo]);
@@ -273,7 +268,6 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // // FUNCIONES PARA COPIAR ENLACES AL PORTAPAPELES
   const copiarLinkGeneral = (slug: string) => {
     const url = `${window.location.origin}/${slug}`;
     navigator.clipboard.writeText(url);
@@ -288,7 +282,6 @@ export default function AdminDashboardPage() {
     setTimeout(() => setCopiadoTipo(null), 2500);
   };
 
-  // Copia el enlace directo del Portal Cliente independiente
   const copiarLinkPortalCliente = (slug: string) => {
     const url = `${window.location.origin}/respuestas/${slug}`;
     navigator.clipboard.writeText(url);
@@ -296,19 +289,24 @@ export default function AdminDashboardPage() {
     setTimeout(() => setCopiadoTipo(null), 2500);
   };
 
-  // Exportación a Excel / CSV
   const exportarRespuestasCSV = () => {
     if (!respuestas || respuestas.length === 0) return;
 
-    let csvContent = "\uFEFFNro,Invitado / Familia,Asistirá,Personas Confirmadas,Respuestas Adicionales,Fecha Registro\n";
+    let csvContent =
+      "\uFEFFNro,Invitado / Familia,Asistirá,Personas Confirmadas,Respuestas Adicionales,Fecha Registro\n";
 
     respuestas.forEach((r, idx) => {
       const num = idx + 1;
       const nombre = `"${(r.name || "Anónimo").replace(/"/g, '""')}"`;
       const asistira = r.attending ? "SÍ" : "NO";
-      const personas = r.attending ? (r.pasesConfirmados || 1) : 0;
-      const custom = `"${JSON.stringify(r.customAnswers || {}).replace(/"/g, '""')}"`;
-      const fecha = r.createdAt ? `"${new Date(r.createdAt).toLocaleString()}"` : '""';
+      const personas = r.attending ? r.pasesConfirmados || 1 : 0;
+      const custom = `"${JSON.stringify(r.customAnswers || {}).replace(
+        /"/g,
+        '""'
+      )}"`;
+      const fecha = r.createdAt
+        ? `"${new Date(r.createdAt).toLocaleString()}"`
+        : '""';
 
       csvContent += `${num},${nombre},${asistira},${personas},${custom},${fecha}\n`;
     });
@@ -323,7 +321,6 @@ export default function AdminDashboardPage() {
     document.body.removeChild(link);
   };
 
-  // Diseñador
   const handleAgregarPregunta = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nuevaPreguntaLabel || !eventoActual) return;
@@ -350,14 +347,20 @@ export default function AdminDashboardPage() {
     setNuevaPreguntaRequerida(false);
   };
 
-  const handleUpdatePregunta = (qId: string, field: keyof Question, value: any) => {
+  const handleUpdatePregunta = (
+    qId: string,
+    field: keyof Question,
+    value: any
+  ) => {
     if (!eventoActual) return;
     setEventos(
       eventos.map((ev) => {
         if (ev.id !== eventoActual.id) return ev;
         return {
           ...ev,
-          questions: ev.questions.map((q) => (q.id === qId ? { ...q, [field]: value } : q)),
+          questions: ev.questions.map((q) =>
+            q.id === qId ? { ...q, [field]: value } : q
+          ),
         };
       })
     );
@@ -374,7 +377,6 @@ export default function AdminDashboardPage() {
     );
   };
 
-  // Colaboradores
   const handleGuardarUsuario = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nuevoNombre || !nuevoCorreo) return;
@@ -419,7 +421,6 @@ export default function AdminDashboardPage() {
   return (
     <div className="min-h-screen bg-[#0d1527] text-slate-100 p-4 md:p-8 font-sans">
       <div className="max-w-6xl mx-auto space-y-6">
-        
         {/* HEADER DE LA PLATAFORMA */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -431,7 +432,6 @@ export default function AdminDashboardPage() {
             </p>
           </div>
 
-          {/* NAVEGACIÓN PRINCIPAL */}
           <div className="flex flex-wrap items-center gap-2 md:gap-3">
             <button
               onClick={() => setTabActiva("eventos")}
@@ -588,14 +588,13 @@ export default function AdminDashboardPage() {
                         <p>📱 WhatsApp: {ev.whatsappPhone || "No asignado"}</p>
                       </div>
 
-                      {/* ENLACES RÁPIDOS DEL EVENTO (3 BOTONES EN FILA) */}
+                      {/* ENLACES DEL EVENTO */}
                       <div className="mt-4 pt-3 border-t border-slate-900 flex flex-col gap-2">
                         <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase">
                           <span>Enlaces del Evento:</span>
                         </div>
 
                         <div className="grid grid-cols-3 gap-2">
-                          {/* 1. LINK DEMO */}
                           <button
                             onClick={() => copiarLinkGeneral(ev.slug)}
                             className="text-[10px] font-bold text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-2 py-1.5 rounded-lg transition-all cursor-pointer text-center truncate"
@@ -606,7 +605,6 @@ export default function AdminDashboardPage() {
                               : "🔗 Link Demo"}
                           </button>
 
-                          {/* 2. LINK PASES */}
                           {ev.plan !== "BASICO" ? (
                             <button
                               onClick={() => copiarLinkPases(ev.slug, ev.pasesAsignados || 2)}
@@ -623,7 +621,6 @@ export default function AdminDashboardPage() {
                             </div>
                           )}
 
-                          {/* 3. LINK PORTAL CLIENTE */}
                           {ev.plan !== "BASICO" ? (
                             <button
                               onClick={() => copiarLinkPortalCliente(ev.slug)}
@@ -664,7 +661,7 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* PESTAÑA 2: DISEÑADOR DE FORMULARIOS (SOLO ADMINISTRADORES) */}
+        {/* PESTAÑA 2: DISEÑADOR */}
         {tabActiva === "disenador" && rolUsuarioActual === "ADMINISTRADOR" && (
           <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 md:p-8 space-y-6 shadow-2xl">
             <div className="border-b border-slate-800 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -855,11 +852,9 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* PESTAÑA 3: RESPUESTAS Y PANEL DEL CLIENTE */}
+        {/* PESTAÑA 3: RESPUESTAS */}
         {tabActiva === "respuestas" && (
           <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 md:p-8 space-y-6 shadow-2xl">
-            
-            {/* ENCABEZADO Y SELECTOR */}
             <div className="border-b border-slate-800 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
                 <h2 className="text-xs font-black text-amber-500 uppercase tracking-wider">
@@ -871,7 +866,6 @@ export default function AdminDashboardPage() {
               </div>
 
               <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-                {/* BOTÓN DE DESCARGA DIRECTA A EXCEL */}
                 <button
                   onClick={exportarRespuestasCSV}
                   disabled={respuestas.length === 0}
@@ -901,7 +895,6 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            {/* TARJETAS DE MÉTRICAS RÁPIDAS */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800/80 space-y-1">
                 <span className="text-[10px] font-bold uppercase text-slate-500">Total Envíos</span>
@@ -924,7 +917,6 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            {/* TABLA DE DETALLE DE RESPUESTAS */}
             {respuestas.length === 0 ? (
               <div className="text-center py-12 bg-slate-950/60 rounded-2xl border border-slate-800">
                 <p className="text-xs text-slate-500">
@@ -1090,7 +1082,6 @@ export default function AdminDashboardPage() {
             </div>
           </div>
         )}
-
       </div>
 
       {/* MODAL CREAR / EDITAR EVENTO */}
@@ -1103,7 +1094,9 @@ export default function AdminDashboardPage() {
 
             <form onSubmit={handleGuardarEvento} className="space-y-3 text-xs">
               <div>
-                <label className="block text-slate-400 font-bold mb-1">Nombre del Evento</label>
+                <label className="block text-slate-400 font-bold mb-1">
+                  Nombre del Evento
+                </label>
                 <input
                   type="text"
                   value={modalTitle}
@@ -1114,7 +1107,9 @@ export default function AdminDashboardPage() {
               </div>
 
               <div>
-                <label className="block text-slate-400 font-bold mb-1">Slug URL (ej. boda-maria)</label>
+                <label className="block text-slate-400 font-bold mb-1">
+                  Slug URL (ej. boda-maria)
+                </label>
                 <input
                   type="text"
                   value={modalSlug}
@@ -1129,7 +1124,9 @@ export default function AdminDashboardPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 font-bold mb-1">Fecha del Evento</label>
+                  <label className="block text-slate-400 font-bold mb-1">
+                    Fecha del Evento
+                  </label>
                   <input
                     type="date"
                     value={modalDate}
@@ -1138,7 +1135,9 @@ export default function AdminDashboardPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 font-bold mb-1">Plan Contratado</label>
+                  <label className="block text-slate-400 font-bold mb-1">
+                    Plan Contratado
+                  </label>
                   <select
                     value={modalPlan}
                     onChange={(e) => setModalPlan(e.target.value as PlanType)}
@@ -1154,7 +1153,9 @@ export default function AdminDashboardPage() {
               <div className="grid grid-cols-2 gap-3">
                 {modalPlan !== "BASICO" ? (
                   <div>
-                    <label className="block text-slate-400 font-bold mb-1">Pases Asignados (Boletos)</label>
+                    <label className="block text-slate-400 font-bold mb-1">
+                      Pases Asignados (Boletos)
+                    </label>
                     <input
                       type="number"
                       min="1"
@@ -1165,7 +1166,9 @@ export default function AdminDashboardPage() {
                   </div>
                 ) : (
                   <div>
-                    <label className="block text-slate-500 font-bold mb-1">Pases</label>
+                    <label className="block text-slate-500 font-bold mb-1">
+                      Pases
+                    </label>
                     <input
                       type="text"
                       value="N/A (Ilimitado)"
@@ -1176,10 +1179,12 @@ export default function AdminDashboardPage() {
                 )}
 
                 <div>
-                  <label className="block text-slate-400 font-bold mb-1">WhatsApp Notificaciones</label>
+                  <label className="block text-slate-400 font-bold mb-1">
+                    WhatsApp Notificaciones
+                  </label>
                   <input
                     type="text"
-                    placeholder="5218112345678"
+                    placeholder="5218115591681"
                     value={modalWhatsapp}
                     onChange={(e) => setModalWhatsapp(e.target.value)}
                     className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-amber-500"
