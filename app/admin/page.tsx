@@ -79,8 +79,11 @@ export default function AdminDashboardPage() {
   // Estado para alertas de copia de enlaces
   const [copiadoTipo, setCopiadoTipo] = useState<string | null>(null);
 
-  // // NUEVO: Estado para el filtro/búsqueda de eventos
+  // Estado para la búsqueda por texto
   const [busquedaEvento, setBusquedaEvento] = useState("");
+
+  // // NUEVO: Estado para filtrar eventos por estado (todos, activos, inactivos)
+  const [filtroEstado, setFiltroEstado] = useState<"todos" | "activos" | "inactivos">("todos");
 
   // Lista de eventos creados
   const [eventos, setEventos] = useState<EventItem[]>([
@@ -155,14 +158,18 @@ export default function AdminDashboardPage() {
   // Obtiene el objeto del evento seleccionado actualmente
   const eventoActual = eventos.find((e) => e.id === eventoSeleccionadoId) || eventos[0];
 
-  // // NUEVO: Filtra los eventos según el texto ingresado en la búsqueda
-  const eventosFiltrados = eventos.filter(
-    (ev) =>
+  // // NUEVO: Filtra eventos combinando texto de búsqueda Y estado (activo/inactivo)
+  const eventosFiltrados = eventos.filter((ev) => {
+    const coincideTexto =
       ev.title.toLowerCase().includes(busquedaEvento.toLowerCase()) ||
-      ev.slug.toLowerCase().includes(busquedaEvento.toLowerCase())
-  );
+      ev.slug.toLowerCase().includes(busquedaEvento.toLowerCase());
 
-  // Carga las respuestas del evento desde el servidor cuando cambia el evento seleccionado
+    if (filtroEstado === "activos") return coincideTexto && ev.active;
+    if (filtroEstado === "inactivos") return coincideTexto && !ev.active;
+    return coincideTexto;
+  });
+
+  // Carga las respuestas del evento desde la API cuando cambia el evento seleccionado
   useEffect(() => {
     if (!eventoActual) return;
     fetch(`/api/form-config?event=${eventoActual.slug}`)
@@ -170,9 +177,14 @@ export default function AdminDashboardPage() {
       .then((data) => {
         if (data.data?.responses) {
           setRespuestas(data.data.responses);
+        } else {
+          setRespuestas([]);
         }
       })
-      .catch((err) => console.error(err));
+      .catch((err) => {
+        console.error("Error al cargar respuestas:", err);
+        setRespuestas([]);
+      });
   }, [eventoSeleccionadoId, eventoActual?.slug]);
 
   const handleTitleChange = (val: string) => {
@@ -271,30 +283,29 @@ export default function AdminDashboardPage() {
     setTimeout(() => setCopiadoTipo(null), 2500);
   };
 
-  // // NUEVO: Función para exportar las respuestas del evento actual a formato CSV (Excel)
+  // // NUEVO: Función para exportar las respuestas del evento actual a formato CSV (Compatible con Excel)
   const exportarRespuestasCSV = () => {
     if (!respuestas || respuestas.length === 0) return;
 
-    // Encabezados del archivo CSV
-    let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent += "Nro,Invitado,Asistira,Respuestas Adicionales,Fecha Registro\n";
+    // Encabezados con formato BOM para correcta codificación de acentos en Excel
+    let csvContent = "\uFEFFNro,Invitado,Asistirá,Respuestas Personalizadas,Fecha de Registro\n";
 
-    // Mapeo de filas
     respuestas.forEach((r, idx) => {
       const num = idx + 1;
       const nombre = `"${(r.name || "Anónimo").replace(/"/g, '""')}"`;
-      const asistira = r.attending ? "SI" : "NO";
+      const asistira = r.attending ? "SÍ" : "NO";
       const custom = `"${JSON.stringify(r.customAnswers || {}).replace(/"/g, '""')}"`;
       const fecha = r.createdAt ? `"${new Date(r.createdAt).toLocaleString()}"` : '""';
 
       csvContent += `${num},${nombre},${asistira},${custom},${fecha}\n`;
     });
 
-    // Descarga automática en el navegador
-    const encodedUri = encodeURI(csvContent);
+    // Crear un blob y desencadenar descarga directa
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Respuestas_${eventoActual.slug}.csv`);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Respuestas_${eventoActual.slug}_${new Date().toISOString().slice(0,10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -469,15 +480,31 @@ export default function AdminDashboardPage() {
                 </p>
               </div>
 
-              {/* // NUEVO: BUSCADOR DE EVENTOS Y BOTÓN DE CREAR */}
+              {/* FILTRO POR ESTADO + BUSCADOR + CREAR NUEVO */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+                {/* // NUEVO: Selector de Filtro por Estado */}
+                <select
+                  value={filtroEstado}
+                  onChange={(e) => setFiltroEstado(e.target.value as any)}
+                  className="bg-slate-950 border border-slate-800 text-xs text-amber-400 font-bold rounded-xl px-3 py-2 focus:outline-none focus:border-amber-500"
+                >
+                  <option value="todos">🌐 Todos ({eventos.length})</option>
+                  <option value="activos">
+                    🟢 Activos ({eventos.filter((e) => e.active).length})
+                  </option>
+                  <option value="inactivos">
+                    🔴 Inactivos ({eventos.filter((e) => !e.active).length})
+                  </option>
+                </select>
+
+                {/* Buscador en Vivo */}
                 <div className="relative">
                   <input
                     type="text"
-                    placeholder="🔍 Buscar evento por título o slug..."
+                    placeholder="🔍 Buscar título o slug..."
                     value={busquedaEvento}
                     onChange={(e) => setBusquedaEvento(e.target.value)}
-                    className="w-full sm:w-64 bg-slate-950 border border-slate-800 text-xs text-slate-200 placeholder-slate-500 rounded-xl px-3.5 py-2 focus:outline-none focus:border-amber-500"
+                    className="w-full sm:w-56 bg-slate-950 border border-slate-800 text-xs text-slate-200 placeholder-slate-500 rounded-xl px-3.5 py-2 focus:outline-none focus:border-amber-500"
                   />
                   {busquedaEvento && (
                     <button
@@ -502,9 +529,7 @@ export default function AdminDashboardPage() {
             {eventosFiltrados.length === 0 ? (
               <div className="text-center py-12 bg-slate-950/60 rounded-2xl border border-slate-800">
                 <p className="text-xs text-slate-500">
-                  {busquedaEvento
-                    ? `No se encontraron eventos con la búsqueda "${busquedaEvento}".`
-                    : "No hay eventos registrados."}
+                  No se encontraron eventos coincidentes.
                 </p>
               </div>
             ) : (
@@ -549,7 +574,6 @@ export default function AdminDashboardPage() {
                         </div>
 
                         <div className="grid grid-cols-2 gap-2">
-                          {/* BOTÓN LINK DEMO */}
                           <button
                             onClick={() => copiarLinkGeneral(ev.slug)}
                             className="text-[10px] font-bold text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-2 py-1.5 rounded-lg transition-all cursor-pointer text-center truncate"
@@ -560,7 +584,6 @@ export default function AdminDashboardPage() {
                               : "🔗 Link Demo"}
                           </button>
 
-                          {/* BOTÓN LINK PASES */}
                           <button
                             onClick={() => copiarLinkPases(ev.slug, ev.pasesAsignados || 2)}
                             className="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 px-2 py-1.5 rounded-lg transition-all cursor-pointer text-center truncate"
@@ -801,13 +824,14 @@ export default function AdminDashboardPage() {
                 </p>
               </div>
 
-              {/* // NUEVO: BOTÓN EXPORTAR CSV + SELECTOR DE EVENTO */}
+              {/* BOTÓN DE EXPORTACIÓN Y SELECTOR DE EVENTO */}
               <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                {/* // NUEVO: Botón Verde para Descargar Excel (CSV) */}
                 {respuestas.length > 0 && (
                   <button
                     onClick={exportarRespuestasCSV}
-                    className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold px-3.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
-                    title="Exportar lista de respuestas a Excel"
+                    className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold px-3.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-md"
+                    title="Exportar reporte de respuestas a Excel"
                   >
                     <span>📥 Exportar Excel (CSV)</span>
                   </button>
