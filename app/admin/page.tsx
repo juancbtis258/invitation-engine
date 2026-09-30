@@ -45,7 +45,7 @@ interface UserItem {
   activo: boolean;
 }
 
-// Genera el slug automático
+// Función auxiliar para convertir el título en una URL amigable (slug)
 function generateSlug(text: string): string {
   return text
     .toString()
@@ -76,7 +76,7 @@ export default function AdminDashboardPage() {
     "eventos" | "disenador" | "respuestas" | "colaboradores"
   >("eventos");
 
-  // Rol del usuario actual (Simulación: Puedes cambiar entre ADMINISTRADOR y CLIENTE)
+  // Rol del usuario actual
   const [rolUsuarioActual] = useState<"ADMINISTRADOR" | "CLIENTE">("ADMINISTRADOR");
 
   const [copiadoTipo, setCopiadoTipo] = useState<string | null>(null);
@@ -131,7 +131,7 @@ export default function AdminDashboardPage() {
   const [modalActive, setModalActive] = useState(true);
   const [editandoEventoId, setEditandoEventoId] = useState<string | null>(null);
 
-  // Campos del Diseñador (Solo Administradores)
+  // Campos del Diseñador
   const [nuevaPreguntaLabel, setNuevaPreguntaLabel] = useState("");
   const [nuevaPreguntaTipo, setNuevaPreguntaTipo] = useState<QuestionType>("text");
   const [nuevaPreguntaOpciones, setNuevaPreguntaOpciones] = useState("");
@@ -156,7 +156,7 @@ export default function AdminDashboardPage() {
   // Evento seleccionado actualmente
   const eventoActual = eventos.find((e) => e.id === eventoSeleccionadoId) || eventos[0];
 
-  // Métricas calculadas para el panel del cliente
+  // Métricas calculadas para el panel
   const totalRespuestas = respuestas.length;
   const totalConfirmados = respuestas.filter((r) => r.attending).length;
   const totalCancelados = respuestas.filter((r) => !r.attending).length;
@@ -273,6 +273,7 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // // FUNCIONES PARA COPIAR ENLACES AL PORTAPAPELES
   const copiarLinkGeneral = (slug: string) => {
     const url = `${window.location.origin}/${slug}`;
     navigator.clipboard.writeText(url);
@@ -287,17 +288,25 @@ export default function AdminDashboardPage() {
     setTimeout(() => setCopiadoTipo(null), 2500);
   };
 
-  // Exportación directa a Excel
+  // Copia el enlace directo del Portal Cliente independiente
+  const copiarLinkPortalCliente = (slug: string) => {
+    const url = `${window.location.origin}/respuestas/${slug}`;
+    navigator.clipboard.writeText(url);
+    setCopiadoTipo(`portal-${slug}`);
+    setTimeout(() => setCopiadoTipo(null), 2500);
+  };
+
+  // Exportación a Excel / CSV
   const exportarRespuestasCSV = () => {
     if (!respuestas || respuestas.length === 0) return;
 
-    let csvContent = "\uFEFFNro,Invitado,Asistirá,Personas/Pases,Respuestas Adicionales,Fecha Registro\n";
+    let csvContent = "\uFEFFNro,Invitado / Familia,Asistirá,Personas Confirmadas,Respuestas Adicionales,Fecha Registro\n";
 
     respuestas.forEach((r, idx) => {
       const num = idx + 1;
       const nombre = `"${(r.name || "Anónimo").replace(/"/g, '""')}"`;
       const asistira = r.attending ? "SÍ" : "NO";
-      const personas = r.pasesConfirmados || 1;
+      const personas = r.attending ? (r.pasesConfirmados || 1) : 0;
       const custom = `"${JSON.stringify(r.customAnswers || {}).replace(/"/g, '""')}"`;
       const fecha = r.createdAt ? `"${new Date(r.createdAt).toLocaleString()}"` : '""';
 
@@ -314,7 +323,7 @@ export default function AdminDashboardPage() {
     document.body.removeChild(link);
   };
 
-  // Diseñador (Admin)
+  // Diseñador
   const handleAgregarPregunta = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nuevaPreguntaLabel || !eventoActual) return;
@@ -435,7 +444,6 @@ export default function AdminDashboardPage() {
               📁 Mis Eventos
             </button>
 
-            {/* SOLO ADMINISTRADORES PUEDEN VER EL DISEÑADOR */}
             {rolUsuarioActual === "ADMINISTRADOR" && (
               <button
                 onClick={() => setTabActiva("disenador")}
@@ -580,13 +588,14 @@ export default function AdminDashboardPage() {
                         <p>📱 WhatsApp: {ev.whatsappPhone || "No asignado"}</p>
                       </div>
 
-                      {/* ENLACES RÁPIDOS */}
+                      {/* ENLACES RÁPIDOS DEL EVENTO (3 BOTONES EN FILA) */}
                       <div className="mt-4 pt-3 border-t border-slate-900 flex flex-col gap-2">
                         <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase">
                           <span>Enlaces del Evento:</span>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-3 gap-2">
+                          {/* 1. LINK DEMO */}
                           <button
                             onClick={() => copiarLinkGeneral(ev.slug)}
                             className="text-[10px] font-bold text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-2 py-1.5 rounded-lg transition-all cursor-pointer text-center truncate"
@@ -597,7 +606,8 @@ export default function AdminDashboardPage() {
                               : "🔗 Link Demo"}
                           </button>
 
-                          {ev.plan !== "BASICO" && (
+                          {/* 2. LINK PASES */}
+                          {ev.plan !== "BASICO" ? (
                             <button
                               onClick={() => copiarLinkPases(ev.slug, ev.pasesAsignados || 2)}
                               className="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 px-2 py-1.5 rounded-lg transition-all cursor-pointer text-center truncate"
@@ -607,6 +617,27 @@ export default function AdminDashboardPage() {
                                 ? "¡Copiado! 🚀"
                                 : `🎫 Link Pases (${ev.pasesAsignados ?? 2})`}
                             </button>
+                          ) : (
+                            <div className="text-[10px] text-slate-600 bg-slate-900 px-2 py-1.5 rounded-lg text-center font-bold border border-slate-800">
+                              N/A
+                            </div>
+                          )}
+
+                          {/* 3. LINK PORTAL CLIENTE */}
+                          {ev.plan !== "BASICO" ? (
+                            <button
+                              onClick={() => copiarLinkPortalCliente(ev.slug)}
+                              className="text-[10px] font-bold text-sky-400 hover:text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 px-2 py-1.5 rounded-lg transition-all cursor-pointer text-center truncate"
+                              title="Copiar enlace privado para que el cliente descargue sus listas"
+                            >
+                              {copiadoTipo === `portal-${ev.slug}`
+                                ? "¡Copiado! 🚀"
+                                : "📊 Portal Cliente"}
+                            </button>
+                          ) : (
+                            <div className="text-[10px] text-slate-600 bg-slate-900 px-2 py-1.5 rounded-lg text-center font-bold border border-slate-800">
+                              N/A
+                            </div>
                           )}
                         </div>
                       </div>
@@ -870,7 +901,7 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            {/* TARJETAS DE MÉTRICAS RÁPIDAS PARA EL CLIENTE */}
+            {/* TARJETAS DE MÉTRICAS RÁPIDAS */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800/80 space-y-1">
                 <span className="text-[10px] font-bold uppercase text-slate-500">Total Envíos</span>
@@ -963,7 +994,7 @@ export default function AdminDashboardPage() {
 
             <form onSubmit={handleGuardarUsuario} className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4">
               <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider">
-                {usuarioEditandoId ? "✏️️ Editar Colaborador" : "➕ Registrar Nuevo Colaborador"}
+                {usuarioEditandoId ? "✏ Editar Colaborador" : "➕ Registrar Nuevo Colaborador"}
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
