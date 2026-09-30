@@ -125,26 +125,30 @@ function PublicEventContent() {
     }
   };
 
-  // Abrir WhatsApp con el formato adecuado
+  // Abrir WhatsApp con el número dinámico y codificación correcta
   const abrirWhatsapp = () => {
-    const numero = config?.whatsappPhone || "5210000000000";
+    // Obtener número configurado o fallback
+    const rawNumero = config?.whatsappPhone || "5218115591681";
+    const numero = rawNumero.replace(/\D/g, "");
+
     let texto = "";
 
     if (asistira) {
-      texto = `¡Hola! Confirmo mi asistencia para ${config?.title}.\n\n` +
-              `👤 *Nombre:* ${nombreInvitado || "Invitado"}\n` +
-              `🎟️ *Pases:* ${pasesSeleccionados}\n` +
-              `👥 *Asistentes:* ${nombresAsistentes.join(", ")}\n`;
+      texto = `¡Hola! Confirmo mi asistencia para ${config?.title || "el evento"}.\n\n` +
+              `*Nombre:* ${nombreInvitado || "Invitado"}\n` +
+              `*Pases:* ${pasesSeleccionados}\n` +
+              `*Asistentes:* ${nombresAsistentes.filter(Boolean).join(", ")}`;
     } else {
-      texto = `¡Hola! Lamentablemente no podré asistir a ${config?.title}.\n\n` +
-              `👤 *Nombre:* ${nombreInvitado || "Invitado"}\n`;
+      texto = `¡Hola! Lamentablemente no podré asistir a ${config?.title || "el evento"}.\n\n` +
+              `*Nombre:* ${nombreInvitado || "Invitado"}`;
     }
 
     if (mensajeDeseos.trim()) {
-      texto += `\n💬 *Mensaje:* "${mensajeDeseos}"`;
+      texto += `\n*Mensaje:* "${mensajeDeseos.trim()}"`;
     }
 
-    const url = `https://wa.me/${numero.replace(/\D/g, "")}?text=${encodeURIComponent(texto)}`;
+    // Estructura oficial de API WhatsApp con codificación adecuada
+    const url = `https://api.whatsapp.com/send?phone=${numero}&text=${encodeURIComponent(texto)}`;
     window.open(url, "_blank");
   };
 
