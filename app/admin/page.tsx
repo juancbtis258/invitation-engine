@@ -2,74 +2,56 @@
 
 import { useState, useEffect } from "react";
 
-interface Answer {
-  id?: string;
-  nombreInvitado: string;
-  asistira: boolean;
-  telefonoWhatsapp?: string;
-  pasesConfirmados: number;
-  pasesDisponibles?: number;
-  asistentes?: string[];
-  mensajeDeseos?: string;
-  preguntasAdicionales?: Record<string, string>;
-  fechaRespuesta?: string;
-}
+export default function AdminPage() {
+  // Pestaña activa: 'eventos' | 'disenador' | 'respuestas' | 'colaboradores'
+  const [tabActiva, setTabActiva] = useState<
+    "eventos" | "disenador" | "respuestas" | "colaboradores"
+  >("colaboradores");
 
-interface EventConfig {
-  title: string;
-  targetDate: string;
-  whatsappPhone?: string;
-  active: boolean;
-}
-
-export default function AdminDashboardPage() {
+  // Estado del Evento / Configuración
   const [eventSlug, setEventSlug] = useState("demo");
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [mensaje, setMensaje] = useState("");
+  const [title, setTitle] = useState("Boda María & Alejandro");
+  const [targetDate, setTargetDate] = useState("2026-10-15");
+  const [whatsappPhone, setWhatsappPhone] = useState("5218112345678");
+  const [active, setActive] = useState(true);
 
-  // Estado de Configuración del Evento
-  const [config, setConfig] = useState<EventConfig>({
-    title: "",
-    targetDate: "",
-    whatsappPhone: "",
-    active: true,
-  });
+  // Colaboradores / Usuarios
+  const [usuarios, setUsuarios] = useState([
+    { nombre: "Alejandro Mejía (Tú)", usuario: "admin", pass: "123", rol: "ADMINISTRADOR" },
+    { nombre: "Cliente Demo", usuario: "cliente", pass: "123", rol: "CLIENTE" },
+  ]);
+  const [nuevoNombre, setNuevoNombre] = useState("");
+  const [nuevoUsuario, setNuevoUsuario] = useState("");
+  const [nuevaPass, setNuevaPass] = useState("");
+  const [nuevoRol, setNuevoRol] = useState("CLIENTE");
 
-  // Lista de respuestas registradas
-  const [respuestas, setRespuestas] = useState<Answer[]>([]);
-  const [filtro, setFiltro] = useState<"todas" | "confirmados" | "cancelados">("todas");
-  const [busqueda, setBusqueda] = useState("");
+  // Respuestas
+  const [respuestas, setRespuestas] = useState<any[]>([]);
+  const [mensajeStatus, setMensajeStatus] = useState("");
+  const [loading, setLoading] = useState(false);
 
+  // Cargar configuración al iniciar o cambiar de evento
   useEffect(() => {
-    cargarDatosEvento();
+    if (!eventSlug) return;
+    fetch(`/api/form-config?event=${eventSlug}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.data) {
+          setTitle(data.data.title || "");
+          setTargetDate(data.data.targetDate || "");
+          setWhatsappPhone(data.data.whatsappPhone || "");
+          setActive(data.data.active ?? true);
+          setRespuestas(data.data.responses || []);
+        }
+      })
+      .catch((err) => console.error("Error al cargar evento:", err));
   }, [eventSlug]);
 
-  const cargarDatosEvento = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/form-config?event=${eventSlug}`);
-      const data = await res.json();
-      if (data.data) {
-        setConfig({
-          title: data.data.title || "",
-          targetDate: data.data.targetDate || "",
-          whatsappPhone: data.data.whatsappPhone || "",
-          active: data.data.active ?? true,
-        });
-        setRespuestas(data.data.responses || []);
-      }
-    } catch (err) {
-      console.error("Error al cargar datos del panel:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Guardar configuración del evento (incluye WhatsApp)
   const handleGuardarConfig = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
-    setMensaje("");
+    setLoading(true);
+    setMensajeStatus("");
 
     try {
       const res = await fetch("/api/form-config", {
@@ -78,253 +60,367 @@ export default function AdminDashboardPage() {
         body: JSON.stringify({
           action: "save_config",
           eventSlug,
-          config,
+          config: {
+            title,
+            targetDate,
+            whatsappPhone,
+            active,
+          },
         }),
       });
 
       if (res.ok) {
-        setMensaje("¡Configuración guardada correctamente!");
+        setMensajeStatus("¡Cambios e integración de WhatsApp guardados!");
       } else {
-        setMensaje("Error al guardar la configuración.");
+        setMensajeStatus("Error al guardar cambios.");
       }
     } catch (err) {
-      console.error("Error al guardar:", err);
-      setMensaje("Error de conexión.");
+      setMensajeStatus("Error de conexión.");
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
 
-  // Cálculos de métricas
-  const totalConfirmados = respuestas.filter((r) => r.asistira).length;
-  const totalCancelados = respuestas.filter((r) => !r.asistira).length;
-  const totalLugaresConfirmados = respuestas
-    .filter((r) => r.asistira)
-    .reduce((acc, curr) => acc + (curr.pasesConfirmados || 0), 0);
+  // Agregar nuevo colaborador / usuario
+  const handleAgregarUsuario = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nuevoNombre || !nuevoUsuario || !nuevaPass) return;
 
-  // Filtrado de la tabla
-  const respuestasFiltradas = respuestas.filter((r) => {
-    const cumpleFiltro =
-      filtro === "todas" ? true : filtro === "confirmados" ? r.asistira : !r.asistira;
-    const cumpleBusqueda = r.nombreInvitado
-      .toLowerCase()
-      .includes(busqueda.toLowerCase());
-    return cumpleFiltro && cumpleBusqueda;
-  });
+    setUsuarios([
+      ...usuarios,
+      {
+        nombre: nuevoNombre,
+        usuario: nuevoUsuario,
+        pass: nuevaPass,
+        rol: nuevoRol,
+      },
+    ]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0f172a] text-slate-100 flex items-center justify-center p-4">
-        <p className="text-sm font-medium text-slate-400">Cargando panel de administración...</p>
-      </div>
-    );
-  }
+    setNuevoNombre("");
+    setNuevoUsuario("");
+    setNuevaPass("");
+  };
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-slate-100 p-4 md:p-8 space-y-8 max-w-7xl mx-auto">
-      
-      {/* Encabezado del Panel */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
-        <div>
-          <h1 className="text-2xl font-black text-amber-500">Panel de Control & Respuestas</h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Administra los detalles de tu evento y visualiza los invitados en tiempo real.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-400">Evento ID:</span>
-          <input
-            type="text"
-            value={eventSlug}
-            onChange={(e) => setEventSlug(e.target.value)}
-            className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-amber-400 font-bold focus:outline-none"
-          />
-        </div>
-      </div>
+    <div className="min-h-screen bg-[#0b1329] text-slate-100 p-4 md:p-8 font-sans">
+      <div className="max-w-4xl mx-auto space-y-6">
+        
+        {/* BARRA DE NAVEGACIÓN SUPERIOR (PESTAÑAS) */}
+        <div className="flex flex-wrap items-center gap-2 md:gap-3 bg-slate-900/60 p-2 rounded-2xl border border-slate-800/80">
+          <button
+            onClick={() => setTabActiva("eventos")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              tabActiva === "eventos"
+                ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
+                : "bg-slate-800/60 text-slate-300 hover:bg-slate-800"
+            }`}
+          >
+            📁 Mis Eventos
+          </button>
 
-      {/* Tarjetas de Métricas Resumen */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-slate-900/90 border border-slate-800 p-5 rounded-2xl">
-          <span className="block text-xs text-slate-400 font-medium">Asistencias Confirmadas</span>
-          <span className="text-2xl font-extrabold text-emerald-400">{totalConfirmados}</span>
-          <span className="block text-[11px] text-slate-500 mt-1">
-            ({totalLugaresConfirmados} lugares/pases reservados)
-          </span>
-        </div>
+          <button
+            onClick={() => setTabActiva("disenador")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              tabActiva === "disenador"
+                ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
+                : "bg-slate-800/60 text-slate-300 hover:bg-slate-800"
+            }`}
+          >
+            🛠️ Diseñador
+          </button>
 
-        <div className="bg-slate-900/90 border border-slate-800 p-5 rounded-2xl">
-          <span className="block text-xs text-slate-400 font-medium">Cancelaciones / No asisten</span>
-          <span className="text-2xl font-extrabold text-rose-400">{totalCancelados}</span>
-          <span className="block text-[11px] text-slate-500 mt-1">Personas que declinaron</span>
-        </div>
+          <button
+            onClick={() => setTabActiva("respuestas")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              tabActiva === "respuestas"
+                ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
+                : "bg-slate-800/60 text-slate-300 hover:bg-slate-800"
+            }`}
+          >
+            📊 Respuestas ({respuestas.length})
+          </button>
 
-        <div className="bg-slate-900/90 border border-slate-800 p-5 rounded-2xl">
-          <span className="block text-xs text-slate-400 font-medium">Total Respuestas</span>
-          <span className="text-2xl font-extrabold text-amber-400">{respuestas.length}</span>
-          <span className="block text-[11px] text-slate-500 mt-1">Registros recibidos</span>
-        </div>
-      </div>
+          <button
+            onClick={() => setTabActiva("colaboradores")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              tabActiva === "colaboradores"
+                ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
+                : "bg-slate-800/60 text-slate-300 hover:bg-slate-800"
+            }`}
+          >
+            👥 Colaboradores
+          </button>
 
-      {/* Sección 1: Configuración del Evento & WhatsApp */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
-        <h2 className="text-base font-bold text-slate-200 border-b border-slate-800 pb-3">
-          ⚙️ Ajustes del Evento & WhatsApp Receptor
-        </h2>
-
-        <form onSubmit={handleGuardarConfig} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
-              Título del Evento
-            </label>
-            <input
-              type="text"
-              value={config.title}
-              onChange={(e) => setConfig({ ...config, title: e.target.value })}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
-              Fecha del Evento
-            </label>
-            <input
-              type="date"
-              value={config.targetDate}
-              onChange={(e) => setConfig({ ...config, targetDate: e.target.value })}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
-              required
-            />
-          </div>
-
-          <div className="md:col-span-2 bg-amber-500/10 border border-amber-500/20 p-4 rounded-2xl space-y-2">
-            <label className="block text-xs font-bold text-amber-400">
-              📱 WhatsApp Receptor (Donde llegarán las confirmaciones)
-            </label>
-            <input
-              type="tel"
-              placeholder="Ej. 5218112345678 (incluye lada de país sin espacios)"
-              value={config.whatsappPhone || ""}
-              onChange={(e) => setConfig({ ...config, whatsappPhone: e.target.value })}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
-            />
-            <p className="text-[11px] text-slate-400">
-              Este número se enlaza automáticamente con el botón que ven los invitados al finalizar su respuesta.
-            </p>
-          </div>
-
-          <div className="md:col-span-2 flex items-center justify-between pt-2">
-            <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={config.active}
-                onChange={(e) => setConfig({ ...config, active: e.target.checked })}
-                className="w-4 h-4 accent-amber-500 rounded"
-              />
-              Evento activo y disponible públicamente
-            </label>
-
-            <button
-              type="submit"
-              disabled={saving}
-              className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs px-6 py-2.5 rounded-xl transition-all cursor-pointer"
-            >
-              {saving ? "Guardando..." : "Guardar Ajustes"}
-            </button>
-          </div>
-
-          {mensaje && (
-            <p className="md:col-span-2 text-xs font-medium text-emerald-400 text-center bg-emerald-500/10 p-2 rounded-xl border border-emerald-500/20">
-              {mensaje}
-            </p>
-          )}
-        </form>
-      </div>
-
-      {/* Sección 2: Tabla de Respuestas de Invitados */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
-          <h2 className="text-base font-bold text-slate-200">
-            📋 Respuestas de los Invitados ({respuestasFiltradas.length})
-          </h2>
-
-          <div className="flex items-center gap-3">
-            <input
-              type="text"
-              placeholder="Buscar por nombre..."
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
-            />
-
-            <select
-              value={filtro}
-              onChange={(e) => setFiltro(e.target.value as any)}
-              className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none"
-            >
-              <option value="todas">Todos</option>
-              <option value="confirmados">Confirmados 🎉</option>
-              <option value="cancelados">No asisten 😔</option>
-            </select>
-          </div>
+          <button
+            onClick={() => (window.location.href = "/")}
+            className="ml-auto px-4 py-2 bg-rose-950/40 border border-rose-800/50 text-rose-400 hover:bg-rose-900/50 rounded-xl text-xs font-bold transition-all"
+          >
+            🚪 Salir
+          </button>
         </div>
 
-        {/* Tabla Responsiva */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-300">
-            <thead className="bg-slate-950 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
-              <tr>
-                <th className="p-3">Invitado</th>
-                <th className="p-3">Estado</th>
-                <th className="p-3">Pases</th>
-                <th className="p-3">Asistentes</th>
-                <th className="p-3">Mensaje / Felicitación</th>
-                <th className="p-3">WhatsApp</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60">
-              {respuestasFiltradas.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="text-center p-6 text-slate-500">
-                    No hay respuestas que coincidan con los filtros.
-                  </td>
-                </tr>
-              ) : (
-                respuestasFiltradas.map((resp, i) => (
-                  <tr key={resp.id || i} className="hover:bg-slate-800/40 transition-colors">
-                    <td className="p-3 font-semibold text-slate-100">{resp.nombreInvitado}</td>
-                    <td className="p-3">
-                      {resp.asistira ? (
-                        <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-md text-[11px] font-bold">
-                          Asistirá 🎉
-                        </span>
-                      ) : (
-                        <span className="bg-rose-500/10 text-rose-400 border border-rose-500/30 px-2 py-0.5 rounded-md text-[11px] font-bold">
-                          No asiste 😔
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-3 font-bold text-amber-400">
-                      {resp.asistira ? resp.pasesConfirmados : 0}
-                    </td>
-                    <td className="p-3 text-slate-400">
-                      {resp.asistentes && resp.asistentes.length > 0
-                        ? resp.asistentes.join(", ")
-                        : "-"}
-                    </td>
-                    <td className="p-3 max-w-xs truncate italic text-slate-300">
-                      {resp.mensajeDeseos ? `"${resp.mensajeDeseos}"` : "-"}
-                    </td>
-                    <td className="p-3 text-slate-400">{resp.telefonoWhatsapp || "-"}</td>
-                  </tr>
-                ))
+        {/* CONTENIDO DE LA PESTAÑA 1: MIS EVENTOS / AJUSTES */}
+        {tabActiva === "eventos" && (
+          <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl">
+            <h2 className="text-sm font-black text-amber-500 tracking-wider uppercase border-b border-slate-800 pb-3">
+              CONFIGURACIÓN DEL EVENTO & WHATSAPP
+            </h2>
+
+            <form onSubmit={handleGuardarConfig} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  Identificador (Slug del evento)
+                </label>
+                <input
+                  type="text"
+                  value={eventSlug}
+                  onChange={(e) => setEventSlug(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  Título del Evento
+                </label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  Fecha del Evento
+                </label>
+                <input
+                  type="date"
+                  value={targetDate}
+                  onChange={(e) => setTargetDate(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                  required
+                />
+              </div>
+
+              {/* Integración con WhatsApp */}
+              <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-2xl space-y-1.5">
+                <label className="block text-xs font-bold text-amber-400">
+                  📱 WhatsApp Receptor (Confirmaciones de invitados)
+                </label>
+                <input
+                  type="tel"
+                  placeholder="Ej. 5218112345678"
+                  value={whatsappPhone}
+                  onChange={(e) => setWhatsappPhone(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                />
+                <p className="text-[11px] text-slate-400">
+                  El botón final de la invitación redirigirá a este WhatsApp con la respuesta del invitado.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="activeCheck"
+                  checked={active}
+                  onChange={(e) => setActive(e.target.checked)}
+                  className="w-4 h-4 accent-amber-500 rounded"
+                />
+                <label htmlFor="activeCheck" className="text-xs text-slate-300 cursor-pointer">
+                  Evento publicado y disponible
+                </label>
+              </div>
+
+              {mensajeStatus && (
+                <p className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20 text-center">
+                  {mensajeStatus}
+                </p>
               )}
-            </tbody>
-          </table>
-        </div>
-      </div>
 
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs py-3 rounded-xl transition-all shadow-lg shadow-amber-500/10 cursor-pointer"
+              >
+                {loading ? "Guardando..." : "Guardar Cambios del Evento"}
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* CONTENIDO DE LA PESTAÑA 2: DISEÑADOR */}
+        {tabActiva === "disenador" && (
+          <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-4 shadow-2xl text-center">
+            <h2 className="text-sm font-black text-amber-500 tracking-wider uppercase">
+              🛠️ Diseñador de Invitación
+            </h2>
+            <p className="text-xs text-slate-400">
+              Personaliza el estilo, imágenes, tipografía y módulos de la tarjeta de invitación.
+            </p>
+            <div className="bg-slate-950 p-8 rounded-2xl border border-slate-800 text-xs text-slate-500">
+              Modo de edición de tarjeta interactiva cargado.
+            </div>
+          </div>
+        )}
+
+        {/* CONTENIDO DE LA PESTAÑA 3: RESPUESTAS */}
+        {tabActiva === "respuestas" && (
+          <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-4 shadow-2xl">
+            <h2 className="text-sm font-black text-amber-500 tracking-wider uppercase border-b border-slate-800 pb-3">
+              📊 Respuestas de Invitados
+            </h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-300">
+                <thead className="bg-slate-950 text-slate-400 uppercase text-[10px] tracking-wider">
+                  <tr>
+                    <th className="p-3">Nombre</th>
+                    <th className="p-3">Asistencia</th>
+                    <th className="p-3">Pases</th>
+                    <th className="p-3">Mensaje</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {respuestas.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="text-center p-6 text-slate-500">
+                        No hay respuestas registradas aún.
+                      </td>
+                    </tr>
+                  ) : (
+                    respuestas.map((r, idx) => (
+                      <tr key={idx}>
+                        <td className="p-3 font-semibold">{r.nombreInvitado || "Anónimo"}</td>
+                        <td className="p-3">
+                          {r.asistira ? (
+                            <span className="text-emerald-400 font-bold">Sí asistirá</span>
+                          ) : (
+                            <span className="text-rose-400 font-bold">No asistirá</span>
+                          )}
+                        </td>
+                        <td className="p-3">{r.pasesConfirmados || 0}</td>
+                        <td className="p-3 italic text-slate-400">{r.mensajeDeseos || "-"}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* CONTENIDO DE LA PESTAÑA 4: COLABORADORES / CLIENTES */}
+        {tabActiva === "colaboradores" && (
+          <div className="space-y-6">
+            
+            {/* Formulario de registro de usuario */}
+            <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-5 shadow-2xl">
+              <h2 className="text-sm font-black text-amber-500 tracking-wider uppercase">
+                REGISTRAR NUEVO COLABORADOR O CLIENTE
+              </h2>
+
+              <form onSubmit={handleAgregarUsuario} className="space-y-3.5">
+                <div>
+                  <input
+                    type="text"
+                    placeholder="Nombre completo"
+                    value={nuevoNombre}
+                    onChange={(e) => setNuevoNombre(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <input
+                    type="text"
+                    placeholder="Usuario (ej. admin, boda)"
+                    value={nuevoUsuario}
+                    onChange={(e) => setNuevoUsuario(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <input
+                    type="password"
+                    placeholder="Contraseña"
+                    value={nuevaPass}
+                    onChange={(e) => setNuevaPass(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <select
+                    value={nuevoRol}
+                    onChange={(e) => setNuevoRol(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-slate-300 focus:outline-none focus:border-amber-500 cursor-pointer"
+                  >
+                    <option value="CLIENTE">Cliente (Acceso a evento)</option>
+                    <option value="ADMINISTRADOR">Administrador (Acceso total)</option>
+                  </select>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs py-3.5 rounded-xl shadow-lg shadow-amber-500/20 transition-all cursor-pointer mt-2"
+                >
+                  + Dar Acceso
+                </button>
+              </form>
+            </div>
+
+            {/* Tabla de usuarios registrados */}
+            <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-4 shadow-2xl">
+              <h2 className="text-sm font-black text-amber-500 tracking-wider uppercase">
+                USUARIOS REGISTRADOS EN LA PLATAFORMA
+              </h2>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-950 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
+                    <tr>
+                      <th className="p-3">Nombre</th>
+                      <th className="p-3">Usuario</th>
+                      <th className="p-3">Contraseña</th>
+                      <th className="p-3">Rol</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {usuarios.map((u, i) => (
+                      <tr key={i} className="hover:bg-slate-800/40 transition-colors">
+                        <td className="p-3 font-semibold text-slate-100">{u.nombre}</td>
+                        <td className="p-3 font-bold text-amber-400">{u.usuario}</td>
+                        <td className="p-3 text-slate-400">{u.pass}</td>
+                        <td className="p-3">
+                          {u.rol === "ADMINISTRADOR" ? (
+                            <span className="bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded text-[10px] font-bold">
+                              ADMINISTRADOR
+                            </span>
+                          ) : (
+                            <span className="bg-blue-500/10 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded text-[10px] font-bold">
+                              CLIENTE
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        )}
+
+      </div>
     </div>
   );
 }
