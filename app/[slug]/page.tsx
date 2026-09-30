@@ -80,7 +80,7 @@ function PublicEventContent() {
     if (asiste) {
       setStep("detalles");
     } else {
-      setStep("mensaje"); // Si dice que no, pasa a escribir el mensaje de disculpas/buenos deseos
+      setStep("mensaje"); // Si dice que no, pasa directo a escribir su mensaje de disculpa
     }
   };
 
@@ -379,7 +379,9 @@ function PublicEventContent() {
             disabled={submitting}
             className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-sm py-3.5 rounded-xl shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
           >
-            {submitting ? "Guardando confirmación..." : "Confirmar Asistencia"}
+            {submitting 
+              ? (asistira ? "Guardando confirmación..." : "Guardando respuesta...") 
+              : (asistira ? "Confirmar Asistencia" : "Enviar Respuesta y Mensaje")}
           </button>
         </form>
       )}
@@ -405,14 +407,14 @@ function PublicEventContent() {
 
           <div className="space-y-3">
             <p className="text-xs text-slate-400">
-              Haz clic abajo para enviar tu mensaje y confirmación directamente al WhatsApp del organizador:
+              Haz clic abajo para enviar tu mensaje y respuesta directamente al WhatsApp del organizador:
             </p>
             <button
               type="button"
               onClick={abrirWhatsapp}
               className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-sm py-3.5 rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
-              💬 Enviar confirmación por WhatsApp
+              💬 Enviar por WhatsApp
             </button>
           </div>
         </div>
