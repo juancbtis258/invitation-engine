@@ -77,6 +77,7 @@ const TIPO_LABELS: Record<QuestionType, { name: string; icon: string }> = {
 export default function AdminDashboardPage() {
   const router = useRouter();
 
+  // Pestaña Activa con Persistencia en localStorage
   const [tabActiva, setTabActiva] = useState<
     "eventos" | "disenador" | "respuestas" | "colaboradores"
   >("eventos");
@@ -89,15 +90,29 @@ export default function AdminDashboardPage() {
   const [busquedaEvento, setBusquedaEvento] = useState("");
   const [filtroEstado, setFiltroEstado] = useState<"todos" | "activos" | "inactivos">("todos");
 
+  // Cargar sesión y recordar pestaña activa al recargar (F5)
   useEffect(() => {
     const role = (localStorage.getItem("userRole") as "ADMINISTRADOR" | "CLIENTE") || "ADMINISTRADOR";
     const slug = localStorage.getItem("userSlug") || "todos";
     const name = localStorage.getItem("userName") || "";
+    const tabGuardada = localStorage.getItem("adminTabActiva") as any;
 
     setRolUsuarioActual(role);
     setSlugAsignado(slug);
     setNombreSesion(name);
+
+    if (tabGuardada) {
+      setTabActiva(tabGuardada);
+    }
   }, []);
+
+  // Función para cambiar pestaña y guardarla en localStorage
+  const cambiarTab = (
+    tab: "eventos" | "disenador" | "respuestas" | "colaboradores"
+  ) => {
+    setTabActiva(tab);
+    localStorage.setItem("adminTabActiva", tab);
+  };
 
   const [eventos, setEventos] = useState<EventItem[]>([
     {
@@ -134,7 +149,7 @@ export default function AdminDashboardPage() {
 
   const [eventoSeleccionadoId, setEventoSeleccionadoId] = useState<string>("1");
 
-  // Modal
+  // Modal Crear/Editar Evento
   const [mostrarModalEvento, setMostrarModalEvento] = useState(false);
   const [modalTitle, setModalTitle] = useState("");
   const [modalSlug, setModalSlug] = useState("");
@@ -152,7 +167,7 @@ export default function AdminDashboardPage() {
   const [nuevaPreguntaOpciones, setNuevaPreguntaOpciones] = useState("");
   const [nuevaPreguntaRequerida, setNuevaPreguntaRequerida] = useState(false);
 
-  // Usuarios / Clientes
+  // Usuarios / Clientes (B2B Reseller con WhatsApp Directo)
   const [usuarios, setUsuarios] = useState<UserItem[]>([
     {
       id: "u1",
@@ -178,12 +193,14 @@ export default function AdminDashboardPage() {
 
   const [respuestas, setRespuestas] = useState<any[]>([]);
 
-  // Filtrado de eventos por rol
-  const eventosVisibles = rolUsuarioActual === "ADMINISTRADOR"
-    ? eventos
-    : eventos.filter((e) => e.slug === slugAsignado || slugAsignado === "todos");
+  // Filtrado por rol
+  const eventosVisibles =
+    rolUsuarioActual === "ADMINISTRADOR"
+      ? eventos
+      : eventos.filter((e) => e.slug === slugAsignado || slugAsignado === "todos");
 
-  const eventoActual = eventosVisibles.find((e) => e.id === eventoSeleccionadoId) || eventosVisibles[0];
+  const eventoActual =
+    eventosVisibles.find((e) => e.id === eventoSeleccionadoId) || eventosVisibles[0];
 
   const totalRespuestas = respuestas.length;
   const totalConfirmados = respuestas.filter((r) => r.attending).length;
@@ -499,9 +516,10 @@ export default function AdminDashboardPage() {
     }
 
     const loginUrl = `${window.location.origin}/login`;
-    const portalUrl = u.eventoAsignadoSlug && u.eventoAsignadoSlug !== "todos"
-      ? `${window.location.origin}/respuestas/${u.eventoAsignadoSlug}`
-      : loginUrl;
+    const portalUrl =
+      u.eventoAsignadoSlug && u.eventoAsignadoSlug !== "todos"
+        ? `${window.location.origin}/respuestas/${u.eventoAsignadoSlug}`
+        : loginUrl;
 
     const texto =
       `¡Hola ${u.nombre}! 👋\n\n` +
@@ -513,7 +531,9 @@ export default function AdminDashboardPage() {
       `📌 *Evento Asignado:* /${u.eventoAsignadoSlug || "demo"}\n\n` +
       `¡Cualquier duda quedamos a tus órdenes! ✨`;
 
-    const url = `https://api.whatsapp.com/send?phone=${numeroLimpio}&text=${encodeURIComponent(texto)}`;
+    const url = `https://api.whatsapp.com/send?phone=${numeroLimpio}&text=${encodeURIComponent(
+      texto
+    )}`;
     window.open(url, "_blank");
   };
 
@@ -527,13 +547,17 @@ export default function AdminDashboardPage() {
               Creador & Gestor de Invitaciones
             </h1>
             <p className="text-xs text-slate-400 mt-0.5">
-              Bienvenido <span className="text-amber-400 font-bold">{nombreSesion || "Usuario"}</span> ({rolUsuarioActual})
+              Bienvenido{" "}
+              <span className="text-amber-400 font-bold">
+                {nombreSesion || "Usuario"}
+              </span>{" "}
+              ({rolUsuarioActual})
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 md:gap-3">
             <button
-              onClick={() => setTabActiva("eventos")}
+              onClick={() => cambiarTab("eventos")}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 tabActiva === "eventos"
                   ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
@@ -544,7 +568,7 @@ export default function AdminDashboardPage() {
             </button>
 
             <button
-              onClick={() => setTabActiva("disenador")}
+              onClick={() => cambiarTab("disenador")}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 tabActiva === "disenador"
                   ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
@@ -555,7 +579,7 @@ export default function AdminDashboardPage() {
             </button>
 
             <button
-              onClick={() => setTabActiva("respuestas")}
+              onClick={() => cambiarTab("respuestas")}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 tabActiva === "respuestas"
                   ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
@@ -567,7 +591,7 @@ export default function AdminDashboardPage() {
 
             {rolUsuarioActual === "ADMINISTRADOR" && (
               <button
-                onClick={() => setTabActiva("colaboradores")}
+                onClick={() => cambiarTab("colaboradores")}
                 className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   tabActiva === "colaboradores"
                     ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
@@ -619,13 +643,17 @@ export default function AdminDashboardPage() {
                 >
                   <div>
                     <div className="flex justify-between items-start gap-2">
-                      <h3 className="text-sm font-bold text-slate-100">{ev.title}</h3>
+                      <h3 className="text-sm font-bold text-slate-100">
+                        {ev.title}
+                      </h3>
                       <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                         {ev.active ? "ACTIVO" : "INACTIVO"}
                       </span>
                     </div>
 
-                    <p className="text-xs font-mono text-amber-400 mt-1">/{ev.slug}</p>
+                    <p className="text-xs font-mono text-amber-400 mt-1">
+                      /{ev.slug}
+                    </p>
 
                     <div className="text-[11px] text-slate-400 mt-3 space-y-1">
                       <p>📅 Fecha: {ev.targetDate || "Sin fecha"}</p>
@@ -636,19 +664,21 @@ export default function AdminDashboardPage() {
                       <div className="grid grid-cols-3 gap-2">
                         <button
                           onClick={() => copiarLinkGeneral(ev.slug)}
-                          className="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-1.5 rounded-lg text-center truncate"
+                          className="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-1.5 rounded-lg text-center truncate cursor-pointer"
                         >
                           🔗 Demo
                         </button>
                         <button
-                          onClick={() => copiarLinkPases(ev.slug, ev.pasesAsignados || 2)}
-                          className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-1.5 rounded-lg text-center truncate"
+                          onClick={() =>
+                            copiarLinkPases(ev.slug, ev.pasesAsignados || 2)
+                          }
+                          className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-1.5 rounded-lg text-center truncate cursor-pointer"
                         >
                           🎫 Pases
                         </button>
                         <button
                           onClick={() => copiarLinkPortalCliente(ev.slug)}
-                          className="text-[10px] font-bold text-sky-400 bg-sky-500/10 border border-sky-500/30 px-2 py-1.5 rounded-lg text-center truncate"
+                          className="text-[10px] font-bold text-sky-400 bg-sky-500/10 border border-sky-500/30 px-2 py-1.5 rounded-lg text-center truncate cursor-pointer"
                         >
                           📊 Portal
                         </button>
@@ -659,14 +689,14 @@ export default function AdminDashboardPage() {
                   <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-900">
                     <button
                       onClick={() => abrirModalEditar(ev)}
-                      className="text-xs bg-slate-900 text-slate-300 border border-slate-800 px-3 py-1.5 rounded-lg"
+                      className="text-xs bg-slate-900 text-slate-300 border border-slate-800 px-3 py-1.5 rounded-lg cursor-pointer"
                     >
                       ✏️ Editar
                     </button>
                     {rolUsuarioActual === "ADMINISTRADOR" && (
                       <button
                         onClick={() => handleEliminarEvento(ev.id)}
-                        className="text-xs bg-rose-950/40 text-rose-400 border border-rose-900/50 px-3 py-1.5 rounded-lg"
+                        className="text-xs bg-rose-950/40 text-rose-400 border border-rose-900/50 px-3 py-1.5 rounded-lg cursor-pointer"
                       >
                         🗑️ Eliminar
                       </button>
@@ -686,11 +716,17 @@ export default function AdminDashboardPage() {
                 🛠️ DISEÑADOR DE PREGUNTAS Y FORMULARIO
               </h2>
               <p className="text-xs text-slate-400 mt-1">
-                Evento activo: <span className="text-amber-400 font-bold">{eventoActual?.title}</span>
+                Evento activo:{" "}
+                <span className="text-amber-400 font-bold">
+                  {eventoActual?.title}
+                </span>
               </p>
             </div>
 
-            <form onSubmit={handleAgregarPregunta} className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4">
+            <form
+              onSubmit={handleAgregarPregunta}
+              className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4"
+            >
               <h3 className="text-xs font-bold text-amber-400 uppercase">
                 ➕ AGREGAR PREGUNTA PERSONALIZADA
               </h3>
@@ -710,7 +746,9 @@ export default function AdminDashboardPage() {
                 <div className="md:col-span-5">
                   <select
                     value={nuevaPreguntaTipo}
-                    onChange={(e) => setNuevaPreguntaTipo(e.target.value as QuestionType)}
+                    onChange={(e) =>
+                      setNuevaPreguntaTipo(e.target.value as QuestionType)
+                    }
                     className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-amber-400"
                   >
                     {Object.entries(TIPO_LABELS).map(([key, item]) => (
@@ -725,7 +763,7 @@ export default function AdminDashboardPage() {
               <div className="flex justify-end pt-1">
                 <button
                   type="submit"
-                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs px-6 py-2.5 rounded-xl"
+                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs px-6 py-2.5 rounded-xl cursor-pointer"
                 >
                   + Agregar Campo
                 </button>
@@ -734,11 +772,16 @@ export default function AdminDashboardPage() {
 
             <div className="space-y-3">
               {eventoActual?.questions?.map((q, index) => (
-                <div key={q.id} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex justify-between items-center">
-                  <span className="text-xs text-slate-200 font-bold">{index + 1}. {q.label}</span>
+                <div
+                  key={q.id}
+                  className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex justify-between items-center"
+                >
+                  <span className="text-xs text-slate-200 font-bold">
+                    {index + 1}. {q.label}
+                  </span>
                   <button
                     onClick={() => handleEliminarPregunta(q.id)}
-                    className="text-rose-400 text-xs font-bold"
+                    className="text-rose-400 text-xs font-bold cursor-pointer"
                   >
                     🗑 Eliminar
                   </button>
@@ -757,7 +800,7 @@ export default function AdminDashboardPage() {
               </h2>
               <button
                 onClick={exportarRespuestasCSV}
-                className="bg-emerald-500 text-slate-950 font-bold text-xs px-4 py-2 rounded-xl"
+                className="bg-emerald-500 text-slate-950 font-bold text-xs px-4 py-2 rounded-xl cursor-pointer"
               >
                 📥 Descargar Excel (CSV)
               </button>
@@ -765,155 +808,189 @@ export default function AdminDashboardPage() {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
-                <span className="text-[10px] text-slate-500 font-bold">TOTAL ENVÍOS</span>
-                <p className="text-xl font-black text-slate-100">{totalRespuestas}</p>
+                <span className="text-[10px] text-slate-500 font-bold">
+                  TOTAL ENVÍOS
+                </span>
+                <p className="text-xl font-black text-slate-100">
+                  {totalRespuestas}
+                </p>
               </div>
               <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
-                <span className="text-[10px] text-emerald-500 font-bold">CONFIRMADOS</span>
-                <p className="text-xl font-black text-emerald-400">{totalConfirmados}</p>
+                <span className="text-[10px] text-emerald-500 font-bold">
+                  CONFIRMADOS
+                </span>
+                <p className="text-xl font-black text-emerald-400">
+                  {totalConfirmados}
+                </p>
               </div>
               <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
-                <span className="text-[10px] text-rose-500 font-bold">CANCELADOS</span>
-                <p className="text-xl font-black text-rose-400">{totalCancelados}</p>
+                <span className="text-[10px] text-rose-500 font-bold">
+                  CANCELADOS
+                </span>
+                <p className="text-xl font-black text-rose-400">
+                  {totalCancelados}
+                </p>
               </div>
               <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
-                <span className="text-[10px] text-amber-500 font-bold">PERSONAS</span>
-                <p className="text-xl font-black text-amber-400">{totalAsistentesPersona} asist.</p>
+                <span className="text-[10px] text-amber-500 font-bold">
+                  PERSONAS
+                </span>
+                <p className="text-xl font-black text-amber-400">
+                  {totalAsistentesPersona} asist.
+                </p>
               </div>
             </div>
           </div>
         )}
 
         {/* PESTAÑA 4: COLABORADORES (SOLO MASTER ADMIN) */}
-        {tabActiva === "colaboradores" && rolUsuarioActual === "ADMINISTRADOR" && (
-          <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 md:p-8 space-y-6 shadow-2xl">
-            <div className="border-b border-slate-800 pb-4">
-              <h2 className="text-xs font-black text-amber-500 uppercase">
-                👥 GESTIÓN PROFESIONAL DE CLIENTES Y ACCESOS
-              </h2>
-              <p className="text-xs text-slate-400 mt-1">
-                Alta de revendedores y envío de accesos directo por WhatsApp.
-              </p>
-            </div>
+        {tabActiva === "colaboradores" &&
+          rolUsuarioActual === "ADMINISTRADOR" && (
+            <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 md:p-8 space-y-6 shadow-2xl">
+              <div className="border-b border-slate-800 pb-4">
+                <h2 className="text-xs font-black text-amber-500 uppercase">
+                  👥 GESTIÓN PROFESIONAL DE CLIENTES Y ACCESOS
+                </h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  Alta de revendedores y envío de accesos directo por WhatsApp.
+                </p>
+              </div>
 
-            {/* FORMULARIO */}
-            <form onSubmit={handleGuardarUsuario} className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <input
-                  type="text"
-                  placeholder="Nombre Completo *"
-                  value={nuevoNombre}
-                  onChange={(e) => setNuevoNombre(e.target.value)}
-                  className="bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-100"
-                  required
-                />
-                <input
-                  type="text"
-                  placeholder="Usuario Login *"
-                  value={nuevoUsername}
-                  onChange={(e) => setNuevoUsername(e.target.value)}
-                  className="bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-amber-400 font-mono"
-                  required
-                />
-                <input
-                  type="tel"
-                  placeholder="WhatsApp (ej. 5218115591681) *"
-                  value={nuevoWhatsapp}
-                  onChange={(e) => setNuevoWhatsapp(e.target.value)}
-                  className="bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-emerald-400 font-mono"
-                  required
-                />
-                <input
-                  type="text"
-                  placeholder="Contraseña *"
-                  value={nuevoPassword}
-                  onChange={(e) => setNuevoPassword(e.target.value)}
-                  className="bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-emerald-400 font-mono"
-                  required
-                />
-                <select
-                  value={nuevoRol}
-                  onChange={(e) => setNuevoRol(e.target.value as any)}
-                  className="bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-amber-400 font-bold"
-                >
-                  <option value="CLIENTE">CLIENTE (Solo ver su evento)</option>
-                  <option value="ADMINISTRADOR">ADMINISTRADOR (Acceso Total)</option>
-                </select>
-                <select
-                  value={nuevoEventoSlug}
-                  onChange={(e) => setNuevoEventoSlug(e.target.value)}
-                  className="bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-sky-400 font-bold"
-                >
-                  <option value="todos">🌐 Todos los eventos (Admin)</option>
-                  {eventos.map((ev) => (
-                    <option key={ev.id} value={ev.slug}>
-                      {ev.title} (/{ev.slug})
+              {/* FORMULARIO */}
+              <form
+                onSubmit={handleGuardarUsuario}
+                className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <input
+                    type="text"
+                    placeholder="Nombre Completo *"
+                    value={nuevoNombre}
+                    onChange={(e) => setNuevoNombre(e.target.value)}
+                    className="bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-100"
+                    required
+                  />
+                  <input
+                    type="text"
+                    placeholder="Usuario Login *"
+                    value={nuevoUsername}
+                    onChange={(e) => setNuevoUsername(e.target.value)}
+                    className="bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-amber-400 font-mono"
+                    required
+                  />
+                  <input
+                    type="tel"
+                    placeholder="WhatsApp (ej. 5218115591681) *"
+                    value={nuevoWhatsapp}
+                    onChange={(e) => setNuevoWhatsapp(e.target.value)}
+                    className="bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-emerald-400 font-mono"
+                    required
+                  />
+                  <input
+                    type="text"
+                    placeholder="Contraseña *"
+                    value={nuevoPassword}
+                    onChange={(e) => setNuevoPassword(e.target.value)}
+                    className="bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-emerald-400 font-mono"
+                    required
+                  />
+                  <select
+                    value={nuevoRol}
+                    onChange={(e) => setNuevoRol(e.target.value as any)}
+                    className="bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-amber-400 font-bold"
+                  >
+                    <option value="CLIENTE">
+                      CLIENTE (Solo ver su evento)
                     </option>
-                  ))}
-                </select>
-              </div>
+                    <option value="ADMINISTRADOR">
+                      ADMINISTRADOR (Acceso Total)
+                    </option>
+                  </select>
+                  <select
+                    value={nuevoEventoSlug}
+                    onChange={(e) => setNuevoEventoSlug(e.target.value)}
+                    className="bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-sky-400 font-bold"
+                  >
+                    <option value="todos">🌐 Todos los eventos (Admin)</option>
+                    {eventos.map((ev) => (
+                      <option key={ev.id} value={ev.slug}>
+                        {ev.title} (/{ev.slug})
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              <div className="flex justify-end pt-2">
-                <button
-                  type="submit"
-                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs px-6 py-2 rounded-xl"
-                >
-                  + Guardar Colaborador
-                </button>
-              </div>
-            </form>
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs px-6 py-2 rounded-xl cursor-pointer"
+                  >
+                    + Guardar Colaborador
+                  </button>
+                </div>
+              </form>
 
-            {/* TABLA DE CLIENTES */}
-            <div className="overflow-x-auto border border-slate-800 rounded-2xl bg-slate-950">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-800 text-slate-400 uppercase font-bold text-[10px] bg-slate-900/60">
-                    <th className="p-3">Usuario</th>
-                    <th className="p-3">WhatsApp</th>
-                    <th className="p-3">Contraseña</th>
-                    <th className="p-3">Rol / Evento</th>
-                    <th className="p-3">Estado</th>
-                    <th className="p-3 text-right">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60">
-                  {usuarios.map((u) => (
-                    <tr key={u.id} className="hover:bg-slate-900/40">
-                      <td className="p-3 font-semibold text-slate-100">{u.nombre} (@{u.username})</td>
-                      <td className="p-3 text-emerald-400 font-mono font-bold">📱 {u.whatsapp}</td>
-                      <td className="p-3 font-mono text-emerald-400 font-bold">{u.password || "••••••••"}</td>
-                      <td className="p-3 text-amber-400 font-bold">{u.rol} (/{u.eventoAsignadoSlug})</td>
-                      <td className="p-3">
-                        <button
-                          onClick={() => handleToggleEstadoUsuario(u.id)}
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold ${
-                            u.activo ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
-                          }`}
-                        >
-                          {u.activo ? "🟢 ACTIVO" : "🔴 SUSPENDIDO"}
-                        </button>
-                      </td>
-                      <td className="p-3 text-right space-x-1.5">
-                        <button
-                          onClick={() => enviarAccesosPorWhatsapp(u)}
-                          className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-lg font-bold"
-                        >
-                          💬 Enviar
-                        </button>
-                        <button
-                          onClick={() => handleEliminarUsuario(u.id)}
-                          className="bg-rose-950/40 text-rose-400 border border-rose-900/50 px-2.5 py-1 rounded-lg"
-                        >
-                          🗑️
-                        </button>
-                      </td>
+              {/* TABLA DE CLIENTES */}
+              <div className="overflow-x-auto border border-slate-800 rounded-2xl bg-slate-950">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-slate-400 uppercase font-bold text-[10px] bg-slate-900/60">
+                      <th className="p-3">Usuario</th>
+                      <th className="p-3">WhatsApp</th>
+                      <th className="p-3">Contraseña</th>
+                      <th className="p-3">Rol / Evento</th>
+                      <th className="p-3">Estado</th>
+                      <th className="p-3 text-right">Acciones</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {usuarios.map((u) => (
+                      <tr key={u.id} className="hover:bg-slate-900/40">
+                        <td className="p-3 font-semibold text-slate-100">
+                          {u.nombre} (@{u.username})
+                        </td>
+                        <td className="p-3 text-emerald-400 font-mono font-bold">
+                          📱 {u.whatsapp}
+                        </td>
+                        <td className="p-3 font-mono text-emerald-400 font-bold">
+                          {u.password || "••••••••"}
+                        </td>
+                        <td className="p-3 text-amber-400 font-bold">
+                          {u.rol} (/{u.eventoAsignadoSlug})
+                        </td>
+                        <td className="p-3">
+                          <button
+                            onClick={() => handleToggleEstadoUsuario(u.id)}
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold cursor-pointer ${
+                              u.activo
+                                ? "bg-emerald-500/10 text-emerald-400"
+                                : "bg-rose-500/10 text-rose-400"
+                            }`}
+                          >
+                            {u.activo ? "🟢 ACTIVO" : "🔴 SUSPENDIDO"}
+                          </button>
+                        </td>
+                        <td className="p-3 text-right space-x-1.5">
+                          <button
+                            onClick={() => enviarAccesosPorWhatsapp(u)}
+                            className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-lg font-bold cursor-pointer"
+                          >
+                            💬 Enviar
+                          </button>
+                          <button
+                            onClick={() => handleEliminarUsuario(u.id)}
+                            className="bg-rose-950/40 text-rose-400 border border-rose-900/50 px-2.5 py-1 rounded-lg cursor-pointer"
+                          >
+                            🗑️
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        )}
+          )}
       </div>
 
       {/* MODAL EDITAR EVENTO */}
@@ -926,7 +1003,9 @@ export default function AdminDashboardPage() {
 
             <form onSubmit={handleGuardarEvento} className="space-y-3 text-xs">
               <div>
-                <label className="block text-slate-400 font-bold mb-1">Nombre del Evento</label>
+                <label className="block text-slate-400 font-bold mb-1">
+                  Nombre del Evento
+                </label>
                 <input
                   type="text"
                   value={modalTitle}
@@ -937,7 +1016,9 @@ export default function AdminDashboardPage() {
               </div>
 
               <div>
-                <label className="block text-slate-400 font-bold mb-1">Slug URL (ej. boda-maria)</label>
+                <label className="block text-slate-400 font-bold mb-1">
+                  Slug URL (ej. boda-maria)
+                </label>
                 <input
                   type="text"
                   value={modalSlug}
@@ -952,7 +1033,9 @@ export default function AdminDashboardPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 font-bold mb-1">Fecha</label>
+                  <label className="block text-slate-400 font-bold mb-1">
+                    Fecha
+                  </label>
                   <input
                     type="date"
                     value={modalDate}
@@ -961,7 +1044,9 @@ export default function AdminDashboardPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 font-bold mb-1">WhatsApp Notificaciones</label>
+                  <label className="block text-slate-400 font-bold mb-1">
+                    WhatsApp Notificaciones
+                  </label>
                   <input
                     type="text"
                     value={modalWhatsapp}
@@ -975,13 +1060,13 @@ export default function AdminDashboardPage() {
                 <button
                   type="button"
                   onClick={() => setMostrarModalEvento(false)}
-                  className="bg-slate-800 text-slate-300 font-bold px-4 py-2 rounded-xl"
+                  className="bg-slate-800 text-slate-300 font-bold px-4 py-2 rounded-xl cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold px-5 py-2 rounded-xl"
+                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold px-5 py-2 rounded-xl cursor-pointer"
                 >
                   Guardar
                 </button>
