@@ -3,40 +3,55 @@
 import { useState } from "react";
 import Link from "next/link";
 
-// Datos y preguntas dinámicas según la categoría
+// Categorías del evento
 const CATEGORIAS = {
   bodas: {
     id: "bodas",
     nombre: "💍 Bodas",
-    badge: "Formulario para Bodas",
-    titulo: "Boda Sofía & Mateo",
+    badge: "Boda Sofía & Mateo",
     fecha: "Sábado, 18 de Octubre, 2026 • Monterrey, N.L.",
     color: "from-amber-500/20 via-amber-400/10",
-    preguntasEspeciales: true,
   },
   xv: {
     id: "xv",
     nombre: "👑 XV Años",
-    badge: "Formulario para XV Años",
-    titulo: "Mis XV Años • Valentina",
+    badge: "Mis XV Años • Valentina",
     fecha: "Viernes, 27 de Noviembre, 2026 • San Pedro, N.L.",
     color: "from-purple-500/20 via-pink-400/10",
-    preguntasEspeciales: false,
   },
   corporativo: {
     id: "corporativo",
     nombre: "🎉 Fiestas & Empresas",
-    badge: "Formulario para Eventos Corporativos / Cumpleaños",
-    titulo: "Fiesta Fin de Año - TechCorp",
+    badge: "Evento Anual - TechCorp",
     fecha: "Sábado, 12 de Diciembre, 2026 • Monterrey, N.L.",
     color: "from-blue-500/20 via-indigo-400/10",
-    preguntasEspeciales: false,
+  },
+};
+
+// Planes disponibles
+const PLANES = {
+  basico: {
+    id: "basico",
+    nombre: "⚡ Plan Básico",
+    descripcion: "Confirmación directa por WhatsApp (Sin BD)",
+  },
+  plus: {
+    id: "plus",
+    nombre: "⭐ Plan Plus",
+    descripcion: "Formulario web completo y personalizado",
+  },
+  premium: {
+    id: "premium",
+    nombre: "👑 Plan Premium",
+    descripcion: "Formulario completo + Panel de Gestión Admin",
   },
 };
 
 export default function DemoPage() {
   const [categoriaActual, setCategoriaActual] = useState<keyof typeof CATEGORIAS>("bodas");
+  const [planActual, setPlanActual] = useState<keyof typeof PLANES>("plus");
   const [submitted, setSubmitted] = useState(false);
+  const [verPanelAdmin, setVerPanelAdmin] = useState(false);
 
   const evento = CATEGORIAS[categoriaActual];
 
@@ -53,26 +68,43 @@ export default function DemoPage() {
 
   const handleCambiarCategoria = (catKey: keyof typeof CATEGORIAS) => {
     setCategoriaActual(catKey);
-    setSubmitted(false); // Reinicia la vista al cambiar de categoría
+    setSubmitted(false);
+    setVerPanelAdmin(false);
+  };
+
+  const handleCambiarPlan = (planKey: keyof typeof PLANES) => {
+    setPlanActual(planKey);
+    setSubmitted(false);
+    setVerPanelAdmin(false);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (planActual === "basico") {
+      // Lógica Plan Básico: Genera enlace de WhatsApp
+      const textoWA = `Hola! Soy ${formData.nombre}. Confirmo que ${
+        formData.asistencia === "si" ? "SÍ asistiré" : "NO podré asistir"
+      } al evento ${evento.badge}.`;
+      const urlWA = `https://wa.me/528115591681?text=${encodeURIComponent(textoWA)}`;
+      window.open(urlWA, "_blank");
+    }
+
     setSubmitted(true);
   };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 selection:bg-amber-500 selection:text-slate-950">
       
-      {/* BANNER INFORMATIVO */}
-      <div className="w-full max-w-xl mb-4 bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-center">
+      {/* BANNER SUPERIOR INFORMATIVO */}
+      <div className="w-full max-w-2xl mb-4 bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-center">
         <p className="text-xs text-amber-400 font-semibold">
-          💡 **Modo Demostración:** Selecciona el tipo de evento para ver cómo se adapta el formulario.
+          💡 **Modo Demostración:** Selecciona la categoría del evento y el **Plan** para comparar funciones.
         </p>
       </div>
 
-      {/* SELECTOR DE LAS 3 CATEGORÍAS (TABS) */}
-      <div className="w-full max-w-xl mb-6 grid grid-cols-3 gap-2 bg-slate-900 p-1.5 rounded-2xl border border-slate-800">
+      {/* SELECTOR 1: CATEGORÍAS */}
+      <div className="w-full max-w-2xl mb-3 grid grid-cols-3 gap-2 bg-slate-900 p-1.5 rounded-2xl border border-slate-800">
         {(Object.keys(CATEGORIAS) as Array<keyof typeof CATEGORIAS>).map((key) => {
           const cat = CATEGORIAS[key];
           const isActive = categoriaActual === key;
@@ -80,7 +112,7 @@ export default function DemoPage() {
             <button
               key={key}
               onClick={() => handleCambiarCategoria(key)}
-              className={`py-2.5 px-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+              className={`py-2 px-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
                 isActive
                   ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20"
                   : "text-slate-400 hover:text-white hover:bg-slate-800/60"
@@ -92,16 +124,42 @@ export default function DemoPage() {
         })}
       </div>
 
-      {/* TARJETA DEL FORMULARIO */}
-      <div className="w-full max-w-xl bg-slate-900/90 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-md">
+      {/* SELECTOR 2: PLANES (BÁSICO / PLUS / PREMIUM) */}
+      <div className="w-full max-w-2xl mb-6 grid grid-cols-3 gap-2 bg-slate-900/60 p-1.5 rounded-2xl border border-slate-800">
+        {(Object.keys(PLANES) as Array<keyof typeof PLANES>).map((key) => {
+          const plan = PLANES[key];
+          const isActive = planActual === key;
+          return (
+            <button
+              key={key}
+              onClick={() => handleCambiarPlan(key)}
+              className={`py-2 px-2 rounded-xl text-xs font-semibold transition-all flex flex-col items-center justify-center ${
+                isActive
+                  ? "bg-slate-800 text-amber-400 border border-amber-500/40 shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <span>{plan.nombre}</span>
+              <span className="text-[10px] text-slate-500 hidden sm:block font-normal">
+                {plan.descripcion}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* TARJETA PRINCIPAL DEL DEMO */}
+      <div className="w-full max-w-2xl bg-slate-900/90 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-md">
         
-        {/* HEADER DINÁMICO SEGÚN LA CATEGORÍA */}
+        {/* HEADER */}
         <div className={`bg-gradient-to-r ${evento.color} to-transparent p-6 text-center border-b border-slate-800`}>
-          <span className="text-[10px] sm:text-xs font-bold tracking-widest uppercase text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <span className="text-[10px] font-bold uppercase text-amber-400 bg-amber-500/10 px-3 py-0.5 rounded-full border border-amber-500/20">
+              {PLANES[planActual].nombre}
+            </span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white">
             {evento.badge}
-          </span>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white mt-3">
-            {evento.titulo}
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
             {evento.fecha}
@@ -109,8 +167,9 @@ export default function DemoPage() {
         </div>
 
         {!submitted ? (
-          /* FORMULARIO ADAPTABLE */
+          /* FORMULARIO ADAPTABLE SEGÚN EL PLAN */
           <form onSubmit={handleSubmit} className="p-6 space-y-5">
+            {/* NOMBRE COMPLETO (Disponible en todos los planes) */}
             <div>
               <label className="block text-xs font-bold uppercase text-slate-300 mb-1">
                 Nombre Completo *
@@ -121,24 +180,28 @@ export default function DemoPage() {
                 placeholder="Ej. María Elena Garza"
                 value={formData.nombre}
                 onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 focus:outline-none focus:border-amber-500 transition-colors text-sm"
+                className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 focus:outline-none focus:border-amber-500 text-sm"
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-bold uppercase text-slate-300 mb-1">
-                WhatsApp *
-              </label>
-              <input
-                type="tel"
-                required
-                placeholder="+52 81 1234 5678"
-                value={formData.whatsapp}
-                onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-                className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 focus:outline-none focus:border-amber-500 transition-colors text-sm"
-              />
-            </div>
+            {/* WHATSAPP (Solo Plus y Premium) */}
+            {planActual !== "basico" && (
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-300 mb-1">
+                  WhatsApp *
+                </label>
+                <input
+                  type="tel"
+                  required
+                  placeholder="+52 81 1234 5678"
+                  value={formData.whatsapp}
+                  onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 focus:outline-none focus:border-amber-500 text-sm"
+                />
+              </div>
+            )}
 
+            {/* ASISTENCIA (Disponible en todos los planes) */}
             <div>
               <label className="block text-xs font-bold uppercase text-slate-300 mb-2">
                 ¿Asistirás al evento? *
@@ -169,7 +232,8 @@ export default function DemoPage() {
               </div>
             </div>
 
-            {formData.asistencia === "si" && (
+            {/* CAMPOS EXTRAS EXCLUSIVOS PARA PLAN PLUS Y PREMIUM */}
+            {planActual !== "basico" && formData.asistencia === "si" && (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
@@ -188,7 +252,6 @@ export default function DemoPage() {
                     </select>
                   </div>
 
-                  {/* CAMPO ESPECÍFICO PARA BODAS */}
                   {categoriaActual === "bodas" && (
                     <div>
                       <label className="block text-xs font-bold uppercase text-slate-300 mb-1">
@@ -206,7 +269,6 @@ export default function DemoPage() {
                     </div>
                   )}
 
-                  {/* CAMPO ESPECÍFICO PARA XV AÑOS */}
                   {categoriaActual === "xv" && (
                     <div>
                       <label className="block text-xs font-bold uppercase text-slate-300 mb-1">
@@ -223,7 +285,6 @@ export default function DemoPage() {
                     </div>
                   )}
 
-                  {/* CAMPO ESPECÍFICO PARA CORPORATIVOS */}
                   {categoriaActual === "corporativo" && (
                     <div>
                       <label className="block text-xs font-bold uppercase text-slate-300 mb-1">
@@ -237,17 +298,15 @@ export default function DemoPage() {
                         <option value="Ventas">Ventas / Comercial</option>
                         <option value="Sistemas">Sistemas / IT</option>
                         <option value="Administracion">Administración</option>
-                        <option value="Invitado">Invitado Externo</option>
                       </select>
                     </div>
                   )}
                 </div>
 
-                {/* PREGUNTA INTERACTIVA SEGÚN CATEGORÍA */}
                 {categoriaActual === "xv" && (
                   <div>
                     <label className="block text-xs font-bold uppercase text-slate-300 mb-1">
-                      🎵 ¿Qué canción no puede faltar en la pista?
+                      🎵 ¿Qué canción no puede faltar?
                     </label>
                     <input
                       type="text"
@@ -262,7 +321,7 @@ export default function DemoPage() {
                 {categoriaActual === "bodas" && (
                   <div>
                     <label className="block text-xs font-bold uppercase text-slate-300 mb-1">
-                      🚌 ¿Requieres lugar en el Autobús del Evento?
+                      🚌 ¿Requieres Autobús del Evento?
                     </label>
                     <select
                       value={formData.autobus}
@@ -294,11 +353,13 @@ export default function DemoPage() {
               type="submit"
               className="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-extrabold text-base shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-all"
             >
-              Confirmar Asistencia ({evento.nombre})
+              {planActual === "basico"
+                ? "Enviar Confirmación por WhatsApp 📲"
+                : `Confirmar Asistencia (${PLANES[planActual].nombre})`}
             </button>
           </form>
         ) : (
-          /* RESPUESTA PERSONALIZADA */
+          /* RESPUESTA SEGÚN EL PLAN */
           <div className="p-8 text-center space-y-6">
             <div className="w-16 h-16 bg-amber-500/20 border border-amber-500/40 rounded-full flex items-center justify-center text-3xl mx-auto">
               ✨
@@ -308,54 +369,86 @@ export default function DemoPage() {
                 ¡Gracias por responder, {formData.nombre}!
               </h2>
               <p className="text-sm text-slate-400 mt-2">
-                {formData.asistencia === "si"
-                  ? `Tu registro para ${evento.titulo} (${formData.pases} pases) ha sido guardado exitosamente.`
-                  : "Has indicado que no asistirás. La información ha sido enviada al organizador."}
+                {planActual === "basico"
+                  ? "En el Plan Básico, el asistente redirige automáticamente la respuesta a tu WhatsApp."
+                  : formData.asistencia === "si"
+                  ? `Tu registro para ${evento.badge} (${formData.pases} pases) se guardó en la base de datos.`
+                  : "Has indicado que no asistirás. El estado se actualizó en el sistema."}
               </p>
             </div>
 
-            {formData.asistencia === "si" && (
-              <div className="space-y-3 pt-2">
-                <a
-                  href="https://maps.google.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="w-full py-3 px-4 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-sm font-semibold flex items-center justify-center gap-2 text-slate-200 transition-colors"
-                >
-                  📍 Ver Ubicación del Salón en Maps
-                </a>
-                <a
-                  href="https://calendar.google.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="w-full py-3 px-4 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-sm font-semibold flex items-center justify-center gap-2 text-slate-200 transition-colors"
-                >
-                  📅 Agendar en Google Calendar
-                </a>
+            {/* DEMO ADICIONAL DEL PLAN PREMIUM: VISTA PREVIA PANEL ADMIN */}
+            {planActual === "premium" && (
+              <div className="bg-slate-950 p-4 rounded-xl border border-amber-500/30 text-left space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-amber-400 uppercase">
+                    👑 Vista Previa - Panel Admin Organizador
+                  </span>
+                  <button
+                    onClick={() => setVerPanelAdmin(!verPanelAdmin)}
+                    className="text-xs text-slate-300 underline font-semibold"
+                  >
+                    {verPanelAdmin ? "Ocultar Panel" : "Ver Simulación de Excel"}
+                  </button>
+                </div>
+
+                {verPanelAdmin && (
+                  <div className="overflow-x-auto pt-2">
+                    <table className="w-full text-left text-xs text-slate-300 border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-800 text-amber-400">
+                          <th className="p-2">Nombre</th>
+                          <th className="p-2">Asiste</th>
+                          <th className="p-2">Pases</th>
+                          <th className="p-2">Menú</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-b border-slate-800/50">
+                          <td className="p-2 font-semibold text-white">{formData.nombre || "María Elena"}</td>
+                          <td className="p-2">{formData.asistencia === "si" ? "✅ Sí" : "❌ No"}</td>
+                          <td className="p-2">{formData.pases}</td>
+                          <td className="p-2">{formData.menu}</td>
+                        </tr>
+                        <tr>
+                          <td className="p-2 text-slate-500">Carlos Garza</td>
+                          <td className="p-2 text-slate-500">✅ Sí</td>
+                          <td className="p-2 text-slate-500">2</td>
+                          <td className="p-2 text-slate-500">Medallón de Res</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <div className="mt-3 text-right">
+                      <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-md font-bold">
+                        📥 Exportación a Excel activada
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
             <button
-              onClick={() => setSubmitted(false)}
-              className="text-xs font-semibold text-amber-400 hover:underline"
+              onClick={() => {
+                setSubmitted(false);
+                setVerPanelAdmin(false);
+              }}
+              className="text-xs font-semibold text-amber-400 hover:underline block mx-auto"
             >
-              ← Probar otra respuesta o cambiar de evento
+              ← Probar otro plan o respuesta
             </button>
           </div>
         )}
       </div>
 
-      {/* FOOTER Y LLAMADA A LA ACCIÓN */}
-      <div className="w-full max-w-xl mt-6 p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-slate-900 to-slate-900 border border-amber-500/20 text-center space-y-3">
+      {/* FOOTER */}
+      <div className="w-full max-w-2xl mt-6 p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-slate-900 to-slate-900 border border-amber-500/20 text-center space-y-3">
         <p className="text-sm font-bold text-white">
-          ¿Necesitas un sistema así para tu Boda, XV Años o Evento?
-        </p>
-        <p className="text-xs text-slate-400">
-          Personalizamos las preguntas, diseño y te entregamos tu panel con descarga a Excel.
+          ¿Quieres cotizar o adquirir tu invitación interactiva?
         </p>
         <div className="pt-1 flex justify-center gap-3">
           <a
-            href="https://wa.me/528115591681?text=Hola,%20probé%20el%20demo%20interactivo%20y%20quiero%20cotizar%20mi%20evento"
+            href="https://wa.me/528115591681?text=Hola,%20probé%20el%20demo%20interactivo%20y%20quiero%20cotizar"
             target="_blank"
             rel="noreferrer"
             className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition-all shadow-md shadow-amber-500/20"
@@ -372,4 +465,4 @@ export default function DemoPage() {
       </div>
     </div>
   );
-}   
+}
