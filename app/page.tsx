@@ -50,20 +50,20 @@ export default function LandingPage() {
           </p>
 
           <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <a
-              href="https://wa.me/528115591681?text=Hola,%20quiero%20crear%20un%20formulario%20de%20confirmación%20para%20mi%20evento"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full sm:w-auto px-8 py-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-base transition-all shadow-xl shadow-amber-500/20 hover:scale-105"
-            >
-              Solicitar Sistema para mi Evento
-            </a>
             <Link
               href="/login"
+              className="w-full sm:w-auto px-8 py-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-base transition-all shadow-xl shadow-amber-500/20 hover:scale-105 text-center"
+            >
+              Acceder al Panel de Control
+            </Link>
+            <a
+              href="https://wa.me/528115591681?text=Hola,%20me%20gustaria%20ver%20una%20demostracion%20del%20sistema"
+              target="_blank"
+              rel="noopener noreferrer"
               className="w-full sm:w-auto px-8 py-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-bold text-base transition-all text-center"
             >
-              Ingresar al Panel
-            </Link>
+              Ver Demo en Vivo
+            </a>
           </div>
         </div>
 
