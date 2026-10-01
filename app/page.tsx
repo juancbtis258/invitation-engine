@@ -17,13 +17,13 @@ export default function LandingPage() {
 
           <div className="flex items-center gap-4">
             <Link
-              href="/admin"
+              href="/login"
               className="text-sm font-semibold text-slate-300 hover:text-white transition-colors px-4 py-2 rounded-lg hover:bg-slate-800/60"
             >
               Acceso Clientes
             </Link>
             <a
-              href="https://wa.me/528115591681?text=Hola,%20me%20interesa%20cotizar%20una%20invitación%20digital"
+              href="https://wa.me/528115591681?text=Hola,%20me%20interesa%20un%20sistema%20de%20control%20de%20invitados%20para%20mi%20evento"
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm font-bold bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 px-5 py-2.5 rounded-xl transition-all shadow-md hover:shadow-amber-500/25 active:scale-95"
@@ -38,28 +38,28 @@ export default function LandingPage() {
       <main className="max-w-7xl mx-auto px-6 pt-20 pb-16">
         <div className="text-center max-w-3xl mx-auto space-y-6">
           <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-            ✨ Plataforma Profesional de Invitaciones Digitales
+            📊 Sistema de Control y Confirmación de Invitados
           </span>
           
           <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-white leading-[1.15]">
-            Invitaciones Digitales e Interactivas para tus <span className="bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 bg-clip-text text-transparent">Eventos Especiales</span>
+            Gestión y Control de Invitados para tus <span className="bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 bg-clip-text text-transparent">Eventos Especiales</span>
           </h1>
 
           <p className="text-lg text-slate-400 leading-relaxed">
-            Sorprende a tus invitados con confirmación de asistencia en tiempo real, mapas interactivos, pases personalizados y diseño exclusivo adaptado a tu marca o fiesta.
+            Organiza tus Bodas, XV Años y fiestas con formularios personalizados, confirmación de asistencia en tiempo real, preguntas a medida y descarga de reportes en Excel.
           </p>
 
           <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
             <a
-              href="https://wa.me/528115591681?text=Hola,%20quiero%20crear%20mi%20invitación%20digital"
+              href="https://wa.me/528115591681?text=Hola,%20quiero%20crear%20un%20formulario%20de%20confirmación%20para%20mi%20evento"
               target="_blank"
               rel="noopener noreferrer"
               className="w-full sm:w-auto px-8 py-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-base transition-all shadow-xl shadow-amber-500/20 hover:scale-105"
             >
-              Crear mi Invitación Ahora
+              Solicitar Sistema para mi Evento
             </a>
             <Link
-              href="/admin"
+              href="/login"
               className="w-full sm:w-auto px-8 py-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-bold text-base transition-all text-center"
             >
               Ingresar al Panel
@@ -71,31 +71,31 @@ export default function LandingPage() {
         <section className="mt-28 grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 space-y-3">
             <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 text-2xl font-bold">
-              📋
+              ✍️
             </div>
-            <h3 className="text-xl font-bold text-white">Confirmación RSVP</h3>
+            <h3 className="text-xl font-bold text-white">Formularios Personalizados</h3>
             <p className="text-sm text-slate-400">
-              Recibe las respuestas de tus invitados al instante en tu panel con conteo de acompañantes, alergias o restricciones.
+              Crea campos a la medida: número de pases, requerimientos de autobús, confirmación de menú o preguntas de opción múltiple.
             </p>
           </div>
 
           <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 space-y-3">
             <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 text-2xl font-bold">
-              📍
+              📈
             </div>
-            <h3 className="text-xl font-bold text-white">Ubicación & Mapas</h3>
+            <h3 className="text-xl font-bold text-white">Métricas en Tiempo Real</h3>
             <p className="text-sm text-slate-400">
-              Integración directa con Google Maps y Waze para que tus invitados lleguen a la recepción sin contratiempos.
+              Visualiza el total de asistentes confirmados, lugares cancelados y respuestas completas desde tu panel de control.
             </p>
           </div>
 
           <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 space-y-3">
             <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 text-2xl font-bold">
-              🎨
+              📥
             </div>
-            <h3 className="text-xl font-bold text-white">Diseño Exclusivo</h3>
+            <h3 className="text-xl font-bold text-white">Exportación a Excel</h3>
             <p className="text-sm text-slate-400">
-              Personalización completa de colores, fuentes, cuestionarios y contenido para Bodas, XV Años, Cumpleaños y Bautizos.
+              Descarga en un clic la lista completa de invitados confirmados en formato CSV/Excel para entregarlo a tu banquetero o salón.
             </p>
           </div>
         </section>
