@@ -57,7 +57,7 @@ export default function LandingPage() {
               Acceder al Panel de Control
             </Link>
             <a
-              href="https://wa.me/528115591681?text=Hola,%20me%20gustaria%20ver%20una%20demostracion%20del%20sistema"
+              href="https://app.zoecreacionesmty.com/demo"
               target="_blank"
               rel="noopener noreferrer"
               className="w-full sm:w-auto px-8 py-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-bold text-base transition-all text-center"
