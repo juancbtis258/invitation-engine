@@ -162,58 +162,6 @@ const PLANTILLAS_MUESTRA: TemplatePreset[] = [
   },
 ];
 
-const EVENTOS_DEFAULT: EventItem[] = [
-  {
-    id: "1",
-    slug: "demo",
-    title: "Boda María & Alejandro",
-    targetDate: "2026-10-15",
-    plan: "BASICO",
-    active: true,
-    whatsappPhone: "5218115591681",
-    pasesAsignados: 0,
-    ownerUsername: "amejia",
-    questions: [],
-  },
-  {
-    id: "2",
-    slug: "yunnie-y-juan",
-    title: "Yunnie y Juan",
-    targetDate: "2026-09-21",
-    plan: "PLUS",
-    active: true,
-    whatsappPhone: "5218116122704",
-    pasesAsignados: 2,
-    ownerUsername: "yunnie",
-    questions: [],
-  },
-];
-
-const USUARIOS_DEFAULT: UserItem[] = [
-  {
-    id: "u1",
-    nombre: "Alejandro Mejía",
-    username: "amejia",
-    whatsapp: "5218115591681",
-    password: "admin123",
-    rol: "ADMINISTRADOR",
-    eventoAsignadoSlug: "todos",
-    activo: true,
-    createdAt: "2026-01-10",
-  },
-  {
-    id: "u2",
-    nombre: "Yunnie",
-    username: "yunnie",
-    whatsapp: "5218116122704",
-    password: "123",
-    rol: "CLIENTE",
-    eventoAsignadoSlug: "todos",
-    activo: true,
-    createdAt: "2026-01-10",
-  },
-];
-
 export default function AdminDashboardPage() {
   const router = useRouter();
 
@@ -238,78 +186,12 @@ export default function AdminDashboardPage() {
   const [eventoDestinoSlug, setEventoDestinoSlug] = useState("");
   const [mostrarPasswordIds, setMostrarPasswordIds] = useState<Record<string, boolean>>({});
 
-  // ESTADO DE EVENTOS CON PERSISTENCIA
-  const [eventos, setEventos] = useState<EventItem[]>(EVENTOS_DEFAULT);
-  const [eventoSeleccionadoId, setEventoSeleccionadoId] = useState<string>("2");
+  // ESTADO DE EVENTOS SIN DEFAULTS FORZADOS
+  const [eventos, setEventos] = useState<EventItem[]>([]);
+  const [eventoSeleccionadoId, setEventoSeleccionadoId] = useState<string>("");
 
   // ESTADO DE COLABORADORES
-  const [usuarios, setUsuarios] = useState<UserItem[]>(USUARIOS_DEFAULT);
-
-  // CARGAR EVENTOS Y USUARIOS DE LOCALSTORAGE AL INICIAR
-  useEffect(() => {
-    const role = (localStorage.getItem("userRole") as "ADMINISTRADOR" | "CLIENTE") || "CLIENTE";
-    const slug = localStorage.getItem("userSlug") || "todos";
-    const name = localStorage.getItem("userName") || "";
-    const user = localStorage.getItem("userUsername") || "";
-    const tabGuardada = localStorage.getItem("adminTabActiva") as any;
-
-    setRolUsuarioActual(role);
-    setSlugAsignado(slug);
-    setNombreSesion(name);
-    setUsernameSesion(user);
-
-    if (tabGuardada) {
-      setTabActiva(tabGuardada);
-    }
-
-    // Restaurar eventos guardados
-    const eventosGuardados = localStorage.getItem("app_eventos_lista");
-    if (eventosGuardados) {
-      try {
-        const parsed = JSON.parse(eventosGuardados);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setEventos(parsed);
-          setEventoSeleccionadoId(parsed[0].id);
-        }
-      } catch (err) {
-        console.error("Error al parsear eventos:", err);
-      }
-    }
-
-    // Restaurar usuarios guardados
-    const usuariosGuardados = localStorage.getItem("app_usuarios_lista");
-    if (usuariosGuardados) {
-      try {
-        const parsedUsers = JSON.parse(usuariosGuardados);
-        if (Array.isArray(parsedUsers) && parsedUsers.length > 0) {
-          setUsuarios(parsedUsers);
-        }
-      } catch (err) {
-        console.error("Error al parsear usuarios:", err);
-      }
-    }
-
-    setCargandoSesion(false);
-  }, []);
-
-  // GUARDAR EVENTOS EN LOCALSTORAGE AUTOMÁTICAMENTE
-  const actualizarEventos = (nuevosEventos: EventItem[]) => {
-    setEventos(nuevosEventos);
-    localStorage.setItem("app_eventos_lista", JSON.stringify(nuevosEventos));
-  };
-
-  // GUARDAR USUARIOS EN LOCALSTORAGE AUTOMÁTICAMENTE
-  const actualizarUsuarios = (nuevosUsuarios: UserItem[]) => {
-    setUsuarios(nuevosUsuarios);
-    localStorage.setItem("app_usuarios_lista", JSON.stringify(nuevosUsuarios));
-  };
-
-  const cambiarTab = (
-    tab: "eventos" | "disenador" | "respuestas" | "colaboradores"
-  ) => {
-    setTabActiva(tab);
-    localStorage.setItem("adminTabActiva", tab);
-  };
+  const [usuarios, setUsuarios] = useState<UserItem[]>([]);
 
   // Modal de Evento
   const [mostrarModalEvento, setMostrarModalEvento] = useState(false);
@@ -340,6 +222,74 @@ export default function AdminDashboardPage() {
   const [usuarioEditandoId, setUsuarioEditandoId] = useState<string | null>(null);
 
   const [respuestas, setRespuestas] = useState<any[]>([]);
+
+  // CARGAR EVENTOS Y USUARIOS DE LOCALSTORAGE AL INICIAR
+  useEffect(() => {
+    const role = (localStorage.getItem("userRole") as "ADMINISTRADOR" | "CLIENTE") || "CLIENTE";
+    const slug = localStorage.getItem("userSlug") || "todos";
+    const name = localStorage.getItem("userName") || "";
+    const user = localStorage.getItem("userUsername") || "";
+    const tabGuardada = localStorage.getItem("adminTabActiva") as any;
+
+    setRolUsuarioActual(role);
+    setSlugAsignado(slug);
+    setNombreSesion(name);
+    setUsernameSesion(user);
+
+    if (tabGuardada) {
+      setTabActiva(tabGuardada);
+    }
+
+    // Restaurar eventos guardados
+    const eventosGuardados = localStorage.getItem("app_eventos_lista");
+    if (eventosGuardados) {
+      try {
+        const parsed = JSON.parse(eventosGuardados);
+        if (Array.isArray(parsed)) {
+          setEventos(parsed);
+          if (parsed.length > 0) {
+            setEventoSeleccionadoId(parsed[0].id);
+          }
+        }
+      } catch (err) {
+        console.error("Error al parsear eventos:", err);
+      }
+    }
+
+    // Restaurar usuarios guardados
+    const usuariosGuardados = localStorage.getItem("app_usuarios_lista");
+    if (usuariosGuardados) {
+      try {
+        const parsedUsers = JSON.parse(usuariosGuardados);
+        if (Array.isArray(parsedUsers)) {
+          setUsuarios(parsedUsers);
+        }
+      } catch (err) {
+        console.error("Error al parsear usuarios:", err);
+      }
+    }
+
+    setCargandoSesion(false);
+  }, []);
+
+  // GUARDAR EVENTOS EN LOCALSTORAGE AUTOMÁTICAMENTE
+  const actualizarEventos = (nuevosEventos: EventItem[]) => {
+    setEventos(nuevosEventos);
+    localStorage.setItem("app_eventos_lista", JSON.stringify(nuevosEventos));
+  };
+
+  // GUARDAR USUARIOS EN LOCALSTORAGE AUTOMÁTICAMENTE
+  const actualizarUsuarios = (nuevosUsuarios: UserItem[]) => {
+    setUsuarios(nuevosUsuarios);
+    localStorage.setItem("app_usuarios_lista", JSON.stringify(nuevosUsuarios));
+  };
+
+  const cambiarTab = (
+    tab: "eventos" | "disenador" | "respuestas" | "colaboradores"
+  ) => {
+    setTabActiva(tab);
+    localStorage.setItem("adminTabActiva", tab);
+  };
 
   const eventosVisibles = eventos.filter((e) => {
     if (rolUsuarioActual === "ADMINISTRADOR" || slugAsignado === "todos") {
@@ -501,11 +451,28 @@ export default function AdminDashboardPage() {
     setMostrarModalEvento(false);
   };
 
-  const handleEliminarEvento = (id: string) => {
+  // BORRADO DEFINITIVO EN NAVEGADOR Y SERVIDOR
+  const handleEliminarEvento = async (id: string) => {
+    const eventoABorrar = eventos.find((e) => e.id === id);
+    if (!eventoABorrar) return;
+
+    if (!confirm(`¿Eliminar definitivamente "${eventoABorrar.title}"?`)) {
+      return;
+    }
+
     const filtrados = eventos.filter((e) => e.id !== id);
     actualizarEventos(filtrados);
+
     if (eventoSeleccionadoId === id && filtrados.length > 0) {
       setEventoSeleccionadoId(filtrados[0].id);
+    }
+
+    try {
+      await fetch(`/api/form-config?event=${eventoABorrar.slug}`, {
+        method: "DELETE",
+      });
+    } catch (error) {
+      console.error("Error al borrar en API:", error);
     }
   };
 
