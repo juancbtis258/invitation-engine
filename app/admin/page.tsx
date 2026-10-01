@@ -189,6 +189,31 @@ const EVENTOS_DEFAULT: EventItem[] = [
   },
 ];
 
+const USUARIOS_DEFAULT: UserItem[] = [
+  {
+    id: "u1",
+    nombre: "Alejandro Mejía",
+    username: "amejia",
+    whatsapp: "5218115591681",
+    password: "admin123",
+    rol: "ADMINISTRADOR",
+    eventoAsignadoSlug: "todos",
+    activo: true,
+    createdAt: "2026-01-10",
+  },
+  {
+    id: "u2",
+    nombre: "Yunnie",
+    username: "yunnie",
+    whatsapp: "5218116122704",
+    password: "123",
+    rol: "CLIENTE",
+    eventoAsignadoSlug: "todos",
+    activo: true,
+    createdAt: "2026-01-10",
+  },
+];
+
 export default function AdminDashboardPage() {
   const router = useRouter();
 
@@ -217,7 +242,10 @@ export default function AdminDashboardPage() {
   const [eventos, setEventos] = useState<EventItem[]>(EVENTOS_DEFAULT);
   const [eventoSeleccionadoId, setEventoSeleccionadoId] = useState<string>("2");
 
-  // CARGAR EVENTOS DE LOCALSTORAGE AL INICIAR
+  // ESTADO DE COLABORADORES
+  const [usuarios, setUsuarios] = useState<UserItem[]>(USUARIOS_DEFAULT);
+
+  // CARGAR EVENTOS Y USUARIOS DE LOCALSTORAGE AL INICIAR
   useEffect(() => {
     const role = (localStorage.getItem("userRole") as "ADMINISTRADOR" | "CLIENTE") || "CLIENTE";
     const slug = localStorage.getItem("userSlug") || "todos";
@@ -234,7 +262,7 @@ export default function AdminDashboardPage() {
       setTabActiva(tabGuardada);
     }
 
-    // Restaurar eventos guardados previamente
+    // Restaurar eventos guardados
     const eventosGuardados = localStorage.getItem("app_eventos_lista");
     if (eventosGuardados) {
       try {
@@ -248,6 +276,19 @@ export default function AdminDashboardPage() {
       }
     }
 
+    // Restaurar usuarios guardados
+    const usuariosGuardados = localStorage.getItem("app_usuarios_lista");
+    if (usuariosGuardados) {
+      try {
+        const parsedUsers = JSON.parse(usuariosGuardados);
+        if (Array.isArray(parsedUsers) && parsedUsers.length > 0) {
+          setUsuarios(parsedUsers);
+        }
+      } catch (err) {
+        console.error("Error al parsear usuarios:", err);
+      }
+    }
+
     setCargandoSesion(false);
   }, []);
 
@@ -255,6 +296,12 @@ export default function AdminDashboardPage() {
   const actualizarEventos = (nuevosEventos: EventItem[]) => {
     setEventos(nuevosEventos);
     localStorage.setItem("app_eventos_lista", JSON.stringify(nuevosEventos));
+  };
+
+  // GUARDAR USUARIOS EN LOCALSTORAGE AUTOMÁTICAMENTE
+  const actualizarUsuarios = (nuevosUsuarios: UserItem[]) => {
+    setUsuarios(nuevosUsuarios);
+    localStorage.setItem("app_usuarios_lista", JSON.stringify(nuevosUsuarios));
   };
 
   const cambiarTab = (
@@ -282,32 +329,7 @@ export default function AdminDashboardPage() {
   const [nuevaPreguntaOpciones, setNuevaPreguntaOpciones] = useState("");
   const [nuevaPreguntaRequerida, setNuevaPreguntaRequerida] = useState(true);
 
-  // Colaboradores
-  const [usuarios, setUsuarios] = useState<UserItem[]>([
-    {
-      id: "u1",
-      nombre: "Alejandro Mejía",
-      username: "amejia",
-      whatsapp: "5218115591681",
-      password: "admin123",
-      rol: "ADMINISTRADOR",
-      eventoAsignadoSlug: "todos",
-      activo: true,
-      createdAt: "2026-01-10",
-    },
-    {
-      id: "u2",
-      nombre: "Yunnie",
-      username: "yunnie",
-      whatsapp: "5218116122704",
-      password: "123",
-      rol: "CLIENTE",
-      eventoAsignadoSlug: "todos",
-      activo: true,
-      createdAt: "2026-01-10",
-    },
-  ]);
-
+  // Formulario Colaboradores
   const [nuevoNombre, setNuevoNombre] = useState("");
   const [nuevoUsername, setNuevoUsername] = useState("");
   const [nuevoWhatsapp, setNuevoWhatsapp] = useState("");
@@ -667,26 +689,25 @@ export default function AdminDashboardPage() {
     e.preventDefault();
     if (!nuevoNombre || !nuevoWhatsapp) return;
 
+    let nuevaLista: UserItem[];
+
     if (usuarioEditandoId) {
-      setUsuarios(
-        usuarios.map((u) =>
-          u.id === usuarioEditandoId
-            ? {
-                ...u,
-                nombre: nuevoNombre,
-                username: nuevoUsername || generateSlug(nuevoNombre),
-                whatsapp: nuevoWhatsapp,
-                password: nuevoPassword || u.password,
-                rol: nuevoRol,
-                eventoAsignadoSlug: nuevoEventoSlug,
-                activo: nuevoActivo,
-              }
-            : u
-        )
+      nuevaLista = usuarios.map((u) =>
+        u.id === usuarioEditandoId
+          ? {
+              ...u,
+              nombre: nuevoNombre,
+              username: nuevoUsername || generateSlug(nuevoNombre),
+              whatsapp: nuevoWhatsapp,
+              password: nuevoPassword || u.password,
+              rol: nuevoRol,
+              eventoAsignadoSlug: nuevoEventoSlug,
+              activo: nuevoActivo,
+            }
+          : u
       );
-      setUsuarioEditandoId(null);
     } else {
-      setUsuarios([
+      nuevaLista = [
         ...usuarios,
         {
           id: Date.now().toString(),
@@ -699,9 +720,10 @@ export default function AdminDashboardPage() {
           activo: nuevoActivo,
           createdAt: new Date().toISOString().split("T")[0],
         },
-      ]);
+      ];
     }
 
+    actualizarUsuarios(nuevaLista);
     limpiarFormularioUsuario();
   };
 
@@ -735,13 +757,15 @@ export default function AdminDashboardPage() {
   };
 
   const handleToggleEstadoUsuario = (id: string) => {
-    setUsuarios(
-      usuarios.map((u) => (u.id === id ? { ...u, activo: !u.activo } : u))
+    const nuevaLista = usuarios.map((u) =>
+      u.id === id ? { ...u, activo: !u.activo } : u
     );
+    actualizarUsuarios(nuevaLista);
   };
 
   const handleEliminarUsuario = (id: string) => {
-    setUsuarios(usuarios.filter((u) => u.id !== id));
+    const nuevaLista = usuarios.filter((u) => u.id !== id);
+    actualizarUsuarios(nuevaLista);
   };
 
   const enviarAccesosPorWhatsapp = (u: UserItem) => {
@@ -1551,7 +1575,7 @@ export default function AdminDashboardPage() {
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-[#121c33] border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl">
             <h3 className="text-sm font-black text-amber-500 uppercase tracking-wider">
-              {editandoEventoId ? "✏️️ EDITAR EVENTO" : "➕ CREAR NUEVO EVENTO"}
+              {editandoEventoId ? "✏ EDITAR EVENTO" : "➕ CREAR NUEVO EVENTO"}
             </h3>
 
             <form onSubmit={handleGuardarEvento} className="space-y-3.5 text-xs">

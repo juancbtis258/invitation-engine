@@ -3,6 +3,30 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+// Lista de usuarios por defecto (madrina/respaldo)
+const USUARIOS_DEFAULT = [
+  {
+    id: "u1",
+    nombre: "Alejandro Mejía",
+    username: "amejia",
+    whatsapp: "5218115591681",
+    password: "admin123",
+    rol: "ADMINISTRADOR",
+    eventoAsignadoSlug: "todos",
+    activo: true,
+  },
+  {
+    id: "u2",
+    nombre: "Yunnie",
+    username: "yunnie",
+    whatsapp: "5218116122704",
+    password: "123",
+    rol: "CLIENTE",
+    eventoAsignadoSlug: "todos",
+    activo: true,
+  },
+];
+
 export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState("");
@@ -16,30 +40,70 @@ export default function LoginPage() {
     setLoading(true);
 
     setTimeout(() => {
-      // Validación de prueba Master Admin
+      const userClean = username.trim().toLowerCase();
+
+      // Cargar lista de colaboradores guardados desde localStorage o usar defaults
+      let usuariosLista = USUARIOS_DEFAULT;
+      const usuariosGuardados = localStorage.getItem("app_usuarios_lista");
+
+      if (usuariosGuardados) {
+        try {
+          const parsed = JSON.parse(usuariosGuardados);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            usuariosLista = parsed;
+          }
+        } catch (err) {
+          console.error("Error leyendo usuarios de localStorage", err);
+        }
+      }
+
+      // 1. Caso SuperAdmin Maestro Hardcoded (Respaldo absoluto)
       if (
-        (username === "admin" || username === "amejia" || username === "admin@mi-invitacion.com") &&
-        (password === "admin123" || password === "••••••••" || password === "admin")
+        (userClean === "admin" || userClean === "amejia") &&
+        (password === "admin123" || password === "admin")
       ) {
         localStorage.setItem("userRole", "ADMINISTRADOR");
         localStorage.setItem("userSlug", "todos");
-        localStorage.setItem("userName", username);
+        localStorage.setItem("userName", "Alejandro Mejía");
+        localStorage.setItem("userUsername", userClean);
         router.push("/admin");
         return;
       }
 
-      // Validación genérica para clientes asignados
-      if (username && password) {
-        localStorage.setItem("userRole", "CLIENTE");
-        localStorage.setItem("userSlug", username); // Asocia el slug al username
-        localStorage.setItem("userName", username);
-        router.push("/admin");
+      // 2. Buscar si el usuario existe en la lista de Colaboradores
+      const usuarioEncontrado = usuariosLista.find(
+        (u) => u.username.toLowerCase().trim() === userClean
+      );
+
+      if (!usuarioEncontrado) {
+        setErrorMsg("El nombre de usuario no existe o no tiene permisos.");
+        setLoading(false);
         return;
       }
 
-      setErrorMsg("Credenciales inválidas. Verifica tu usuario y contraseña.");
-      setLoading(false);
-    }, 600);
+      // 3. Verificar si el usuario está activo/suspendido
+      if (usuarioEncontrado.activo === false) {
+        setErrorMsg("Tu cuenta se encuentra suspendida. Contacta al administrador.");
+        setLoading(false);
+        return;
+      }
+
+      // 4. Validar contraseña
+      const passwordCorrecta = usuarioEncontrado.password || "123456";
+      if (password !== passwordCorrecta) {
+        setErrorMsg("Contraseña incorrecta. Inténtalo nuevamente.");
+        setLoading(false);
+        return;
+      }
+
+      // 5. Login exitoso
+      localStorage.setItem("userRole", usuarioEncontrado.rol);
+      localStorage.setItem("userSlug", usuarioEncontrado.eventoAsignadoSlug || "todos");
+      localStorage.setItem("userName", usuarioEncontrado.nombre);
+      localStorage.setItem("userUsername", usuarioEncontrado.username);
+
+      router.push("/admin");
+    }, 500);
   };
 
   return (
