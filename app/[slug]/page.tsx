@@ -1,23 +1,43 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
+
+interface Question {
+  id: string;
+  label: string;
+  type: string;
+  options?: string[];
+  required: boolean;
+  placeholder?: string;
+}
 
 interface EventConfig {
-  planType: string;
+  id?: string;
+  title?: string;
   customTitle?: string;
-  customMessage?: string;
-  maxPasses?: number;
+  slug?: string;
+  targetDate?: string;
+  plan?: string;
+  planType?: string;
+  active?: boolean;
+  whatsappPhone?: string;
   whatsappNotif?: string;
-  preguntas?: string[];
+  pasesAsignados?: number;
+  maxPasses?: number;
   bannerUrl?: string;
-  musicUrl?: string;
-  responses?: any[];
+  customMessage?: string;
+  questions?: Question[];
+  preguntas?: string[];
 }
 
 export default function EventPublicPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
+
   const slug = params?.slug as string;
+  // Permite leer pases personalizados pasados por URL (?pases=4)
+  const pasesUrl = searchParams?.get("pases");
 
   const [loading, setLoading] = useState(true);
   const [config, setConfig] = useState<EventConfig | null>(null);
@@ -34,14 +54,57 @@ export default function EventPublicPage() {
   useEffect(() => {
     if (!slug) return;
 
-    fetch(`/api/form-config?eventSlug=${slug}`)
+    // 1. Intentar consultar a la API usando el parámetro correcto ("event")
+    fetch(`/api/form-config?event=${slug}`)
       .then((res) => res.json())
       .then((resData) => {
+        let eventFound: EventConfig | null = null;
+
         if (resData.success && resData.data) {
-          setConfig(resData.data);
+          eventFound = resData.data;
+        } else if (resData.data) {
+          eventFound = resData.data;
+        }
+
+        // 2. Fallback: Buscar en el localStorage del navegador
+        if (!eventFound) {
+          const eventosGuardados = localStorage.getItem("app_eventos_lista");
+          if (eventosGuardados) {
+            try {
+              const lista = JSON.parse(eventosGuardados);
+              if (Array.isArray(lista)) {
+                const match = lista.find(
+                  (item: any) =>
+                    item.slug?.toLowerCase() === slug.toLowerCase()
+                );
+                if (match) {
+                  eventFound = match;
+                }
+              }
+            } catch (e) {
+              console.error("Error al leer localStorage:", e);
+            }
+          }
+        }
+
+        if (eventFound) {
+          setConfig(eventFound);
         }
       })
-      .catch((err) => console.error("Error al cargar configuración del evento:", err))
+      .catch((err) => {
+        console.error("Error al cargar configuración del evento:", err);
+        // Respaldo secundario si la API falla o está fuera de línea
+        const eventosGuardados = localStorage.getItem("app_eventos_lista");
+        if (eventosGuardados) {
+          try {
+            const lista = JSON.parse(eventosGuardados);
+            const match = lista.find(
+              (item: any) => item.slug?.toLowerCase() === slug.toLowerCase()
+            );
+            if (match) setConfig(match);
+          } catch (e) {}
+        }
+      })
       .finally(() => setLoading(false));
   }, [slug]);
 
@@ -54,11 +117,11 @@ export default function EventPublicPage() {
           justifyContent: "center",
           alignItems: "center",
           fontFamily: "system-ui, -apple-system, sans-serif",
-          backgroundColor: "#f4f6f8",
-          color: "#555",
+          backgroundColor: "#0d1527",
+          color: "#f59e0b",
         }}
       >
-        <p style={{ fontSize: 18, fontWeight: 500 }}>Cargando invitación...</p>
+        <p style={{ fontSize: 16, fontWeight: 700 }}>Cargando invitación...</p>
       </div>
     );
   }
@@ -72,34 +135,48 @@ export default function EventPublicPage() {
           justifyContent: "center",
           alignItems: "center",
           fontFamily: "system-ui, -apple-system, sans-serif",
-          backgroundColor: "#f4f6f8",
+          backgroundColor: "#0d1527",
           padding: 20,
         }}
       >
         <div
           style={{
-            backgroundColor: "#fff",
+            backgroundColor: "#121c33",
+            border: "1px solid #1e293b",
             padding: 30,
-            borderRadius: 12,
-            boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+            borderRadius: 16,
             textAlign: "center",
             maxWidth: 400,
+            color: "#f8fafc",
           }}
         >
-          <h2 style={{ color: "#e53e3e", marginTop: 0 }}>Evento no encontrado</h2>
-          <p style={{ color: "#666" }}>
-            La invitación solicitada no existe o el enlace ha expirado.
+          <h2 style={{ color: "#ef4444", marginTop: 0, fontSize: 20 }}>
+            Evento no encontrado
+          </h2>
+          <p style={{ color: "#94a3b8", fontSize: 14 }}>
+            La invitación <strong>/{slug}</strong> no existe o aún no ha sido guardada en este entorno.
           </p>
         </div>
       </div>
     );
   }
 
-  const esBasico = config.planType === "basico";
-  const tituloEvento = config.customTitle || "Confirmación de Asistencia";
+  // Normalización de variables
+  const planActual = (config.plan || config.planType || "PLUS").toUpperCase();
+  const esBasico = planActual === "BASICO";
+  const tituloEvento = config.title || config.customTitle || "Confirmación de Asistencia";
   const mensajeCustom = config.customMessage || "¡Nos encantaría contar con tu presencia!";
-  const whatsappNotif = config.whatsappNotif || "5218115591681";
-  const maxPases = config.maxPasses || 5;
+  const whatsappNotif = config.whatsappPhone || config.whatsappNotif || "5218116122704";
+
+  // Determinación del número máximo de pases
+  let maxPases = 2;
+  if (pasesUrl && !isNaN(Number(pasesUrl))) {
+    maxPases = Number(pasesUrl);
+  } else if (config.pasesAsignados !== undefined) {
+    maxPases = config.pasesAsignados;
+  } else if (config.maxPasses !== undefined) {
+    maxPases = config.maxPasses;
+  }
 
   const handlePasesChange = (count: number) => {
     setPasesSeleccionados(count);
@@ -122,43 +199,44 @@ export default function EventPublicPage() {
     setNombresAcompanantes(copia);
   };
 
-  const handleCustomAnswerChange = (pregunta: string, respuesta: string) => {
+  const handleCustomAnswerChange = (label: string, respuesta: string) => {
     setRespuestasCustom((prev) => ({
       ...prev,
-      [pregunta]: respuesta,
+      [label]: respuesta,
     }));
   };
 
   const handleFinalizarYEnviar = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Guardado de respuesta en servidor central
-    const payload = {
-      action: "save_response",
-      eventSlug: slug,
-      response: {
-        name: nombreInvitado,
-        phone: whatsappInvitado,
-        attending: asistira,
-        pasesConfirmados: esBasico ? (asistira ? 1 : 0) : (asistira ? pasesSeleccionados : 0),
-        asistentes: esBasico ? [] : (asistira ? nombresAcompanantes : []),
-        customAnswers: esBasico ? {} : respuestasCustom,
-        mensaje: mensajeLibre,
-        createdAt: new Date().toISOString(),
-      },
+    const responsePayload = {
+      name: nombreInvitado,
+      phone: whatsappInvitado,
+      attending: asistira,
+      pasesConfirmados: esBasico ? (asistira ? 1 : 0) : asistira ? pasesSeleccionados : 0,
+      asistentes: esBasico ? [] : asistira ? nombresAcompanantes : [],
+      customAnswers: esBasico ? {} : respuestasCustom,
+      mensaje: mensajeLibre,
+      createdAt: new Date().toISOString(),
     };
 
+    // Intentar guardar en backend
     try {
       await fetch("/api/form-config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          action: "save_response",
+          event: slug,
+          eventSlug: slug,
+          response: responsePayload,
+        }),
       });
     } catch (err) {
       console.error("Error al guardar respuesta en servidor:", err);
     }
 
-    // Formateo del mensaje para redirección a WhatsApp
+    // Construir mensaje de WhatsApp
     let textoWA = `*CONFIRMACIÓN DE ASISTENCIA - ${tituloEvento.toUpperCase()}*%0A%0A`;
     textoWA += `👤 *Nombre:* ${nombreInvitado}%0A`;
     if (whatsappInvitado) textoWA += `📱 *WhatsApp:* ${whatsappInvitado}%0A`;
@@ -166,7 +244,7 @@ export default function EventPublicPage() {
 
     if (!esBasico && asistira) {
       textoWA += `🎫 *Pases Confirmados:* ${pasesSeleccionados}%0A`;
-      if (nombresAcompanantes.length > 0) {
+      if (nombresAcompanantes.filter(Boolean).length > 0) {
         textoWA += `👥 *Asistentes:* ${nombresAcompanantes.filter(Boolean).join(", ")}%0A`;
       }
       if (Object.keys(respuestasCustom).length > 0) {
@@ -181,14 +259,16 @@ export default function EventPublicPage() {
       textoWA += `%0A💬 *Mensaje:* "${mensajeLibre}"%0A`;
     }
 
-    const destinoWA = whatsappNotif.replace(/\D/g, "") || "5218115591681";
-    window.location.href = `https://wa.me/${destinoWA}?text=${textoWA}`;
+    const destinoWA = whatsappNotif.replace(/\D/g, "") || "5218116122704";
+    window.location.href = `https://api.whatsapp.com/send?phone=${destinoWA}&text=${textoWA}`;
   };
+
+  const listaPreguntas: Question[] = config.questions || [];
 
   return (
     <div
       style={{
-        backgroundColor: "#f4f6f8",
+        backgroundColor: "#0d1527",
         minHeight: "100vh",
         padding: "30px 15px",
         fontFamily: "system-ui, -apple-system, sans-serif",
@@ -198,10 +278,12 @@ export default function EventPublicPage() {
         style={{
           maxWidth: 550,
           margin: "0 auto",
-          backgroundColor: "#ffffff",
-          borderRadius: 16,
-          boxShadow: "0 8px 24px rgba(0,0,0,0.06)",
+          backgroundColor: "#121c33",
+          borderRadius: 20,
+          border: "1px solid #1e293b",
+          boxShadow: "0 12px 32px rgba(0,0,0,0.37)",
           overflow: "hidden",
+          color: "#f8fafc",
         }}
       >
         {config.bannerUrl && (
@@ -215,12 +297,12 @@ export default function EventPublicPage() {
         <div style={{ padding: 25 }}>
           <h1
             style={{
-              fontSize: 24,
-              fontWeight: 700,
+              fontSize: 22,
+              fontWeight: 800,
               textAlign: "center",
               marginTop: 0,
-              marginBottom: 10,
-              color: "#1a202c",
+              marginBottom: 8,
+              color: "#f59e0b",
             }}
           >
             {tituloEvento}
@@ -229,8 +311,8 @@ export default function EventPublicPage() {
           <p
             style={{
               textAlign: "center",
-              color: "#4a5568",
-              fontSize: 15,
+              color: "#94a3b8",
+              fontSize: 14,
               whiteSpace: "pre-wrap",
               marginBottom: 25,
             }}
@@ -245,9 +327,9 @@ export default function EventPublicPage() {
                 style={{
                   display: "block",
                   fontWeight: 600,
-                  fontSize: 14,
+                  fontSize: 13,
                   marginBottom: 6,
-                  color: "#2d3748",
+                  color: "#cbd5e1",
                 }}
               >
                 Tu Nombre Completo *
@@ -261,9 +343,11 @@ export default function EventPublicPage() {
                 style={{
                   width: "100%",
                   padding: "10px 12px",
-                  borderRadius: 8,
-                  border: "1px solid #cbd5e0",
-                  fontSize: 15,
+                  borderRadius: 10,
+                  border: "1px solid #334155",
+                  backgroundColor: "#0f172a",
+                  color: "#f8fafc",
+                  fontSize: 14,
                   boxSizing: "border-box",
                 }}
               />
@@ -275,9 +359,9 @@ export default function EventPublicPage() {
                 style={{
                   display: "block",
                   fontWeight: 600,
-                  fontSize: 14,
+                  fontSize: 13,
                   marginBottom: 6,
-                  color: "#2d3748",
+                  color: "#cbd5e1",
                 }}
               >
                 Teléfono / WhatsApp
@@ -290,9 +374,11 @@ export default function EventPublicPage() {
                 style={{
                   width: "100%",
                   padding: "10px 12px",
-                  borderRadius: 8,
-                  border: "1px solid #cbd5e0",
-                  fontSize: 15,
+                  borderRadius: 10,
+                  border: "1px solid #334155",
+                  backgroundColor: "#0f172a",
+                  color: "#f8fafc",
+                  fontSize: 14,
                   boxSizing: "border-box",
                 }}
               />
@@ -304,9 +390,9 @@ export default function EventPublicPage() {
                 style={{
                   display: "block",
                   fontWeight: 600,
-                  fontSize: 14,
+                  fontSize: 13,
                   marginBottom: 6,
-                  color: "#2d3748",
+                  color: "#cbd5e1",
                 }}
               >
                 ¿Confirmas tu asistencia?
@@ -317,10 +403,11 @@ export default function EventPublicPage() {
                 style={{
                   width: "100%",
                   padding: "10px 12px",
-                  borderRadius: 8,
-                  border: "1px solid #cbd5e0",
-                  fontSize: 15,
-                  backgroundColor: "#fff",
+                  borderRadius: 10,
+                  border: "1px solid #334155",
+                  backgroundColor: "#0f172a",
+                  color: "#f8fafc",
+                  fontSize: 14,
                   boxSizing: "border-box",
                 }}
               >
@@ -329,41 +416,45 @@ export default function EventPublicPage() {
               </select>
             </div>
 
-            {/* Campos adicionales para planes no básicos */}
+            {/* Campos dinámicos cuando NO es básico y SI asistirá */}
             {!esBasico && asistira && (
               <>
-                <div style={{ marginBottom: 18 }}>
-                  <label
-                    style={{
-                      display: "block",
-                      fontWeight: 600,
-                      fontSize: 14,
-                      marginBottom: 6,
-                      color: "#2d3748",
-                    }}
-                  >
-                    Número de Pases
-                  </label>
-                  <select
-                    value={pasesSeleccionados}
-                    onChange={(e) => handlePasesChange(Number(e.target.value))}
-                    style={{
-                      width: "100%",
-                      padding: "10px 12px",
-                      borderRadius: 8,
-                      border: "1px solid #cbd5e0",
-                      fontSize: 15,
-                      backgroundColor: "#fff",
-                      boxSizing: "border-box",
-                    }}
-                  >
-                    {Array.from({ length: maxPases }, (_, i) => i + 1).map((n) => (
-                      <option key={n} value={n}>
-                        {n} {n === 1 ? "pase" : "pases"}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {maxPases > 0 && (
+                  <div style={{ marginBottom: 18 }}>
+                    <label
+                      style={{
+                        display: "block",
+                        fontWeight: 600,
+                        fontSize: 13,
+                        marginBottom: 6,
+                        color: "#cbd5e1",
+                      }}
+                    >
+                      Número de Pases
+                    </label>
+                    <select
+                      value={pasesSeleccionados}
+                      onChange={(e) => handlePasesChange(Number(e.target.value))}
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        borderRadius: 10,
+                        border: "1px solid #334155",
+                        backgroundColor: "#0f172a",
+                        color: "#f59e0b",
+                        fontWeight: "bold",
+                        fontSize: 14,
+                        boxSizing: "border-box",
+                      }}
+                    >
+                      {Array.from({ length: maxPases }, (_, i) => i + 1).map((n) => (
+                        <option key={n} value={n}>
+                          {n} {n === 1 ? "pase" : "pases"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 {nombresAcompanantes.map((nombre, idx) => (
                   <div key={idx} style={{ marginBottom: 18 }}>
@@ -371,9 +462,9 @@ export default function EventPublicPage() {
                       style={{
                         display: "block",
                         fontWeight: 600,
-                        fontSize: 14,
+                        fontSize: 13,
                         marginBottom: 6,
-                        color: "#2d3748",
+                        color: "#cbd5e1",
                       }}
                     >
                       Nombre del Acompañante #{idx + 1}
@@ -386,44 +477,76 @@ export default function EventPublicPage() {
                       style={{
                         width: "100%",
                         padding: "10px 12px",
-                        borderRadius: 8,
-                        border: "1px solid #cbd5e0",
-                        fontSize: 15,
+                        borderRadius: 10,
+                        border: "1px solid #334155",
+                        backgroundColor: "#0f172a",
+                        color: "#f8fafc",
+                        fontSize: 14,
                         boxSizing: "border-box",
                       }}
                     />
                   </div>
                 ))}
 
-                {config.preguntas &&
-                  config.preguntas.map((preg, idx) => (
-                    <div key={idx} style={{ marginBottom: 18 }}>
-                      <label
-                        style={{
-                          display: "block",
-                          fontWeight: 600,
-                          fontSize: 14,
-                          marginBottom: 6,
-                          color: "#2d3748",
-                        }}
-                      >
-                        {preg}
-                      </label>
-                      <input
-                        type="text"
-                        value={respuestasCustom[preg] || ""}
-                        onChange={(e) => handleCustomAnswerChange(preg, e.target.value)}
+                {/* Preguntas Personalizadas desde el Diseñador */}
+                {listaPreguntas.map((q) => (
+                  <div key={q.id} style={{ marginBottom: 18 }}>
+                    <label
+                      style={{
+                        display: "block",
+                        fontWeight: 600,
+                        fontSize: 13,
+                        marginBottom: 6,
+                        color: "#cbd5e1",
+                      }}
+                    >
+                      {q.label} {q.required && "*"}
+                    </label>
+
+                    {["choice", "checkbox"].includes(q.type) && q.options ? (
+                      <select
+                        required={q.required}
+                        value={respuestasCustom[q.label] || ""}
+                        onChange={(e) => handleCustomAnswerChange(q.label, e.target.value)}
                         style={{
                           width: "100%",
                           padding: "10px 12px",
-                          borderRadius: 8,
-                          border: "1px solid #cbd5e0",
-                          fontSize: 15,
+                          borderRadius: 10,
+                          border: "1px solid #334155",
+                          backgroundColor: "#0f172a",
+                          color: "#f8fafc",
+                          fontSize: 14,
+                          boxSizing: "border-box",
+                        }}
+                      >
+                        <option value="">Selecciona una opción...</option>
+                        {q.options.map((opt, i) => (
+                          <option key={i} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type={q.type === "number" ? "number" : "text"}
+                        required={q.required}
+                        placeholder={q.placeholder || "Tu respuesta..."}
+                        value={respuestasCustom[q.label] || ""}
+                        onChange={(e) => handleCustomAnswerChange(q.label, e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "10px 12px",
+                          borderRadius: 10,
+                          border: "1px solid #334155",
+                          backgroundColor: "#0f172a",
+                          color: "#f8fafc",
+                          fontSize: 14,
                           boxSizing: "border-box",
                         }}
                       />
-                    </div>
-                  ))}
+                    )}
+                  </div>
+                ))}
               </>
             )}
 
@@ -433,9 +556,9 @@ export default function EventPublicPage() {
                 style={{
                   display: "block",
                   fontWeight: 600,
-                  fontSize: 14,
+                  fontSize: 13,
                   marginBottom: 6,
-                  color: "#2d3748",
+                  color: "#cbd5e1",
                 }}
               >
                 Mensaje o felicitación para los anfitriones
@@ -448,9 +571,11 @@ export default function EventPublicPage() {
                 style={{
                   width: "100%",
                   padding: "10px 12px",
-                  borderRadius: 8,
-                  border: "1px solid #cbd5e0",
-                  fontSize: 15,
+                  borderRadius: 10,
+                  border: "1px solid #334155",
+                  backgroundColor: "#0f172a",
+                  color: "#f8fafc",
+                  fontSize: 14,
                   boxSizing: "border-box",
                   fontFamily: "inherit",
                 }}
@@ -463,14 +588,14 @@ export default function EventPublicPage() {
               style={{
                 width: "100%",
                 padding: "14px 20px",
-                backgroundColor: "#25D366",
-                color: "#ffffff",
+                backgroundColor: "#10b981",
+                color: "#022c22",
                 border: "none",
-                borderRadius: 8,
-                fontSize: 16,
-                fontWeight: 700,
+                borderRadius: 12,
+                fontSize: 15,
+                fontWeight: 800,
                 cursor: "pointer",
-                boxShadow: "0 4px 12px rgba(37, 211, 102, 0.25)",
+                boxShadow: "0 4px 12px rgba(16, 185, 129, 0.25)",
               }}
             >
               Confirmar y Enviar a WhatsApp
