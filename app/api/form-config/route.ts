@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 
-// Simulación de almacenamiento en memoria o base de datos.
-// Si estás usando una Base de Datos real (ej. Supabase, Prisma, Vercel KV), sustituye esta parte con las consultas de tu DB.
+// Almacenamiento dinámico en memoria del servidor
 let BASE_DATOS_EVENTOS: Record<string, any> = {};
 
 // ----------------------------------------------------------------------
@@ -10,18 +9,20 @@ let BASE_DATOS_EVENTOS: Record<string, any> = {};
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const eventSlug = searchParams.get("event");
+    const eventSlug = searchParams.get("event") || searchParams.get("slug") || searchParams.get("eventSlug");
 
     if (!eventSlug) {
-      return NextResponse.json(
-        { error: "Se requiere el parámetro 'event' (slug) en la URL." },
-        { status: 400 }
-      );
+      return NextResponse.json({
+        success: true,
+        data: BASE_DATOS_EVENTOS,
+      });
     }
 
-    // Buscar la configuración del evento
-    const eventData = BASE_DATOS_EVENTOS[eventSlug] || {
-      slug: eventSlug,
+    const slugLower = eventSlug.toLowerCase();
+
+    // Buscar el evento en el almacén en memoria
+    const eventData = BASE_DATOS_EVENTOS[slugLower] || {
+      slug: slugLower,
       questions: [],
       responses: [],
     };
@@ -40,70 +41,77 @@ export async function GET(request: Request) {
 }
 
 // ----------------------------------------------------------------------
-// 2. CREAR O ACTUALIZAR UN EVENTO / RESPUESTAS (POST)
+// 2. CREAR / ACTUALIZAR EVENTO O GUARDAR RESPUESTAS (POST)
 // ----------------------------------------------------------------------
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { event, config, newResponse } = body;
 
-    if (!event) {
+    // Extraemos todos los posibles formatos enviados desde el cliente
+    const { event, eventSlug, config, newResponse, response, action } = body;
+
+    const targetSlug = (event || eventSlug || "").toLowerCase();
+
+    if (!targetSlug) {
       return NextResponse.json(
-        { error: "Falta el campo 'event' en el cuerpo de la petición." },
+        { error: "Falta el campo 'event' o 'eventSlug' en el cuerpo de la petición." },
         { status: 400 }
       );
     }
 
-    // Inicializar evento si no existe en la base de datos
-    if (!BASE_DATOS_EVENTOS[event]) {
-      BASE_DATOS_EVENTOS[event] = {
-        slug: event,
+    // Inicializar evento si aún no está registrado en la memoria del servidor
+    if (!BASE_DATOS_EVENTOS[targetSlug]) {
+      BASE_DATOS_EVENTOS[targetSlug] = {
+        slug: targetSlug,
         questions: [],
         responses: [],
       };
     }
 
-    // Si enviaron una nueva configuración de evento o preguntas
+    // Caso A: Si el Administrador está guardando configuración/preguntas
     if (config) {
-      BASE_DATOS_EVENTOS[event] = {
-        ...BASE_DATOS_EVENTOS[event],
+      BASE_DATOS_EVENTOS[targetSlug] = {
+        ...BASE_DATOS_EVENTOS[targetSlug],
         ...config,
       };
     }
 
-    // Si un invitado envió una respuesta
-    if (newResponse) {
-      const listaRespuestas = BASE_DATOS_EVENTOS[event].responses || [];
-      BASE_DATOS_EVENTOS[event].responses = [
+    // Caso B: Si un invitado está guardando una respuesta
+    const respuestaRecibida = response || newResponse;
+    if (respuestaRecibida || action === "save_response") {
+      const listaRespuestas = BASE_DATOS_EVENTOS[targetSlug].responses || [];
+      const datosIncr = respuestaRecibida || body;
+
+      BASE_DATOS_EVENTOS[targetSlug].responses = [
         ...listaRespuestas,
         {
-          ...newResponse,
-          createdAt: new Date().toISOString(),
+          ...datosIncr,
+          createdAt: datosIncr.createdAt || new Date().toISOString(),
         },
       ];
     }
 
     return NextResponse.json({
       success: true,
-      message: "Configuración o respuesta guardada correctamente.",
-      data: BASE_DATOS_EVENTOS[event],
+      message: "Configuración o respuesta procesada exitosamente.",
+      data: BASE_DATOS_EVENTOS[targetSlug],
     });
   } catch (error) {
     console.error("Error en POST /api/form-config:", error);
     return NextResponse.json(
-      { error: "Error al guardar los datos del evento." },
+      { error: "Error al guardar los datos en el servidor." },
       { status: 500 }
     );
   }
 }
 
 // ----------------------------------------------------------------------
-// 3. ELIMINAR DEFINITIVAMENTE UN EVENTO (DELETE)
+// 3. ELIMINAR EVENTO (DELETE)
 // ----------------------------------------------------------------------
 export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const eventSlug = searchParams.get("event");
+    const eventSlug = searchParams.get("event") || searchParams.get("slug");
 
     if (!eventSlug) {
       return NextResponse.json(
@@ -112,22 +120,20 @@ export async function DELETE(request: Request) {
       );
     }
 
-    // Borrar de la base de datos o almacenamiento en memoria
-    if (BASE_DATOS_EVENTOS[eventSlug]) {
-      delete BASE_DATOS_EVENTOS[eventSlug];
-    }
+    const slugLower = eventSlug.toLowerCase();
 
-    // NOTA: Si usas Supabase / Prisma / Vercel KV, sustituye la línea anterior por tu comando de borrado:
-    // await db.event.delete({ where: { slug: eventSlug } });
+    if (BASE_DATOS_EVENTOS[slugLower]) {
+      delete BASE_DATOS_EVENTOS[slugLower];
+    }
 
     return NextResponse.json({
       success: true,
-      message: `El evento '/${eventSlug}' ha sido eliminado permanentemente del servidor.`,
+      message: `El evento '/${slugLower}' ha sido eliminado correctamente.`,
     });
   } catch (error) {
     console.error("Error en DELETE /api/form-config:", error);
     return NextResponse.json(
-      { error: "Error al intentar borrar el evento en el servidor." },
+      { error: "Error al intentar borrar el evento." },
       { status: 500 }
     );
   }
