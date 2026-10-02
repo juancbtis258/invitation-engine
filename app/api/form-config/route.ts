@@ -1,15 +1,26 @@
 import { NextResponse } from "next/server";
 
-// Almacenamiento dinámico en memoria del servidor
-let BASE_DATOS_EVENTOS: Record<string, any> = {};
+// Memoria global persistente en el servidor para evitar reinicios durante desarrollo / HMR
+const globalForEvents = global as unknown as {
+  BASE_DATOS_EVENTOS?: Record<string, any>;
+};
+
+if (!globalForEvents.BASE_DATOS_EVENTOS) {
+  globalForEvents.BASE_DATOS_EVENTOS = {};
+}
+
+const BASE_DATOS_EVENTOS = globalForEvents.BASE_DATOS_EVENTOS;
 
 // ----------------------------------------------------------------------
-// 1. OBTENER INFORMACIÓN DEL EVENTO (GET)
+// 1. OBTENER INFORMACIÓN DEL EVENTO O SUS RESPUESTAS (GET)
 // ----------------------------------------------------------------------
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const eventSlug = searchParams.get("event") || searchParams.get("slug") || searchParams.get("eventSlug");
+    const eventSlug =
+      searchParams.get("event") ||
+      searchParams.get("slug") ||
+      searchParams.get("eventSlug");
 
     if (!eventSlug) {
       return NextResponse.json({
@@ -18,9 +29,9 @@ export async function GET(request: Request) {
       });
     }
 
-    const slugLower = eventSlug.toLowerCase();
+    const slugLower = eventSlug.toLowerCase().trim();
 
-    // Buscar el evento en el almacén en memoria
+    // Obtener la información almacenada
     const eventData = BASE_DATOS_EVENTOS[slugLower] || {
       slug: slugLower,
       questions: [],
@@ -30,11 +41,12 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       data: eventData,
+      responses: eventData.responses || [],
     });
   } catch (error) {
     console.error("Error en GET /api/form-config:", error);
     return NextResponse.json(
-      { error: "Error al obtener la configuración del evento." },
+      { error: "Error al obtener la configuración o respuestas del evento." },
       { status: 500 }
     );
   }
@@ -47,19 +59,19 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    // Extraemos todos los posibles formatos enviados desde el cliente
-    const { event, eventSlug, config, newResponse, response, action } = body;
+    const { event, eventSlug, slug, config, newResponse, response, action } = body;
 
-    const targetSlug = (event || eventSlug || "").toLowerCase();
+    const rawSlug = event || eventSlug || slug || "";
+    const targetSlug = rawSlug.toString().toLowerCase().trim();
 
     if (!targetSlug) {
       return NextResponse.json(
-        { error: "Falta el campo 'event' o 'eventSlug' en el cuerpo de la petición." },
+        { error: "Falta el identificador del evento (slug)." },
         { status: 400 }
       );
     }
 
-    // Inicializar evento si aún no está registrado en la memoria del servidor
+    // Inicializar evento si no existe
     if (!BASE_DATOS_EVENTOS[targetSlug]) {
       BASE_DATOS_EVENTOS[targetSlug] = {
         slug: targetSlug,
@@ -68,7 +80,7 @@ export async function POST(request: Request) {
       };
     }
 
-    // Caso A: Si el Administrador está guardando configuración/preguntas
+    // A. Actualizar configuración/preguntas desde el Administrador
     if (config) {
       BASE_DATOS_EVENTOS[targetSlug] = {
         ...BASE_DATOS_EVENTOS[targetSlug],
@@ -76,24 +88,33 @@ export async function POST(request: Request) {
       };
     }
 
-    // Caso B: Si un invitado está guardando una respuesta
-    const respuestaRecibida = response || newResponse;
-    if (respuestaRecibida || action === "save_response") {
-      const listaRespuestas = BASE_DATOS_EVENTOS[targetSlug].responses || [];
-      const datosIncr = respuestaRecibida || body;
+    // B. Guardar respuesta recibida desde el formulario público
+    const respuestaEntrante = response || newResponse;
+    if (respuestaEntrante || action === "save_response") {
+      const dataAInsertar = respuestaEntrante || body;
 
-      BASE_DATOS_EVENTOS[targetSlug].responses = [
-        ...listaRespuestas,
-        {
-          ...datosIncr,
-          createdAt: datosIncr.createdAt || new Date().toISOString(),
-        },
-      ];
+      const nuevaRespuesta = {
+        id: dataAInsertar.id || Date.now().toString(),
+        name: dataAInsertar.name || dataAInsertar.nombreCompleto || dataAInsertar.nombre || "Invitado",
+        phone: dataAInsertar.phone || dataAInsertar.whatsapp || "",
+        attending: dataAInsertar.attending ?? dataAInsertar.asistira ?? true,
+        pasesConfirmados: dataAInsertar.pasesConfirmados ?? dataAInsertar.pases ?? 1,
+        asistentes: dataAInsertar.asistentes || dataAInsertar.nombresAcompanantes || [],
+        customAnswers: dataAInsertar.customAnswers || dataAInsertar.respuestasPreguntas || {},
+        mensaje: dataAInsertar.mensaje || "",
+        createdAt: dataAInsertar.createdAt || new Date().toISOString(),
+      };
+
+      if (!BASE_DATOS_EVENTOS[targetSlug].responses) {
+        BASE_DATOS_EVENTOS[targetSlug].responses = [];
+      }
+
+      BASE_DATOS_EVENTOS[targetSlug].responses.push(nuevaRespuesta);
     }
 
     return NextResponse.json({
       success: true,
-      message: "Configuración o respuesta procesada exitosamente.",
+      message: "Operación realizada exitosamente.",
       data: BASE_DATOS_EVENTOS[targetSlug],
     });
   } catch (error) {
@@ -120,7 +141,7 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const slugLower = eventSlug.toLowerCase();
+    const slugLower = eventSlug.toLowerCase().trim();
 
     if (BASE_DATOS_EVENTOS[slugLower]) {
       delete BASE_DATOS_EVENTOS[slugLower];
