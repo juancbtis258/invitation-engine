@@ -168,7 +168,7 @@ export default function AdminDashboardPage() {
   const [cargandoSesion, setCargandoSesion] = useState(true);
 
   const [tabActiva, setTabActiva] = useState<
-    "eventos" | "disenador" | "respuestas" | "colaboradores"
+    "eventos" | "disenador" | "colaboradores"
   >("eventos");
 
   const [rolUsuarioActual, setRolUsuarioActual] = useState<"ADMINISTRADOR" | "CLIENTE">("CLIENTE");
@@ -236,8 +236,10 @@ export default function AdminDashboardPage() {
     setNombreSesion(name);
     setUsernameSesion(user);
 
-    if (tabGuardada) {
+    if (tabGuardada && tabGuardada !== "respuestas") {
       setTabActiva(tabGuardada);
+    } else {
+      setTabActiva("eventos");
     }
 
     // Restaurar eventos guardados
@@ -285,7 +287,7 @@ export default function AdminDashboardPage() {
   };
 
   const cambiarTab = (
-    tab: "eventos" | "disenador" | "respuestas" | "colaboradores"
+    tab: "eventos" | "disenador" | "colaboradores"
   ) => {
     setTabActiva(tab);
     localStorage.setItem("adminTabActiva", tab);
@@ -315,13 +317,6 @@ export default function AdminDashboardPage() {
 
   const eventoActual =
     eventosVisibles.find((e) => e.id === eventoSeleccionadoId) || eventosVisibles[0];
-
-  const totalRespuestas = respuestas.length;
-  const totalConfirmados = respuestas.filter((r) => r.attending).length;
-  const totalCancelados = respuestas.filter((r) => !r.attending).length;
-  const totalAsistentesPersona = respuestas
-    .filter((r) => r.attending)
-    .reduce((acc, curr) => acc + (Number(curr.pasesConfirmados) || 1), 0);
 
   const eventosFiltrados = eventosVisibles.filter((ev) => {
     const coincideTexto =
@@ -488,38 +483,6 @@ export default function AdminDashboardPage() {
     window.open(`/respuestas/${slug}`, "_blank");
   };
 
-  const exportarRespuestasCSV = () => {
-    if (!respuestas || respuestas.length === 0) return;
-
-    let csvContent =
-      "\uFEFFNro,Invitado / Familia,Asistirá,Personas Confirmadas,Respuestas Adicionales,Fecha Registro\n";
-
-    respuestas.forEach((r, idx) => {
-      const num = idx + 1;
-      const nombre = `"${(r.name || "Anónimo").replace(/"/g, '""')}"`;
-      const asistira = r.attending ? "SÍ" : "NO";
-      const personas = r.attending ? r.pasesConfirmados || 1 : 0;
-      const custom = `"${JSON.stringify(r.customAnswers || {}).replace(
-        /"/g,
-        '""'
-      )}"`;
-      const fecha = r.createdAt
-        ? `"${new Date(r.createdAt).toLocaleString()}"`
-        : '""';
-
-      csvContent += `${num},${nombre},${asistira},${personas},${custom},${fecha}\n`;
-    });
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Lista_Invitados_${eventoActual?.slug || "evento"}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   const guardarPreguntasEnServidor = async (targetSlug: string, nuevasPreguntas: Question[]) => {
     setGuardandoConfig(true);
     const evTarget = eventos.find((e) => e.slug === targetSlug) || eventoActual;
@@ -538,7 +501,7 @@ export default function AdminDashboardPage() {
       });
     } catch (err) {
       console.error("Error guardando preguntas:", err);
-    } finally {
+    } fontally {
       setGuardandoConfig(false);
     }
   };
@@ -809,17 +772,6 @@ export default function AdminDashboardPage() {
               🛠 Diseñador
             </button>
 
-            <button
-              onClick={() => cambiarTab("respuestas")}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                tabActiva === "respuestas"
-                  ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
-                  : "bg-slate-800/80 text-slate-300 hover:bg-slate-800"
-              }`}
-            >
-              📊 Respuestas ({totalRespuestas})
-            </button>
-
             {rolUsuarioActual === "ADMINISTRADOR" && (
               <button
                 onClick={() => cambiarTab("colaboradores")}
@@ -847,7 +799,7 @@ export default function AdminDashboardPage() {
         {eventosVisibles.length > 0 && (
           <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3 flex flex-col md:flex-row items-center justify-between gap-3">
             <span className="text-xs font-bold text-slate-400">
-              📌 Evento actualmente seleccionado para Diseñador / Respuestas:
+              📌 Evento actualmente seleccionado para Diseñador:
             </span>
             <select
               value={eventoSeleccionadoId}
@@ -1213,66 +1165,7 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* PESTAÑA 3: RESPUESTAS */}
-        {tabActiva === "respuestas" && (
-          <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 md:p-8 space-y-6 shadow-2xl">
-            <div className="border-b border-slate-800 pb-4 flex justify-between items-center">
-              <div>
-                <h2 className="text-xs font-black text-amber-500 uppercase">
-                  📊 RESPUESTAS DEL EVENTO: {eventoActual?.title}
-                </h2>
-                <p className="text-xs text-slate-400 mt-1">
-                  Enlace de respuestas: /{eventoActual?.slug}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={exportarRespuestasCSV}
-                className="bg-emerald-500 text-slate-950 font-bold text-xs px-4 py-2 rounded-xl cursor-pointer"
-              >
-                📥 Descargar Excel (CSV)
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
-                <span className="text-[10px] text-slate-500 font-bold">
-                  TOTAL ENVÍOS
-                </span>
-                <p className="text-xl font-black text-slate-100">
-                  {totalRespuestas}
-                </p>
-              </div>
-              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
-                <span className="text-[10px] text-emerald-500 font-bold">
-                  CONFIRMADOS
-                </span>
-                <p className="text-xl font-black text-emerald-400">
-                  {totalConfirmados}
-                </p>
-              </div>
-              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
-                <span className="text-[10px] text-rose-500 font-bold">
-                  CANCELADOS
-                </span>
-                <p className="text-xl font-black text-rose-400">
-                  {totalCancelados}
-                </p>
-              </div>
-              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
-                <span className="text-[10px] text-amber-500 font-bold">
-                  PERSONAS
-                </span>
-                <p className="text-xl font-black text-amber-400">
-                  {totalAsistentesPersona} asist.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* PESTAÑA 4: COLABORADORES */}
+        {/* PESTAÑA 3: COLABORADORES */}
         {tabActiva === "colaboradores" &&
           rolUsuarioActual === "ADMINISTRADOR" && (
             <div className="bg-[#121c33] border border-slate-800/80 rounded-2xl p-6 md:p-8 space-y-6 shadow-2xl">
