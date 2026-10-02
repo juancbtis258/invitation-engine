@@ -36,7 +36,6 @@ export default function EventPublicPage() {
   const searchParams = useSearchParams();
 
   const slug = params?.slug as string;
-  // Permite leer pases personalizados pasados por URL (?pases=4)
   const pasesUrl = searchParams?.get("pases");
 
   const [loading, setLoading] = useState(true);
@@ -54,7 +53,6 @@ export default function EventPublicPage() {
   useEffect(() => {
     if (!slug) return;
 
-    // 1. Intentar consultar a la API usando el parámetro correcto ("event")
     fetch(`/api/form-config?event=${slug}`)
       .then((res) => res.json())
       .then((resData) => {
@@ -66,7 +64,6 @@ export default function EventPublicPage() {
           eventFound = resData.data;
         }
 
-        // 2. Fallback: Buscar en el localStorage del navegador
         if (!eventFound) {
           const eventosGuardados = localStorage.getItem("app_eventos_lista");
           if (eventosGuardados) {
@@ -74,26 +71,17 @@ export default function EventPublicPage() {
               const lista = JSON.parse(eventosGuardados);
               if (Array.isArray(lista)) {
                 const match = lista.find(
-                  (item: any) =>
-                    item.slug?.toLowerCase() === slug.toLowerCase()
+                  (item: any) => item.slug?.toLowerCase() === slug.toLowerCase()
                 );
-                if (match) {
-                  eventFound = match;
-                }
+                if (match) eventFound = match;
               }
-            } catch (e) {
-              console.error("Error al leer localStorage:", e);
-            }
+            } catch (e) {}
           }
         }
 
-        if (eventFound) {
-          setConfig(eventFound);
-        }
+        if (eventFound) setConfig(eventFound);
       })
-      .catch((err) => {
-        console.error("Error al cargar configuración del evento:", err);
-        // Respaldo secundario si la API falla o está fuera de línea
+      .catch(() => {
         const eventosGuardados = localStorage.getItem("app_eventos_lista");
         if (eventosGuardados) {
           try {
@@ -117,7 +105,7 @@ export default function EventPublicPage() {
           justifyContent: "center",
           alignItems: "center",
           fontFamily: "system-ui, -apple-system, sans-serif",
-          backgroundColor: "#0d1527",
+          backgroundColor: "#080d19",
           color: "#f59e0b",
         }}
       >
@@ -135,13 +123,13 @@ export default function EventPublicPage() {
           justifyContent: "center",
           alignItems: "center",
           fontFamily: "system-ui, -apple-system, sans-serif",
-          backgroundColor: "#0d1527",
+          backgroundColor: "#080d19",
           padding: 20,
         }}
       >
         <div
           style={{
-            backgroundColor: "#121c33",
+            backgroundColor: "#0f172a",
             border: "1px solid #1e293b",
             padding: 30,
             borderRadius: 16,
@@ -154,21 +142,19 @@ export default function EventPublicPage() {
             Evento no encontrado
           </h2>
           <p style={{ color: "#94a3b8", fontSize: 14 }}>
-            La invitación <strong>/{slug}</strong> no existe o aún no ha sido guardada en este entorno.
+            La invitación <strong>/{slug}</strong> no existe o aún no ha sido registrada.
           </p>
         </div>
       </div>
     );
   }
 
-  // Normalización de variables
   const planActual = (config.plan || config.planType || "PLUS").toUpperCase();
   const esBasico = planActual === "BASICO";
   const tituloEvento = config.title || config.customTitle || "Confirmación de Asistencia";
   const mensajeCustom = config.customMessage || "¡Nos encantaría contar con tu presencia!";
   const whatsappNotif = config.whatsappPhone || config.whatsappNotif || "5218116122704";
 
-  // Determinación del número máximo de pases
   let maxPases = 2;
   if (pasesUrl && !isNaN(Number(pasesUrl))) {
     maxPases = Number(pasesUrl);
@@ -210,6 +196,8 @@ export default function EventPublicPage() {
     e.preventDefault();
 
     const responsePayload = {
+      id: Date.now().toString(),
+      eventSlug: slug,
       name: nombreInvitado,
       phone: whatsappInvitado,
       attending: asistira,
@@ -220,7 +208,18 @@ export default function EventPublicPage() {
       createdAt: new Date().toISOString(),
     };
 
-    // Intentar guardar en backend
+    // 1. Guardar en localStorage para que el Admin (Foto 3) lo refleje al instante
+    try {
+      const respuestasPrevias = localStorage.getItem("app_respuestas_lista");
+      let listaRespuestas = respuestasPrevias ? JSON.parse(respuestasPrevias) : [];
+      if (!Array.isArray(listaRespuestas)) listaRespuestas = [];
+      listaRespuestas.push(responsePayload);
+      localStorage.setItem("app_respuestas_lista", JSON.stringify(listaRespuestas));
+    } catch (err) {
+      console.error("Error al guardar en localStorage:", err);
+    }
+
+    // 2. Intentar POST a API
     try {
       await fetch("/api/form-config", {
         method: "POST",
@@ -232,11 +231,9 @@ export default function EventPublicPage() {
           response: responsePayload,
         }),
       });
-    } catch (err) {
-      console.error("Error al guardar respuesta en servidor:", err);
-    }
+    } catch (err) {}
 
-    // Construir mensaje de WhatsApp
+    // 3. Construir mensaje de WhatsApp
     let textoWA = `*CONFIRMACIÓN DE ASISTENCIA - ${tituloEvento.toUpperCase()}*%0A%0A`;
     textoWA += `👤 *Nombre:* ${nombreInvitado}%0A`;
     if (whatsappInvitado) textoWA += `📱 *WhatsApp:* ${whatsappInvitado}%0A`;
@@ -268,20 +265,20 @@ export default function EventPublicPage() {
   return (
     <div
       style={{
-        backgroundColor: "#0d1527",
+        backgroundColor: "#080d19",
         minHeight: "100vh",
-        padding: "30px 15px",
+        padding: "20px 12px",
         fontFamily: "system-ui, -apple-system, sans-serif",
       }}
     >
       <div
         style={{
-          maxWidth: 550,
+          maxWidth: 500,
           margin: "0 auto",
-          backgroundColor: "#121c33",
+          backgroundColor: "#0f172a",
           borderRadius: 20,
           border: "1px solid #1e293b",
-          boxShadow: "0 12px 32px rgba(0,0,0,0.37)",
+          boxShadow: "0 20px 40px rgba(0,0,0,0.5)",
           overflow: "hidden",
           color: "#f8fafc",
         }}
@@ -294,15 +291,34 @@ export default function EventPublicPage() {
           />
         )}
 
-        <div style={{ padding: 25 }}>
+        <div style={{ padding: "24px 20px" }}>
+          {/* Badge Plan */}
+          <div style={{ textAlign: "center", marginBottom: 12 }}>
+            <span
+              style={{
+                backgroundColor: "rgba(245, 158, 11, 0.15)",
+                color: "#f59e0b",
+                border: "1px solid rgba(245, 158, 11, 0.3)",
+                padding: "4px 12px",
+                borderRadius: 20,
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 1,
+                textTransform: "uppercase",
+              }}
+            >
+              ★ PLAN {planActual}
+            </span>
+          </div>
+
           <h1
             style={{
-              fontSize: 22,
+              fontSize: 26,
               fontWeight: 800,
               textAlign: "center",
               marginTop: 0,
-              marginBottom: 8,
-              color: "#f59e0b",
+              marginBottom: 6,
+              color: "#ffffff",
             }}
           >
             {tituloEvento}
@@ -314,7 +330,7 @@ export default function EventPublicPage() {
               color: "#94a3b8",
               fontSize: 14,
               whiteSpace: "pre-wrap",
-              marginBottom: 25,
+              marginBottom: 24,
             }}
           >
             {mensajeCustom}
@@ -322,134 +338,164 @@ export default function EventPublicPage() {
 
           <form onSubmit={handleFinalizarYEnviar}>
             {/* Nombre Completo */}
-            <div style={{ marginBottom: 18 }}>
+            <div style={{ marginBottom: 16 }}>
               <label
                 style={{
                   display: "block",
-                  fontWeight: 600,
-                  fontSize: 13,
+                  fontWeight: 700,
+                  fontSize: 12,
                   marginBottom: 6,
-                  color: "#cbd5e1",
+                  color: "#94a3b8",
+                  textTransform: "uppercase",
+                  letterSpacing: 0.5,
                 }}
               >
-                Tu Nombre Completo *
+                NOMBRE COMPLETO *
               </label>
               <input
                 type="text"
                 required
-                placeholder="Ej. María García"
+                placeholder="Ej. María Elena Garza"
                 value={nombreInvitado}
                 onChange={(e) => setNombreInvitado(e.target.value)}
                 style={{
                   width: "100%",
-                  padding: "10px 12px",
+                  padding: "12px 14px",
                   borderRadius: 10,
-                  border: "1px solid #334155",
-                  backgroundColor: "#0f172a",
+                  border: "1px solid #1e293b",
+                  backgroundColor: "#080d19",
                   color: "#f8fafc",
                   fontSize: 14,
                   boxSizing: "border-box",
+                  outline: "none",
                 }}
               />
             </div>
 
             {/* Teléfono / WhatsApp */}
-            <div style={{ marginBottom: 18 }}>
+            <div style={{ marginBottom: 16 }}>
               <label
                 style={{
                   display: "block",
-                  fontWeight: 600,
-                  fontSize: 13,
+                  fontWeight: 700,
+                  fontSize: 12,
                   marginBottom: 6,
-                  color: "#cbd5e1",
+                  color: "#94a3b8",
+                  textTransform: "uppercase",
+                  letterSpacing: 0.5,
                 }}
               >
-                Teléfono / WhatsApp
+                WHATSAPP *
               </label>
               <input
                 type="text"
-                placeholder="Ej. 8115591681"
+                placeholder="+52 81 1234 5678"
                 value={whatsappInvitado}
                 onChange={(e) => setWhatsappInvitado(e.target.value)}
                 style={{
                   width: "100%",
-                  padding: "10px 12px",
+                  padding: "12px 14px",
                   borderRadius: 10,
-                  border: "1px solid #334155",
-                  backgroundColor: "#0f172a",
+                  border: "1px solid #1e293b",
+                  backgroundColor: "#080d19",
                   color: "#f8fafc",
                   fontSize: 14,
                   boxSizing: "border-box",
+                  outline: "none",
                 }}
               />
             </div>
 
-            {/* Asistencia */}
+            {/* Selector de Asistencia interactivo (Botones tipo Foto 1) */}
             <div style={{ marginBottom: 18 }}>
               <label
                 style={{
                   display: "block",
-                  fontWeight: 600,
-                  fontSize: 13,
-                  marginBottom: 6,
-                  color: "#cbd5e1",
+                  fontWeight: 700,
+                  fontSize: 12,
+                  marginBottom: 8,
+                  color: "#94a3b8",
+                  textTransform: "uppercase",
+                  letterSpacing: 0.5,
                 }}
               >
-                ¿Confirmas tu asistencia?
+                ¿ASISTIRÁS AL EVENTO? *
               </label>
-              <select
-                value={asistira ? "si" : "no"}
-                onChange={(e) => setAsistira(e.target.value === "si")}
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderRadius: 10,
-                  border: "1px solid #334155",
-                  backgroundColor: "#0f172a",
-                  color: "#f8fafc",
-                  fontSize: 14,
-                  boxSizing: "border-box",
-                }}
-              >
-                <option value="si">SÍ, ¡ahí estaré! 🎉</option>
-                <option value="no">NO podré asistir 😔</option>
-              </select>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={() => setAsistira(true)}
+                  style={{
+                    padding: "12px 8px",
+                    borderRadius: 10,
+                    border: asistira ? "2px solid #f59e0b" : "1px solid #1e293b",
+                    backgroundColor: asistira ? "#f59e0b" : "#080d19",
+                    color: asistira ? "#000000" : "#94a3b8",
+                    fontWeight: 800,
+                    fontSize: 13,
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  ¡Sí, asistiré! 🎉
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAsistira(false)}
+                  style={{
+                    padding: "12px 8px",
+                    borderRadius: 10,
+                    border: !asistira ? "2px solid #ef4444" : "1px solid #1e293b",
+                    backgroundColor: !asistira ? "#ef4444" : "#080d19",
+                    color: !asistira ? "#ffffff" : "#94a3b8",
+                    fontWeight: 800,
+                    fontSize: 13,
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  No podré ir 😔
+                </button>
+              </div>
             </div>
 
-            {/* Campos dinámicos cuando NO es básico y SI asistirá */}
+            {/* Opciones cuando Asiste */}
             {!esBasico && asistira && (
               <>
                 {maxPases > 0 && (
-                  <div style={{ marginBottom: 18 }}>
+                  <div style={{ marginBottom: 16 }}>
                     <label
                       style={{
                         display: "block",
-                        fontWeight: 600,
-                        fontSize: 13,
+                        fontWeight: 700,
+                        fontSize: 12,
                         marginBottom: 6,
-                        color: "#cbd5e1",
+                        color: "#94a3b8",
+                        textTransform: "uppercase",
+                        letterSpacing: 0.5,
                       }}
                     >
-                      Número de Pases
+                      LUGARES RESERVADOS
                     </label>
                     <select
                       value={pasesSeleccionados}
                       onChange={(e) => handlePasesChange(Number(e.target.value))}
                       style={{
                         width: "100%",
-                        padding: "10px 12px",
+                        padding: "12px 14px",
                         borderRadius: 10,
-                        border: "1px solid #334155",
-                        backgroundColor: "#0f172a",
+                        border: "1px solid #1e293b",
+                        backgroundColor: "#080d19",
                         color: "#f59e0b",
-                        fontWeight: "bold",
+                        fontWeight: 700,
                         fontSize: 14,
                         boxSizing: "border-box",
+                        outline: "none",
                       }}
                     >
                       {Array.from({ length: maxPases }, (_, i) => i + 1).map((n) => (
                         <option key={n} value={n}>
-                          {n} {n === 1 ? "pase" : "pases"}
+                          {n} {n === 1 ? "Pase" : "Pases"}
                         </option>
                       ))}
                     </select>
@@ -457,47 +503,51 @@ export default function EventPublicPage() {
                 )}
 
                 {nombresAcompanantes.map((nombre, idx) => (
-                  <div key={idx} style={{ marginBottom: 18 }}>
+                  <div key={idx} style={{ marginBottom: 16 }}>
                     <label
                       style={{
                         display: "block",
-                        fontWeight: 600,
-                        fontSize: 13,
+                        fontWeight: 700,
+                        fontSize: 12,
                         marginBottom: 6,
-                        color: "#cbd5e1",
+                        color: "#94a3b8",
+                        textTransform: "uppercase",
+                        letterSpacing: 0.5,
                       }}
                     >
-                      Nombre del Acompañante #{idx + 1}
+                      NOMBRE ACOMPAÑANTE #{idx + 1}
                     </label>
                     <input
                       type="text"
-                      placeholder={`Nombre completo acompañante ${idx + 1}`}
+                      placeholder={`Nombre completo del acompañante ${idx + 1}`}
                       value={nombre}
                       onChange={(e) => handleAcompananteNombreChange(idx, e.target.value)}
                       style={{
                         width: "100%",
-                        padding: "10px 12px",
+                        padding: "12px 14px",
                         borderRadius: 10,
-                        border: "1px solid #334155",
-                        backgroundColor: "#0f172a",
+                        border: "1px solid #1e293b",
+                        backgroundColor: "#080d19",
                         color: "#f8fafc",
                         fontSize: 14,
                         boxSizing: "border-box",
+                        outline: "none",
                       }}
                     />
                   </div>
                 ))}
 
-                {/* Preguntas Personalizadas desde el Diseñador */}
                 {listaPreguntas.map((q) => (
-                  <div key={q.id} style={{ marginBottom: 18 }}>
+                  <div key={q.id} style={{ marginBottom: 16 }}>
                     <label
                       style={{
                         display: "block",
-                        fontWeight: 600,
-                        fontSize: 13,
+                        fontWeight: 700,
+                        fontSize: 12,
                         marginBottom: 6,
-                        color: "#cbd5e1",
+                        color: "#94a3b8",
+                        textTransform: "uppercase",
+                        letterSpacing: 0.5,
                       }}
                     >
                       {q.label} {q.required && "*"}
@@ -510,13 +560,14 @@ export default function EventPublicPage() {
                         onChange={(e) => handleCustomAnswerChange(q.label, e.target.value)}
                         style={{
                           width: "100%",
-                          padding: "10px 12px",
+                          padding: "12px 14px",
                           borderRadius: 10,
-                          border: "1px solid #334155",
-                          backgroundColor: "#0f172a",
+                          border: "1px solid #1e293b",
+                          backgroundColor: "#080d19",
                           color: "#f8fafc",
                           fontSize: 14,
                           boxSizing: "border-box",
+                          outline: "none",
                         }}
                       >
                         <option value="">Selecciona una opción...</option>
@@ -535,13 +586,14 @@ export default function EventPublicPage() {
                         onChange={(e) => handleCustomAnswerChange(q.label, e.target.value)}
                         style={{
                           width: "100%",
-                          padding: "10px 12px",
+                          padding: "12px 14px",
                           borderRadius: 10,
-                          border: "1px solid #334155",
-                          backgroundColor: "#0f172a",
+                          border: "1px solid #1e293b",
+                          backgroundColor: "#080d19",
                           color: "#f8fafc",
                           fontSize: 14,
                           boxSizing: "border-box",
+                          outline: "none",
                         }}
                       />
                     )}
@@ -550,55 +602,59 @@ export default function EventPublicPage() {
               </>
             )}
 
-            {/* Mensaje opcional */}
-            <div style={{ marginBottom: 24 }}>
+            {/* Mensaje Libre */}
+            <div style={{ marginBottom: 20 }}>
               <label
                 style={{
                   display: "block",
-                  fontWeight: 600,
-                  fontSize: 13,
+                  fontWeight: 700,
+                  fontSize: 12,
                   marginBottom: 6,
-                  color: "#cbd5e1",
+                  color: "#94a3b8",
+                  textTransform: "uppercase",
+                  letterSpacing: 0.5,
                 }}
               >
-                Mensaje o felicitación para los anfitriones
+                MENSAJE PARA LOS ANFITRIONES
               </label>
               <textarea
                 rows={3}
-                placeholder="Escribe aquí unas palabras..."
+                placeholder="Escribe un mensaje o felicitación..."
                 value={mensajeLibre}
                 onChange={(e) => setMensajeLibre(e.target.value)}
                 style={{
                   width: "100%",
-                  padding: "10px 12px",
+                  padding: "12px 14px",
                   borderRadius: 10,
-                  border: "1px solid #334155",
-                  backgroundColor: "#0f172a",
+                  border: "1px solid #1e293b",
+                  backgroundColor: "#080d19",
                   color: "#f8fafc",
                   fontSize: 14,
                   boxSizing: "border-box",
                   fontFamily: "inherit",
+                  outline: "none",
                 }}
               />
             </div>
 
-            {/* Botón de envío */}
+            {/* Botón Estilo Foto 1 (Dorado/Naranja) */}
             <button
               type="submit"
               style={{
                 width: "100%",
                 padding: "14px 20px",
-                backgroundColor: "#10b981",
-                color: "#022c22",
+                backgroundColor: "#f59e0b",
+                color: "#000000",
                 border: "none",
-                borderRadius: 12,
+                borderRadius: 10,
                 fontSize: 15,
                 fontWeight: 800,
                 cursor: "pointer",
-                boxShadow: "0 4px 12px rgba(16, 185, 129, 0.25)",
+                boxShadow: "0 4px 14px rgba(245, 158, 11, 0.3)",
+                transition: "all 0.2s ease",
               }}
             >
-              Confirmar y Enviar a WhatsApp
+              Confirmar Asistencia (⭐ Plan {planActual})
             </button>
           </form>
         </div>
