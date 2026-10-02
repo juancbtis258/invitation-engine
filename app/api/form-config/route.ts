@@ -1,162 +1,80 @@
 import { NextResponse } from "next/server";
 
-// Memoria global persistente en el servidor
+// Estructura global en memoria para simular persistencia
 const globalForEvents = global as unknown as {
-  BASE_DATOS_EVENTOS?: Record<string, any>;
+  BASE_DATOS_EVENTOS: Record<
+    string,
+    {
+      questions: any[];
+      responses: any[];
+    }
+  >;
 };
 
 if (!globalForEvents.BASE_DATOS_EVENTOS) {
   globalForEvents.BASE_DATOS_EVENTOS = {};
 }
 
-const BASE_DATOS_EVENTOS = globalForEvents.BASE_DATOS_EVENTOS;
+const db = globalForEvents.BASE_DATOS_EVENTOS;
 
-// ----------------------------------------------------------------------
-// 1. OBTENER INFORMACIÓN DEL EVENTO Y SUS RESPUESTAS (GET)
-// ----------------------------------------------------------------------
+// GET: Obtener configuración y respuestas de un evento
 export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const eventSlug =
-      searchParams.get("event") ||
-      searchParams.get("slug") ||
-      searchParams.get("eventSlug");
+  const { searchParams } = new URL(request.url);
+  const eventSlug = searchParams.get("event");
 
-    if (!eventSlug) {
-      return NextResponse.json({
-        success: true,
-        data: BASE_DATOS_EVENTOS,
-      });
-    }
-
-    const slugLower = eventSlug.toLowerCase().trim();
-
-    // Obtener evento guardado o crear estructura vacía
-    const eventData = BASE_DATOS_EVENTOS[slugLower] || {
-      slug: slugLower,
-      questions: [],
-      responses: [],
-    };
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        ...eventData,
-        responses: eventData.responses || [],
-        respuestas: eventData.responses || [],
-      },
-      responses: eventData.responses || [],
-    });
-  } catch (error) {
-    console.error("Error en GET /api/form-config:", error);
+  if (!eventSlug) {
     return NextResponse.json(
-      { error: "Error al obtener la configuración del evento." },
-      { status: 500 }
+      { error: "Se requiere el parámetro 'event'" },
+      { status: 400 }
     );
   }
+
+  const data = db[eventSlug] || { questions: [], responses: [] };
+
+  return NextResponse.json({ success: true, data });
 }
 
-// ----------------------------------------------------------------------
-// 2. CREAR / ACTUALIZAR EVENTO O GUARDAR RESPUESTAS (POST)
-// ----------------------------------------------------------------------
+// POST: Guardar configuración o enviar respuestas
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { event, eventSlug, slug, config, newResponse, response, action } = body;
-
-    const rawSlug = event || eventSlug || slug || "";
-    const targetSlug = rawSlug.toString().toLowerCase().trim();
-
-    if (!targetSlug) {
-      return NextResponse.json(
-        { error: "Falta el identificador del evento (slug)." },
-        { status: 400 }
-      );
-    }
-
-    if (!BASE_DATOS_EVENTOS[targetSlug]) {
-      BASE_DATOS_EVENTOS[targetSlug] = {
-        slug: targetSlug,
-        questions: [],
-        responses: [],
-      };
-    }
-
-    // A. Guardar configuración del panel de administración
-    if (config) {
-      BASE_DATOS_EVENTOS[targetSlug] = {
-        ...BASE_DATOS_EVENTOS[targetSlug],
-        ...config,
-      };
-    }
-
-    // B. Guardar respuesta recibida
-    const respuestaEntrante = response || newResponse;
-    if (respuestaEntrante || action === "save_response") {
-      const dataAInsertar = respuestaEntrante || body;
-
-      const nuevaRespuesta = {
-        id: dataAInsertar.id || Date.now().toString(),
-        eventSlug: targetSlug,
-        name: dataAInsertar.name || dataAInsertar.nombreCompleto || dataAInsertar.nombre || "Invitado",
-        phone: dataAInsertar.phone || dataAInsertar.whatsapp || "",
-        attending: dataAInsertar.attending ?? dataAInsertar.asistira ?? true,
-        pasesConfirmados: dataAInsertar.pasesConfirmados ?? dataAInsertar.pases ?? 1,
-        asistentes: dataAInsertar.asistentes || dataAInsertar.nombresAcompanantes || [],
-        customAnswers: dataAInsertar.customAnswers || dataAInsertar.respuestasPreguntas || {},
-        mensaje: dataAInsertar.mensaje || "",
-        createdAt: dataAInsertar.createdAt || new Date().toISOString(),
-      };
-
-      if (!Array.isArray(BASE_DATOS_EVENTOS[targetSlug].responses)) {
-        BASE_DATOS_EVENTOS[targetSlug].responses = [];
-      }
-
-      BASE_DATOS_EVENTOS[targetSlug].responses.push(nuevaRespuesta);
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: "Operación procesada correctamente.",
-      data: BASE_DATOS_EVENTOS[targetSlug],
-    });
-  } catch (error) {
-    console.error("Error en POST /api/form-config:", error);
-    return NextResponse.json(
-      { error: "Error al guardar los datos en el servidor." },
-      { status: 500 }
-    );
-  }
-}
-
-// ----------------------------------------------------------------------
-// 3. ELIMINAR EVENTO (DELETE)
-// ----------------------------------------------------------------------
-export async function DELETE(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const eventSlug = searchParams.get("event") || searchParams.get("slug");
+    const { eventSlug, questions, responseData } = body;
 
     if (!eventSlug) {
       return NextResponse.json(
-        { error: "Se requiere el parámetro 'event' para eliminar." },
+        { error: "Se requiere 'eventSlug'" },
         { status: 400 }
       );
     }
 
-    const slugLower = eventSlug.toLowerCase().trim();
-    if (BASE_DATOS_EVENTOS[slugLower]) {
-      delete BASE_DATOS_EVENTOS[slugLower];
+    if (!db[eventSlug]) {
+      db[eventSlug] = { questions: [], responses: [] };
+    }
+
+    // Caso A: Guardar Preguntas
+    if (questions && Array.isArray(questions)) {
+      db[eventSlug].questions = questions;
+    }
+
+    // Caso B: Registrar Respuesta de un Formulario
+    if (responseData) {
+      db[eventSlug].responses.push({
+        id: `resp-${Date.now()}`,
+        eventoSlug: eventSlug,
+        fecha: new Date().toISOString(),
+        datos: responseData,
+      });
     }
 
     return NextResponse.json({
       success: true,
-      message: `El evento '/${slugLower}' fue eliminado.`,
+      message: "Datos guardados correctamente en el servidor",
+      data: db[eventSlug],
     });
   } catch (error) {
-    console.error("Error en DELETE /api/form-config:", error);
+    console.error("Error en /api/form-config:", error);
     return NextResponse.json(
-      { error: "Error al borrar el evento." },
+      { error: "Error procesando la petición" },
       { status: 500 }
     );
   }

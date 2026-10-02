@@ -501,7 +501,7 @@ export default function AdminDashboardPage() {
       });
     } catch (err) {
       console.error("Error guardando preguntas:", err);
-    } fontally {
+    } finally {
       setGuardandoConfig(false);
     }
   };
