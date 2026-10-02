@@ -10,7 +10,6 @@ export default function AdminRespuestasPage() {
   const [respuestasFiltradas, setRespuestasFiltradas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // URL DE GOOGLE APPS SCRIPT
   const SCRIPT_URL =
     "https://script.google.com/macros/s/AKfycbwZ4jQVBC_Puii6O4pMMuPZr-8VnUzSo0tqnOdAyPFoEglrfPQJqRBdIR9zChCtyEOOmA/exec";
 
@@ -27,12 +26,11 @@ export default function AdminRespuestasPage() {
         setLoading(false);
       })
       .catch((err) => {
-        console.error("Error al obtener respuestas de Google Sheets:", err);
+        console.error("Error al obtener respuestas:", err);
         setLoading(false);
       });
   }, []);
 
-  // Filtrar las respuestas por el slug del evento actual
   useEffect(() => {
     if (!slugParam) {
       setRespuestasFiltradas(todasLasRespuestas);
@@ -51,18 +49,22 @@ export default function AdminRespuestasPage() {
         .toLowerCase()
         .trim();
 
-      // Si Google Sheets no incluye columna de slug, muestra todos o los que coincidan
       return itemSlug ? itemSlug === slugParam.toLowerCase().trim() : true;
     });
 
     setRespuestasFiltradas(filtradas);
   }, [slugParam, todasLasRespuestas]);
 
-  // Cálculo de Métricas
+  // Métricas
   const totalEnvios = respuestasFiltradas.length;
   const confirmados = respuestasFiltradas.filter((r) => {
     const asisteStr = String(r.asistencia || r.attending || "").toLowerCase();
-    return asisteStr.includes("si") || asisteStr.includes("confirmado") || r.asistencia === true || r.attending === true;
+    return (
+      asisteStr.includes("si") ||
+      asisteStr.includes("confirmado") ||
+      r.asistencia === true ||
+      r.attending === true
+    );
   });
   const cancelados = respuestasFiltradas.filter((r) => {
     const asisteStr = String(r.asistencia || r.attending || "").toLowerCase();
@@ -73,104 +75,161 @@ export default function AdminRespuestasPage() {
     return acc + (isNaN(pasesNum) ? 1 : pasesNum);
   }, 0);
 
+  const exportarCSV = () => {
+    if (respuestasFiltradas.length === 0) return;
+
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "Nombre,WhatsApp,Asistira,Pases,Acompañantes,Mensaje\n";
+
+    respuestasFiltradas.forEach((r) => {
+      const nombre = `"${r.nombre || r.name || ""}"`;
+      const phone = `"${r.whatsapp || r.phone || ""}"`;
+      const asisteStr = String(r.asistencia || r.attending || "").toLowerCase();
+      const asiste =
+        asisteStr.includes("si") ||
+        asisteStr.includes("confirmado") ||
+        r.asistencia === true ||
+        r.attending === true
+          ? "SI"
+          : "NO";
+      const pases = r.pases || r.pasesConfirmados || 1;
+      const acomp = `"${
+        Array.isArray(r.asistentes)
+          ? r.asistentes.join(", ")
+          : r.asistentes || r.acompanantes || ""
+      }"`;
+      const msg = `"${(r.mensaje || "").replace(/"/g, '""')}"`;
+
+      csvContent += `${nombre},${phone},${asiste},${pases},${acomp},${msg}\n`;
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `respuestas_${slugParam}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
-    <main className="min-h-screen bg-[#0b192c] text-white p-4 sm:p-8 font-sans">
-      <div className="max-w-5xl mx-auto space-y-6">
-        {/* Cabecera */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-700 pb-4 gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-amber-400">
-              📊 RESPUESTAS DEL EVENTO: {slugParam.toUpperCase()}
-            </h1>
-            <p className="text-xs text-slate-400 mt-1">
-              Enlace / filtro actual: /{slugParam}
-            </p>
-          </div>
-          <a
-            href="/admin"
-            className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-lg border border-slate-700 text-slate-300 font-semibold"
-          >
-            ← Volver al Admin
-          </a>
+    <div className="w-full space-y-6">
+      {/* Cabecera y Botón Exportar */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-xl font-bold text-amber-500 uppercase flex items-center gap-2">
+            📊 RESPUESTAS DEL EVENTO: {slugParam.toUpperCase()}
+          </h1>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Enlace de respuestas: /{slugParam}
+          </p>
         </div>
 
-        {/* Tarjetas de Métricas */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="bg-[#1e293b] p-4 rounded-xl border border-slate-700">
-            <span className="text-xs text-slate-400 font-bold uppercase block">Total Envíos</span>
-            <p className="text-2xl font-extrabold mt-1 text-white">{totalEnvios}</p>
-          </div>
-          <div className="bg-[#1e293b] p-4 rounded-xl border border-slate-700">
-            <span className="text-xs text-emerald-400 font-bold uppercase block">Confirmados</span>
-            <p className="text-2xl font-extrabold mt-1 text-emerald-400">{confirmados.length}</p>
-          </div>
-          <div className="bg-[#1e293b] p-4 rounded-xl border border-slate-700">
-            <span className="text-xs text-rose-400 font-bold uppercase block">Cancelados</span>
-            <p className="text-2xl font-extrabold mt-1 text-rose-400">{cancelados.length}</p>
-          </div>
-          <div className="bg-[#1e293b] p-4 rounded-xl border border-slate-700">
-            <span className="text-xs text-amber-400 font-bold uppercase block">Personas Totales</span>
-            <p className="text-2xl font-extrabold mt-1 text-amber-400">{totalPersonasAsistentes} asist.</p>
-          </div>
+        <button
+          onClick={exportarCSV}
+          className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs px-4 py-2.5 rounded-lg flex items-center gap-2 shadow-md transition-all"
+        >
+          📥 Descargar Excel (CSV)
+        </button>
+      </div>
+
+      {/* Tarjetas de Métricas */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="bg-[#0f172a] p-4 rounded-xl border border-slate-800">
+          <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">
+            TOTAL ENVÍOS
+          </span>
+          <p className="text-2xl font-extrabold mt-1 text-white">{totalEnvios}</p>
         </div>
 
-        {/* Tabla de Resultados */}
+        <div className="bg-[#0f172a] p-4 rounded-xl border border-slate-800">
+          <span className="text-[11px] text-emerald-400 font-bold uppercase tracking-wider block">
+            CONFIRMADOS
+          </span>
+          <p className="text-2xl font-extrabold mt-1 text-emerald-400">
+            {confirmados.length}
+          </p>
+        </div>
+
+        <div className="bg-[#0f172a] p-4 rounded-xl border border-slate-800">
+          <span className="text-[11px] text-rose-500 font-bold uppercase tracking-wider block">
+            CANCELADOS
+          </span>
+          <p className="text-2xl font-extrabold mt-1 text-rose-500">
+            {cancelados.length}
+          </p>
+        </div>
+
+        <div className="bg-[#0f172a] p-4 rounded-xl border border-slate-800">
+          <span className="text-[11px] text-amber-500 font-bold uppercase tracking-wider block">
+            PERSONAS TOTALES
+          </span>
+          <p className="text-2xl font-extrabold mt-1 text-amber-500">
+            {totalPersonasAsistentes} asist.
+          </p>
+        </div>
+      </div>
+
+      {/* Tabla Detallada de Invitados */}
+      <div className="bg-[#0f172a] rounded-xl border border-slate-800 overflow-hidden shadow-xl">
         {loading ? (
-          <div className="bg-[#1e293b] rounded-xl p-8 text-center border border-slate-700">
-            <p className="text-amber-400 font-medium">Cargando datos desde Google Sheets...</p>
+          <div className="p-8 text-center text-amber-400 font-medium">
+            Cargando lista de respuestas...
           </div>
         ) : respuestasFiltradas.length === 0 ? (
-          <div className="bg-[#1e293b] rounded-xl p-8 text-center border border-slate-700">
-            <p className="text-slate-400">Aún no hay respuestas registradas para el evento <strong>/{slugParam}</strong>.</p>
+          <div className="p-8 text-center text-slate-400">
+            Aún no hay respuestas registradas para este evento.
           </div>
         ) : (
-          <div className="overflow-x-auto bg-[#1e293b] rounded-xl border border-slate-700 shadow-xl">
+          <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-slate-700 text-amber-400 bg-slate-800/80 text-xs font-semibold uppercase">
-                  <th className="p-3">#</th>
-                  <th className="p-3">Nombre</th>
-                  <th className="p-3">WhatsApp</th>
-                  <th className="p-3">Asistencia</th>
-                  <th className="p-3">Pases</th>
-                  <th className="p-3">Acompañantes</th>
-                  <th className="p-3">Mensaje</th>
+                <tr className="bg-[#1e293b] text-slate-400 text-xs font-semibold uppercase tracking-wider border-b border-slate-800">
+                  <th className="p-3.5">NOMBRE</th>
+                  <th className="p-3.5">WHATSAPP</th>
+                  <th className="p-3.5">ASISTENCIA</th>
+                  <th className="p-3.5">PASES</th>
+                  <th className="p-3.5">ACOMPAÑANTES</th>
+                  <th className="p-3.5">MENSAJE</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800 text-sm">
+              <tbody className="divide-y divide-slate-800/60 text-sm">
                 {respuestasFiltradas.map((item, idx) => {
                   const asisteStr = String(item.asistencia || item.attending || "").toLowerCase();
-                  const asiste = asisteStr.includes("si") || asisteStr.includes("confirmado") || item.asistencia === true || item.attending === true;
+                  const asiste =
+                    asisteStr.includes("si") ||
+                    asisteStr.includes("confirmado") ||
+                    item.asistencia === true ||
+                    item.attending === true;
 
                   return (
-                    <tr key={idx} className="hover:bg-slate-800/40 transition-colors">
-                      <td className="p-3 text-slate-500 text-xs">{idx + 1}</td>
-                      <td className="p-3 font-semibold text-white">
-                        {item.nombre || item.name || "Sin nombre"}
+                    <tr key={idx} className="hover:bg-slate-800/30 transition-colors">
+                      <td className="p-3.5 font-bold text-white">
+                        {item.nombre || item.name || "Sin Nombre"}
                       </td>
-                      <td className="p-3 text-slate-400">
+                      <td className="p-3.5 text-slate-400">
                         {item.whatsapp || item.phone || "-"}
                       </td>
-                      <td className="p-3">
+                      <td className="p-3.5">
                         <span
-                          className={`px-2 py-1 rounded-md text-xs font-bold ${
+                          className={`px-2.5 py-1 rounded-md text-xs font-bold ${
                             asiste
-                              ? "bg-emerald-500/20 text-emerald-400"
-                              : "bg-rose-500/20 text-rose-400"
+                              ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
+                              : "bg-rose-500/15 text-rose-400 border border-rose-500/20"
                           }`}
                         >
                           {asiste ? "¡Sí asistirá!" : "No asistirá"}
                         </span>
                       </td>
-                      <td className="p-3 font-bold text-amber-400">
+                      <td className="p-3.5 font-bold text-amber-500">
                         {asiste ? item.pases || item.pasesConfirmados || 1 : 0}
                       </td>
-                      <td className="p-3 text-slate-300 text-xs">
+                      <td className="p-3.5 text-slate-300 text-xs">
                         {Array.isArray(item.asistentes)
                           ? item.asistentes.join(", ")
                           : item.asistentes || item.acompanantes || "Ninguno"}
                       </td>
-                      <td className="p-3 text-slate-400 text-xs">
+                      <td className="p-3.5 text-slate-400 text-xs">
                         {item.mensaje || "-"}
                       </td>
                     </tr>
@@ -181,6 +240,6 @@ export default function AdminRespuestasPage() {
           </div>
         )}
       </div>
-    </main>
+    </div>
   );
 }
