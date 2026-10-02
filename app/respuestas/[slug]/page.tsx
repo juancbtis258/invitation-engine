@@ -1,224 +1,310 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import React, { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
 
-interface RespuestaItem {
-  name: string;
-  attending: boolean;
-  pasesConfirmados: number;
+interface ResponseItem {
+  id: string;
+  eventSlug?: string;
+  name?: string;
+  nombre?: string;
   phone?: string;
+  whatsapp?: string;
+  attending?: boolean;
+  asistira?: boolean;
+  pasesConfirmados?: number;
   asistentes?: string[];
-  mensaje?: string;
   customAnswers?: Record<string, string>;
-  createdAt: string;
+  mensaje?: string;
+  createdAt?: string;
 }
 
-interface EventoConfig {
-  title: string;
-  slug: string;
-  responses?: RespuestaItem[];
-}
+export default function RespuestasSlugPage() {
+  const params = useParams();
+  const slugParam = (params?.slug as string) || "asdasd";
 
-export default function RespuestasClientePage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
-  const { slug } = use(params);
-
-  const [evento, setEvento] = useState<EventoConfig | null>(null);
   const [loading, setLoading] = useState(true);
+  const [respuestas, setRespuestas] = useState<ResponseItem[]>([]);
 
   useEffect(() => {
-    if (!slug) return;
+    if (!slugParam) return;
 
-    fetch(`/api/form-config?event=${slug}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.data) {
-          setEvento(data.data);
+    const cargarRespuestas = async () => {
+      let combinadas: ResponseItem[] = [];
+
+      // 1. Cargar desde localStorage
+      try {
+        const local = localStorage.getItem("app_respuestas_lista");
+        if (local) {
+          const parsed = JSON.parse(local);
+          if (Array.isArray(parsed)) {
+            combinadas = parsed.filter(
+              (r) => r.eventSlug?.toLowerCase() === slugParam.toLowerCase()
+            );
+          }
         }
-      })
-      .catch((err) => console.error("Error al cargar respuestas:", err))
-      .finally(() => setLoading(false));
-  }, [slug]);
+      } catch (e) {}
 
-  const respuestas = evento?.responses || [];
+      // 2. Cargar desde la API del servidor
+      try {
+        const res = await fetch(`/api/form-config?event=${slugParam}`);
+        const data = await res.json();
 
-  const totalRespuestas = respuestas.length;
-  const totalConfirmados = respuestas.filter((r) => r.attending).length;
-  const totalCancelados = respuestas.filter((r) => !r.attending).length;
-  const totalPersonas = respuestas
-    .filter((r) => r.attending)
-    .reduce((acc, curr) => acc + (Number(curr.pasesConfirmados) || 1), 0);
+        const serverResponses =
+          data?.data?.responses || data?.responses || data?.data?.respuestas || [];
+
+        if (Array.isArray(serverResponses) && serverResponses.length > 0) {
+          const idsExistentes = new Set(combinadas.map((c) => c.id));
+          serverResponses.forEach((sr: ResponseItem) => {
+            if (!idsExistentes.has(sr.id)) {
+              combinadas.push(sr);
+            }
+          });
+        }
+      } catch (e) {}
+
+      setRespuestas(combinadas);
+      setLoading(false);
+    };
+
+    cargarRespuestas();
+  }, [slugParam]);
+
+  // Métricas
+  const totalEnvios = respuestas.length;
+  const confirmados = respuestas.filter((r) => r.attending ?? r.asistira ?? true);
+  const cancelados = respuestas.filter((r) => !(r.attending ?? r.asistira ?? true));
+  const totalPersonasAsistentes = confirmados.reduce(
+    (acc, r) => acc + (r.pasesConfirmados || 1),
+    0
+  );
 
   const exportarCSV = () => {
     if (respuestas.length === 0) return;
 
-    let csvContent =
-      "\uFEFFNro,Invitado / Familia,Asistirá,Personas Confirmadas,Lista Asistentes,Mensaje / Felicitación,Respuestas Adicionales,Fecha Registro\n";
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "Nombre,WhatsApp,Asistira,Pases,Acompañantes,Mensaje,Fecha\n";
 
-    respuestas.forEach((r, idx) => {
-      const num = idx + 1;
-      const nombre = `"${(r.name || "Anónimo").replace(/"/g, '""')}"`;
-      const asistira = r.attending ? "SÍ" : "NO";
-      const personas = r.attending ? r.pasesConfirmados || 1 : 0;
-      const listaAsistentes = `"${(r.asistentes || []).join(", ").replace(/"/g, '""')}"`;
-      const mensaje = `"${(r.mensaje || "").replace(/"/g, '""')}"`;
-      const custom = `"${JSON.stringify(r.customAnswers || {}).replace(/"/g, '""')}"`;
-      const fecha = r.createdAt
-        ? `"${new Date(r.createdAt).toLocaleString()}"`
-        : '""';
+    respuestas.forEach((r) => {
+      const nombre = `"${r.name || r.nombre || ""}"`;
+      const phone = `"${r.phone || r.whatsapp || ""}"`;
+      const asiste = (r.attending ?? r.asistira) ? "SI" : "NO";
+      const pases = r.pasesConfirmados || (asiste === "SI" ? 1 : 0);
+      const acomp = `"${(r.asistentes || []).join(", ")}"`;
+      const msg = `"${(r.mensaje || "").replace(/"/g, '""')}"`;
+      const fecha = `"${r.createdAt || ""}"`;
 
-      csvContent += `${num},${nombre},${asistira},${personas},${listaAsistentes},${mensaje},${custom},${fecha}\n`;
+      csvContent += `${nombre},${phone},${asiste},${pases},${acomp},${msg},${fecha}\n`;
     });
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
+    const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Confirmaciones_${slug}.csv`);
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `respuestas_${slugParam}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0d1527] text-slate-100 flex items-center justify-center font-sans">
-        <p className="text-xs text-amber-500 font-bold animate-pulse">
-          ⏳ Cargando concentrado de respuestas...
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-[#0d1527] text-slate-100 p-4 md:p-8 font-sans">
-      <div className="max-w-5xl mx-auto space-y-6">
-        
-        {/* ENCABEZADO */}
-        <div className="bg-[#121c33] border border-slate-800 rounded-2xl p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-xl">
+    <div
+      style={{
+        backgroundColor: "#080d19",
+        minHeight: "100vh",
+        padding: "30px 20px",
+        color: "#f8fafc",
+        fontFamily: "system-ui, -apple-system, sans-serif",
+      }}
+    >
+      <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+        {/* Cabecera */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 24,
+          }}
+        >
           <div>
-            <h1 className="text-2xl font-black text-amber-500 tracking-tight">
-              {evento?.title || slug.toUpperCase()}
+            <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0, color: "#f59e0b" }}>
+              📊 RESPUESTAS DEL EVENTO: {slugParam.toUpperCase()}
             </h1>
-            <p className="text-xs text-slate-400 mt-1">
-              Portal de Confirmaciones de Invitados
+            <p style={{ color: "#94a3b8", fontSize: 13, margin: "4px 0 0 0" }}>
+              Enlace de respuestas: /{slugParam}
             </p>
           </div>
 
           <button
             onClick={exportarCSV}
-            disabled={respuestas.length === 0}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-lg flex items-center gap-2 ${
-              respuestas.length > 0
-                ? "bg-emerald-500 hover:bg-emerald-400 text-slate-950 cursor-pointer"
-                : "bg-slate-800 text-slate-500 cursor-not-allowed"
-            }`}
+            style={{
+              backgroundColor: "#10b981",
+              color: "#ffffff",
+              border: "none",
+              padding: "10px 18px",
+              borderRadius: 10,
+              fontWeight: 700,
+              cursor: "pointer",
+              fontSize: 14,
+            }}
           >
-            📥 Descargar Lista a Excel (CSV)
+            📥 Descargar Excel (CSV)
           </button>
         </div>
 
-        {/* MÉTRICAS */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="bg-[#121c33] p-4 rounded-2xl border border-slate-800 space-y-1">
-            <span className="text-[10px] font-bold uppercase text-slate-500">TOTAL ENVÍOS</span>
-            <p className="text-2xl font-black text-slate-100">{totalRespuestas}</p>
+        {/* Tarjetas de Métricas */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+            gap: 16,
+            marginBottom: 24,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "#0f172a",
+              padding: 20,
+              borderRadius: 12,
+              border: "1px solid #1e293b",
+            }}
+          >
+            <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 700 }}>
+              TOTAL ENVÍOS
+            </span>
+            <p style={{ fontSize: 28, fontWeight: 800, margin: "6px 0 0 0" }}>
+              {totalEnvios}
+            </p>
           </div>
 
-          <div className="bg-[#121c33] p-4 rounded-2xl border border-slate-800 space-y-1">
-            <span className="text-[10px] font-bold uppercase text-emerald-500">CONFIRMADOS (SÍ)</span>
-            <p className="text-2xl font-black text-emerald-400">{totalConfirmados}</p>
+          <div
+            style={{
+              backgroundColor: "#0f172a",
+              padding: 20,
+              borderRadius: 12,
+              border: "1px solid #1e293b",
+            }}
+          >
+            <span style={{ fontSize: 12, color: "#10b981", fontWeight: 700 }}>
+              CONFIRMADOS
+            </span>
+            <p style={{ fontSize: 28, fontWeight: 800, margin: "6px 0 0 0", color: "#10b981" }}>
+              {confirmados.length}
+            </p>
           </div>
 
-          <div className="bg-[#121c33] p-4 rounded-2xl border border-slate-800 space-y-1">
-            <span className="text-[10px] font-bold uppercase text-rose-500">CANCELADOS (NO)</span>
-            <p className="text-2xl font-black text-rose-400">{totalCancelados}</p>
+          <div
+            style={{
+              backgroundColor: "#0f172a",
+              padding: 20,
+              borderRadius: 12,
+              border: "1px solid #1e293b",
+            }}
+          >
+            <span style={{ fontSize: 12, color: "#ef4444", fontWeight: 700 }}>
+              CANCELADOS
+            </span>
+            <p style={{ fontSize: 28, fontWeight: 800, margin: "6px 0 0 0", color: "#ef4444" }}>
+              {cancelados.length}
+            </p>
           </div>
 
-          <div className="bg-[#121c33] p-4 rounded-2xl border border-slate-800 space-y-1">
-            <span className="text-[10px] font-bold uppercase text-amber-500">TOTAL PERSONAS</span>
-            <p className="text-2xl font-black text-amber-400">{totalPersonas} asist.</p>
+          <div
+            style={{
+              backgroundColor: "#0f172a",
+              padding: 20,
+              borderRadius: 12,
+              border: "1px solid #1e293b",
+            }}
+          >
+            <span style={{ fontSize: 12, color: "#f59e0b", fontWeight: 700 }}>
+              PERSONAS TOTALES
+            </span>
+            <p style={{ fontSize: 28, fontWeight: 800, margin: "6px 0 0 0", color: "#f59e0b" }}>
+              {totalPersonasAsistentes} asist.
+            </p>
           </div>
         </div>
 
-        {/* TABLA DE RESPUESTAS */}
-        <div className="bg-[#121c33] border border-slate-800 rounded-2xl p-6 space-y-4 shadow-xl">
-          <h2 className="text-xs font-black text-slate-400 uppercase tracking-wider">
-            RESPUESTAS RECIBIDAS
-          </h2>
-
-          {respuestas.length === 0 ? (
-            <div className="text-center py-12 bg-slate-950/60 rounded-xl border border-slate-800">
-              <p className="text-xs text-slate-500">
-                Aún no hay respuestas registradas para este evento.
-              </p>
-            </div>
+        {/* Tabla de Registros */}
+        <div
+          style={{
+            backgroundColor: "#0f172a",
+            borderRadius: 16,
+            border: "1px solid #1e293b",
+            overflow: "hidden",
+          }}
+        >
+          {loading ? (
+            <p style={{ padding: 20, textAlign: "center", color: "#94a3b8" }}>
+              Cargando lista de respuestas...
+            </p>
+          ) : respuestas.length === 0 ? (
+            <p style={{ padding: 30, textAlign: "center", color: "#94a3b8" }}>
+              Aún no hay respuestas registradas para este evento.
+            </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
                 <thead>
-                  <tr className="border-b border-slate-800 text-slate-400 uppercase font-bold">
-                    <th className="p-3">#</th>
-                    <th className="p-3">INVITADO / FAMILIA</th>
-                    <th className="p-3">ASISTIRÁ</th>
-                    <th className="p-3">PERSONAS</th>
-                    <th className="p-3">DETALLES / MENSAJE</th>
-                    <th className="p-3">FECHA</th>
+                  <tr style={{ backgroundColor: "#1e293b", color: "#94a3b8", fontSize: 12 }}>
+                    <th style={{ padding: "12px 16px" }}>NOMBRE</th>
+                    <th style={{ padding: "12px 16px" }}>WHATSAPP</th>
+                    <th style={{ padding: "12px 16px" }}>ASISTENCIA</th>
+                    <th style={{ padding: "12px 16px" }}>PASES</th>
+                    <th style={{ padding: "12px 16px" }}>ACOMPAÑANTES</th>
+                    <th style={{ padding: "12px 16px" }}>MENSAJE</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60">
-                  {respuestas.map((r, idx) => (
-                    <tr key={idx} className="hover:bg-slate-900/40">
-                      <td className="p-3 text-slate-500 font-mono">{idx + 1}</td>
-                      <td className="p-3 font-semibold text-slate-200">
-                        {r.name}
-                        {r.phone && <span className="block text-[10px] text-slate-500">{r.phone}</span>}
-                      </td>
-                      <td className="p-3">
-                        <span
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                            r.attending
-                              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                              : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
-                          }`}
-                        >
-                          {r.attending ? "SÍ ASISTIRÁ" : "NO ASISTIRÁ"}
-                        </span>
-                      </td>
-                      <td className="p-3 font-bold text-amber-400">
-                        {r.attending ? `${r.pasesConfirmados} pases` : "0"}
-                      </td>
-                      <td className="p-3 text-slate-300 max-w-xs">
-                        {r.asistentes && r.asistentes.length > 0 && (
-                          <p className="text-[11px] text-slate-400">
-                            👥 <span className="text-slate-200">{r.asistentes.join(", ")}</span>
-                          </p>
-                        )}
-                        {r.mensaje && (
-                          <p className="text-[11px] italic text-amber-300/90 mt-0.5">
-                            💬 "{r.mensaje}"
-                          </p>
-                        )}
-                        {r.customAnswers && Object.keys(r.customAnswers).length > 0 && (
-                          <pre className="text-[10px] font-mono text-slate-500 mt-1 whitespace-pre-wrap">
-                            {JSON.stringify(r.customAnswers, null, 2)}
-                          </pre>
-                        )}
-                      </td>
-                      <td className="p-3 text-slate-500 text-[11px]">
-                        {r.createdAt ? new Date(r.createdAt).toLocaleString() : "-"}
-                      </td>
-                    </tr>
-                  ))}
+                <tbody>
+                  {respuestas.map((r, idx) => {
+                    const asiste = r.attending ?? r.asistira ?? true;
+                    return (
+                      <tr
+                        key={r.id || idx}
+                        style={{ borderBottom: "1px solid #1e293b", fontSize: 14 }}
+                      >
+                        <td style={{ padding: "14px 16px", fontWeight: 700 }}>
+                          {r.name || r.nombre || "Sin Nombre"}
+                        </td>
+                        <td style={{ padding: "14px 16px", color: "#94a3b8" }}>
+                          {r.phone || r.whatsapp || "-"}
+                        </td>
+                        <td style={{ padding: "14px 16px" }}>
+                          <span
+                            style={{
+                              backgroundColor: asiste
+                                ? "rgba(16, 185, 129, 0.15)"
+                                : "rgba(239, 68, 68, 0.15)",
+                              color: asiste ? "#10b981" : "#ef4444",
+                              padding: "4px 8px",
+                              borderRadius: 6,
+                              fontSize: 12,
+                              fontWeight: 700,
+                            }}
+                          >
+                            {asiste ? "¡Sí asistirá!" : "No asistirá"}
+                          </span>
+                        </td>
+                        <td style={{ padding: "14px 16px", fontWeight: 700, color: "#f59e0b" }}>
+                          {asiste ? r.pasesConfirmados || 1 : 0}
+                        </td>
+                        <td style={{ padding: "14px 16px", color: "#94a3b8", fontSize: 13 }}>
+                          {(r.asistentes || []).length > 0
+                            ? r.asistentes?.join(", ")
+                            : "Ninguno"}
+                        </td>
+                        <td style={{ padding: "14px 16px", color: "#94a3b8", fontSize: 13 }}>
+                          {r.mensaje || "-"}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
         </div>
-
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-// Memoria global persistente en el servidor para evitar reinicios durante desarrollo / HMR
+// Memoria global persistente en el servidor
 const globalForEvents = global as unknown as {
   BASE_DATOS_EVENTOS?: Record<string, any>;
 };
@@ -12,7 +12,7 @@ if (!globalForEvents.BASE_DATOS_EVENTOS) {
 const BASE_DATOS_EVENTOS = globalForEvents.BASE_DATOS_EVENTOS;
 
 // ----------------------------------------------------------------------
-// 1. OBTENER INFORMACIÓN DEL EVENTO O SUS RESPUESTAS (GET)
+// 1. OBTENER INFORMACIÓN DEL EVENTO Y SUS RESPUESTAS (GET)
 // ----------------------------------------------------------------------
 export async function GET(request: Request) {
   try {
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
 
     const slugLower = eventSlug.toLowerCase().trim();
 
-    // Obtener la información almacenada
+    // Obtener evento guardado o crear estructura vacía
     const eventData = BASE_DATOS_EVENTOS[slugLower] || {
       slug: slugLower,
       questions: [],
@@ -40,13 +40,17 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       success: true,
-      data: eventData,
+      data: {
+        ...eventData,
+        responses: eventData.responses || [],
+        respuestas: eventData.responses || [],
+      },
       responses: eventData.responses || [],
     });
   } catch (error) {
     console.error("Error en GET /api/form-config:", error);
     return NextResponse.json(
-      { error: "Error al obtener la configuración o respuestas del evento." },
+      { error: "Error al obtener la configuración del evento." },
       { status: 500 }
     );
   }
@@ -58,7 +62,6 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-
     const { event, eventSlug, slug, config, newResponse, response, action } = body;
 
     const rawSlug = event || eventSlug || slug || "";
@@ -71,7 +74,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Inicializar evento si no existe
     if (!BASE_DATOS_EVENTOS[targetSlug]) {
       BASE_DATOS_EVENTOS[targetSlug] = {
         slug: targetSlug,
@@ -80,7 +82,7 @@ export async function POST(request: Request) {
       };
     }
 
-    // A. Actualizar configuración/preguntas desde el Administrador
+    // A. Guardar configuración del panel de administración
     if (config) {
       BASE_DATOS_EVENTOS[targetSlug] = {
         ...BASE_DATOS_EVENTOS[targetSlug],
@@ -88,13 +90,14 @@ export async function POST(request: Request) {
       };
     }
 
-    // B. Guardar respuesta recibida desde el formulario público
+    // B. Guardar respuesta recibida
     const respuestaEntrante = response || newResponse;
     if (respuestaEntrante || action === "save_response") {
       const dataAInsertar = respuestaEntrante || body;
 
       const nuevaRespuesta = {
         id: dataAInsertar.id || Date.now().toString(),
+        eventSlug: targetSlug,
         name: dataAInsertar.name || dataAInsertar.nombreCompleto || dataAInsertar.nombre || "Invitado",
         phone: dataAInsertar.phone || dataAInsertar.whatsapp || "",
         attending: dataAInsertar.attending ?? dataAInsertar.asistira ?? true,
@@ -105,7 +108,7 @@ export async function POST(request: Request) {
         createdAt: dataAInsertar.createdAt || new Date().toISOString(),
       };
 
-      if (!BASE_DATOS_EVENTOS[targetSlug].responses) {
+      if (!Array.isArray(BASE_DATOS_EVENTOS[targetSlug].responses)) {
         BASE_DATOS_EVENTOS[targetSlug].responses = [];
       }
 
@@ -114,7 +117,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "Operación realizada exitosamente.",
+      message: "Operación procesada correctamente.",
       data: BASE_DATOS_EVENTOS[targetSlug],
     });
   } catch (error) {
@@ -136,25 +139,24 @@ export async function DELETE(request: Request) {
 
     if (!eventSlug) {
       return NextResponse.json(
-        { error: "Se requiere el parámetro 'event' (slug) para eliminar." },
+        { error: "Se requiere el parámetro 'event' para eliminar." },
         { status: 400 }
       );
     }
 
     const slugLower = eventSlug.toLowerCase().trim();
-
     if (BASE_DATOS_EVENTOS[slugLower]) {
       delete BASE_DATOS_EVENTOS[slugLower];
     }
 
     return NextResponse.json({
       success: true,
-      message: `El evento '/${slugLower}' ha sido eliminado correctamente.`,
+      message: `El evento '/${slugLower}' fue eliminado.`,
     });
   } catch (error) {
     console.error("Error en DELETE /api/form-config:", error);
     return NextResponse.json(
-      { error: "Error al intentar borrar el evento." },
+      { error: "Error al borrar el evento." },
       { status: 500 }
     );
   }
