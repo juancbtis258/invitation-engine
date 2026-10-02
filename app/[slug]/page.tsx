@@ -47,7 +47,8 @@ export default function EventPublicPage() {
   const [whatsappInvitado, setWhatsappInvitado] = useState("");
   const [asistira, setAsistira] = useState<boolean>(true);
   const [pasesSeleccionados, setPasesSeleccionados] = useState<number>(2);
-  const [nombresAcompanantes, setNombresAcompanantes] = useState<string[]>([""]);
+  // Inicializamos con 2 acompañantes para que al cargar coincida con los 2 pases por defecto
+  const [nombresAcompanantes, setNombresAcompanantes] = useState<string[]>(["", ""]);
   const [respuestasCustom, setRespuestasCustom] = useState<Record<string, string>>({});
   const [mensajeLibre, setMensajeLibre] = useState("");
 
@@ -112,10 +113,10 @@ export default function EventPublicPage() {
     maxPases = config.maxPasses;
   }
 
-  // Manejo dinámico de acompañantes (PasesSeleccionados - 1 acompañante)
+  // Genera exactamente 'count' campos de acompañantes sin restar 1
   const handlePasesChange = (count: number) => {
     setPasesSeleccionados(count);
-    const numAcompanantesNecesarios = Math.max(0, count - 1);
+    const numAcompanantesNecesarios = count;
     
     setNombresAcompanantes((prev) => {
       const nuevaLista = [...prev];
@@ -514,7 +515,7 @@ export default function EventPublicPage() {
                   </div>
                 )}
 
-                {/* Genera campos de acompañantes segun pasesSeleccionados - 1 */}
+                {/* Genera 1 campo por cada pase seleccionado */}
                 {nombresAcompanantes.map((nombre, idx) => (
                   <div key={idx} style={{ marginBottom: 16 }}>
                     <label
