@@ -1,7 +1,5 @@
 "use client";
 
-export const dynamic = 'force-dynamic';
-
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
@@ -86,49 +84,52 @@ export default function AdminPage() {
 
   useEffect(() => {
     setMounted(true);
+  }, []);
 
-    if (typeof window !== "undefined") {
-      try {
-        const role = (localStorage.getItem("userRole") as "ADMINISTRADOR" | "CLIENTE") || "ADMINISTRADOR";
-        const slug = localStorage.getItem("userSlug") || "todos";
-        const name = localStorage.getItem("userName") || "Alejandro Mejía";
+  useEffect(() => {
+    if (!mounted) return;
 
-        setRolUsuarioActual(role);
-        setSlugAsignado(slug);
-        setNombreSesion(name);
+    try {
+      const role = (localStorage.getItem("userRole") as "ADMINISTRADOR" | "CLIENTE") || "ADMINISTRADOR";
+      const slug = localStorage.getItem("userSlug") || "todos";
+      const name = localStorage.getItem("userName") || "Alejandro Mejía";
 
-        const eventosGuardados = localStorage.getItem("app_eventos_lista");
-        if (eventosGuardados) {
-          try {
-            const parsed = JSON.parse(eventosGuardados);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              setEventos(parsed);
-              setSelectedSlug(parsed[0].slug);
-            } else {
-              cargarEventoDemo();
-            }
-          } catch (err) {
+      setRolUsuarioActual(role);
+      setSlugAsignado(slug);
+      setNombreSesion(name);
+
+      const eventosGuardados = localStorage.getItem("app_eventos_lista");
+      if (eventosGuardados) {
+        try {
+          const parsed = JSON.parse(eventosGuardados);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setEventos(parsed);
+            setSelectedSlug(parsed[0].slug);
+          } else {
             cargarEventoDemo();
           }
-        } else {
+        } catch (err) {
           cargarEventoDemo();
         }
-
-        const usuariosGuardados = localStorage.getItem("app_usuarios_lista");
-        if (usuariosGuardados) {
-          try {
-            const parsedUsers = JSON.parse(usuariosGuardados);
-            if (Array.isArray(parsedUsers)) setUsuarios(parsedUsers);
-          } catch (err) {}
-        }
-
-        cargarRespuestasLocales();
-      } catch (e) {
-        console.error("Error cargando configuración inicial:", e);
+      } else {
+        cargarEventoDemo();
       }
+
+      const usuariosGuardados = localStorage.getItem("app_usuarios_lista");
+      if (usuariosGuardados) {
+        try {
+          const parsedUsers = JSON.parse(usuariosGuardados);
+          if (Array.isArray(parsedUsers)) setUsuarios(parsedUsers);
+        } catch (err) {}
+      }
+
+      cargarRespuestasLocales();
+    } catch (e) {
+      console.error("Error al leer localStorage:", e);
+    } finally {
+      setCargandoSesion(false);
     }
-    setCargandoSesion(false);
-  }, []);
+  }, [mounted]);
 
   const cargarEventoDemo = () => {
     const demo: EventoItem[] = [
@@ -158,7 +159,7 @@ export default function AdminPage() {
         const parsed = JSON.parse(local);
         if (Array.isArray(parsed)) {
           setRespuestas(
-            parsed.map((r, idx) => ({
+            parsed.map((r: any, idx: number) => ({
               id: r.id || `local-${idx}`,
               eventSlug: r.eventSlug || r.slug || "todos",
               nombre: r.name || r.nombre || "Sin Nombre",
@@ -348,7 +349,12 @@ export default function AdminPage() {
     document.body.removeChild(link);
   };
 
-  if (!mounted || cargandoSesion) {
+  // Si aún no se ha montado en el cliente, retornamos un contenedor neutro
+  if (!mounted) {
+    return <div className="min-h-screen bg-[#060a12]" />;
+  }
+
+  if (cargandoSesion) {
     return (
       <div className="min-h-screen bg-[#060a12] flex items-center justify-center text-amber-500 font-bold text-sm">
         Cargando Panel...
