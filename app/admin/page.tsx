@@ -40,6 +40,9 @@ export interface ResponseItem {
 export default function AdminPage() {
   const router = useRouter();
 
+  // --- CONTROL DE MONTAJE (EVITA ERRORES DE SSR) ---
+  const [mounted, setMounted] = useState<boolean>(false);
+
   // --- SESIÓN Y TABS ---
   const [rolUsuarioActual, setRolUsuarioActual] = useState<"ADMINISTRADOR" | "CLIENTE">("ADMINISTRADOR");
   const [slugAsignado, setSlugAsignado] = useState<string>("todos");
@@ -86,44 +89,48 @@ export default function AdminPage() {
       .replace(/[\s_-]+/g, "-")
       .replace(/^-+|-+$/g, "");
 
-  // --- INICIALIZACIÓN ---
+  // --- INICIALIZACIÓN SEGURA ---
   useEffect(() => {
-    const role = (localStorage.getItem("userRole") as "ADMINISTRADOR" | "CLIENTE") || "ADMINISTRADOR";
-    const slug = localStorage.getItem("userSlug") || "todos";
-    const name = localStorage.getItem("userName") || "Alejandro Mejía";
+    setMounted(true);
 
-    setRolUsuarioActual(role);
-    setSlugAsignado(slug);
-    setNombreSesion(name);
+    if (typeof window !== "undefined") {
+      const role = (localStorage.getItem("userRole") as "ADMINISTRADOR" | "CLIENTE") || "ADMINISTRADOR";
+      const slug = localStorage.getItem("userSlug") || "todos";
+      const name = localStorage.getItem("userName") || "Alejandro Mejía";
 
-    // Cargar Eventos
-    const eventosGuardados = localStorage.getItem("app_eventos_lista");
-    if (eventosGuardados) {
-      try {
-        const parsed = JSON.parse(eventosGuardados);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setEventos(parsed);
-          setSelectedSlug(parsed[0].slug);
-        } else {
+      setRolUsuarioActual(role);
+      setSlugAsignado(slug);
+      setNombreSesion(name);
+
+      // Cargar Eventos
+      const eventosGuardados = localStorage.getItem("app_eventos_lista");
+      if (eventosGuardados) {
+        try {
+          const parsed = JSON.parse(eventosGuardados);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setEventos(parsed);
+            setSelectedSlug(parsed[0].slug);
+          } else {
+            cargarEventoDemo();
+          }
+        } catch (err) {
           cargarEventoDemo();
         }
-      } catch (err) {
+      } else {
         cargarEventoDemo();
       }
-    } else {
-      cargarEventoDemo();
-    }
 
-    // Cargar Usuarios
-    const usuariosGuardados = localStorage.getItem("app_usuarios_lista");
-    if (usuariosGuardados) {
-      try {
-        const parsedUsers = JSON.parse(usuariosGuardados);
-        if (Array.isArray(parsedUsers)) setUsuarios(parsedUsers);
-      } catch (err) {}
-    }
+      // Cargar Usuarios
+      const usuariosGuardados = localStorage.getItem("app_usuarios_lista");
+      if (usuariosGuardados) {
+        try {
+          const parsedUsers = JSON.parse(usuariosGuardados);
+          if (Array.isArray(parsedUsers)) setUsuarios(parsedUsers);
+        } catch (err) {}
+      }
 
-    cargarRespuestasLocales();
+      cargarRespuestasLocales();
+    }
     setCargandoSesion(false);
   }, []);
 
@@ -141,11 +148,14 @@ export default function AdminPage() {
       },
     ];
     setEventos(demo);
-    localStorage.setItem("app_eventos_lista", JSON.stringify(demo));
+    if (typeof window !== "undefined") {
+      localStorage.setItem("app_eventos_lista", JSON.stringify(demo));
+    }
     setSelectedSlug("yunnie-y-juan");
   };
 
   const cargarRespuestasLocales = () => {
+    if (typeof window === "undefined") return;
     try {
       const local = localStorage.getItem("app_respuestas_lista");
       if (local) {
@@ -170,10 +180,12 @@ export default function AdminPage() {
 
   // --- SALIR ---
   const handleCerrarSesion = () => {
-    localStorage.removeItem("userRole");
-    localStorage.removeItem("userSlug");
-    localStorage.removeItem("userName");
-    localStorage.removeItem("userUsername");
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("userRole");
+      localStorage.removeItem("userSlug");
+      localStorage.removeItem("userName");
+      localStorage.removeItem("userUsername");
+    }
     router.push("/login");
   };
 
@@ -240,7 +252,9 @@ export default function AdminPage() {
     }
 
     setEventos(nuevaLista);
-    localStorage.setItem("app_eventos_lista", JSON.stringify(nuevaLista));
+    if (typeof window !== "undefined") {
+      localStorage.setItem("app_eventos_lista", JSON.stringify(nuevaLista));
+    }
     setModalEventoAbierto(false);
   };
 
@@ -248,14 +262,18 @@ export default function AdminPage() {
     if (confirm("¿Estás seguro de que deseas eliminar este evento?")) {
       const nuevaLista = eventos.filter((e) => e.id !== id);
       setEventos(nuevaLista);
-      localStorage.setItem("app_eventos_lista", JSON.stringify(nuevaLista));
+      if (typeof window !== "undefined") {
+        localStorage.setItem("app_eventos_lista", JSON.stringify(nuevaLista));
+      }
     }
   };
 
   // --- COLABORADORES ---
   const actualizarUsuarios = (nuevaLista: UserItem[]) => {
     setUsuarios(nuevaLista);
-    localStorage.setItem("app_usuarios_lista", JSON.stringify(nuevaLista));
+    if (typeof window !== "undefined") {
+      localStorage.setItem("app_usuarios_lista", JSON.stringify(nuevaLista));
+    }
   };
 
   const handleGuardarUsuario = (e: React.FormEvent) => {
@@ -338,9 +356,9 @@ export default function AdminPage() {
     document.body.removeChild(link);
   };
 
-  if (cargandoSesion) {
+  if (!mounted || cargandoSesion) {
     return (
-      <div className="min-h-screen bg-[#060a12] flex items-center justify-center text-amber-500 font-bold">
+      <div className="min-h-screen bg-[#060a12] flex items-center justify-center text-amber-500 font-bold text-sm">
         Cargando Panel...
       </div>
     );
@@ -397,7 +415,6 @@ export default function AdminPage() {
             </>
           )}
 
-          {/* BOTÓN SALIR SOLICITADO */}
           <button
             onClick={handleCerrarSesion}
             className="bg-rose-950/60 hover:bg-rose-900 border border-rose-800/80 text-rose-300 px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition shadow"
@@ -409,7 +426,7 @@ export default function AdminPage() {
 
       {/* CONTENIDO PRINCIPAL */}
       <main className="max-w-7xl mx-auto">
-        {/* VISTA EVENTOS (CATÁLOGO) */}
+        {/* VISTA EVENTOS */}
         {tabActiva === "eventos" && (
           <div className="bg-[#0a101f] p-6 rounded-2xl border border-slate-800/80 shadow-2xl space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -500,7 +517,6 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  {/* BOTONERA INFERIOR TARJETA */}
                   <div className="space-y-2 pt-2 border-t border-slate-800">
                     <div className="grid grid-cols-3 gap-2">
                       <a
@@ -746,7 +762,7 @@ export default function AdminPage() {
         )}
       </main>
 
-      {/* MODAL CREAR / EDITAR EVENTO EXACTO A LA IMAGEN */}
+      {/* MODAL CREAR / EDITAR EVENTO */}
       {modalEventoAbierto && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-[#0a101f] border border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
