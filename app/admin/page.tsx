@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 
 export interface UserItem {
@@ -37,7 +37,7 @@ export interface ResponseItem {
   mensaje?: string;
 }
 
-export default function AdminPage() {
+function AdminContent() {
   const router = useRouter();
 
   const [mounted, setMounted] = useState<boolean>(false);
@@ -108,7 +108,7 @@ export default function AdminPage() {
           } else {
             cargarEventoDemo();
           }
-        } catch (err) {
+        } catch {
           cargarEventoDemo();
         }
       } else {
@@ -120,7 +120,7 @@ export default function AdminPage() {
         try {
           const parsedUsers = JSON.parse(usuariosGuardados);
           if (Array.isArray(parsedUsers)) setUsuarios(parsedUsers);
-        } catch (err) {}
+        } catch {}
       }
 
       cargarRespuestasLocales();
@@ -172,7 +172,7 @@ export default function AdminPage() {
           );
         }
       }
-    } catch (e) {}
+    } catch {}
   };
 
   const handleCerrarSesion = () => {
@@ -349,12 +349,7 @@ export default function AdminPage() {
     document.body.removeChild(link);
   };
 
-  // Si aún no se ha montado en el cliente, retornamos un contenedor neutro
-  if (!mounted) {
-    return <div className="min-h-screen bg-[#060a12]" />;
-  }
-
-  if (cargandoSesion) {
+  if (!mounted || cargandoSesion) {
     return (
       <div className="min-h-screen bg-[#060a12] flex items-center justify-center text-amber-500 font-bold text-sm">
         Cargando Panel...
@@ -846,5 +841,13 @@ export default function AdminPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function AdminPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#060a12] flex items-center justify-center text-amber-500 font-bold text-sm">Cargando...</div>}>
+      <AdminContent />
+    </Suspense>
   );
 }
