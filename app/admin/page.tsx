@@ -1,7 +1,25 @@
-  "use client";
+"use client";
 
 import React, { useState, useEffect } from "react";
-import { User, EventoItem, UserItem } from "@/types"; // Ajusta los tipos según la estructura de tu proyecto
+
+export interface UserItem {
+  id: string;
+  nombre: string;
+  username: string;
+  whatsapp: string;
+  password?: string;
+  rol: "ADMINISTRADOR" | "CLIENTE";
+  eventoAsignadoSlug?: string;
+  activo: boolean;
+  createdAt?: string;
+}
+
+export interface EventoItem {
+  id?: string;
+  nombre: string;
+  slug: string;
+  [key: string]: unknown;
+}
 
 export default function AdminPage() {
   // --- ESTADOS DE SESIÓN ---
@@ -42,7 +60,7 @@ export default function AdminPage() {
     const slug = localStorage.getItem("userSlug") || "todos";
     const name = localStorage.getItem("userName") || "Usuario Administrador";
     const user = localStorage.getItem("userUsername") || "admin";
-    const tabGuardada = localStorage.getItem("adminTabActiva") as any;
+    const tabGuardada = localStorage.getItem("adminTabActiva") as "respuestas" | "eventos" | "colaboradores" | "config" | null;
 
     setRolUsuarioActual(role);
     setSlugAsignado(slug);
@@ -151,7 +169,7 @@ export default function AdminPage() {
     setNuevoNombre(u.nombre);
     setNuevoUsername(u.username);
     setNuevoWhatsapp(u.whatsapp);
-    setNuevoPassword(""); // Por seguridad se deja en blanco para no sobreescribir salvo cambio expreso
+    setNuevoPassword("");
     setNuevoRol(u.rol);
     setNuevoEventoSlug(u.eventoAsignadoSlug || "todos");
     setNuevoActivo(u.activo);
@@ -180,7 +198,7 @@ export default function AdminPage() {
         <div>
           <h1 className="text-xl font-bold text-gray-800">Panel Administrativo</h1>
           <p className="text-sm text-gray-500">
-            Sesión: <span className="font-semibold text-gray-700">{nombreSesion}</span> ({rolUsuarioActual})
+            Sesión: <span className="font-semibold text-gray-700">{nombreSesion}</span> ({rolUsuarioActual}) - Slug: {slugAsignado} (@{usernameSesion})
           </p>
         </div>
       </header>
@@ -284,7 +302,7 @@ export default function AdminPage() {
                   <label className="block text-sm font-medium text-gray-700">Rol de Acceso</label>
                   <select
                     value={nuevoRol}
-                    onChange={(e) => setNuevoRol(e.target.value as any)}
+                    onChange={(e) => setNuevoRol(e.target.value as "ADMINISTRADOR" | "CLIENTE")}
                     className="w-full border rounded p-2 text-sm mt-1 focus:ring-2 focus:ring-indigo-500 outline-none"
                   >
                     <option value="CLIENTE">CLIENTE (Acceso limitado)</option>

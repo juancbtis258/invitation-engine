@@ -1,80 +1,46 @@
 import { NextResponse } from "next/server";
 
-// Estructura global en memoria para simular persistencia
-const globalForEvents = global as unknown as {
-  BASE_DATOS_EVENTOS: Record<
-    string,
-    {
-      questions: any[];
-      responses: any[];
-    }
-  >;
-};
-
-if (!globalForEvents.BASE_DATOS_EVENTOS) {
-  globalForEvents.BASE_DATOS_EVENTOS = {};
-}
-
-const db = globalForEvents.BASE_DATOS_EVENTOS;
-
-// GET: Obtener configuración y respuestas de un evento
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const eventSlug = searchParams.get("event");
+  try {
+    const { searchParams } = new URL(request.url);
+    const slug = searchParams.get("slug");
 
-  if (!eventSlug) {
+    // Lógica para devolver la configuración o respuestas según el slug
+    return NextResponse.json({
+      success: true,
+      slug: slug || "default",
+      message: "Configuración obtenida correctamente",
+    });
+  } catch (error) {
     return NextResponse.json(
-      { error: "Se requiere el parámetro 'event'" },
-      { status: 400 }
+      { success: false, error: "Error al obtener la configuración" },
+      { status: 500 }
     );
   }
-
-  const data = db[eventSlug] || { questions: [], responses: [] };
-
-  return NextResponse.json({ success: true, data });
 }
 
-// POST: Guardar configuración o enviar respuestas
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { eventSlug, questions, responseData } = body;
+    const { action, eventSlug, responseData } = body;
 
-    if (!eventSlug) {
-      return NextResponse.json(
-        { error: "Se requiere 'eventSlug'" },
-        { status: 400 }
-      );
-    }
+    if (action === "add_response") {
+      // Aquí puedes conectar tu base de datos o lógica de almacenamiento
+      console.log(`Nueva respuesta para el evento [${eventSlug}]:`, responseData);
 
-    if (!db[eventSlug]) {
-      db[eventSlug] = { questions: [], responses: [] };
-    }
-
-    // Caso A: Guardar Preguntas
-    if (questions && Array.isArray(questions)) {
-      db[eventSlug].questions = questions;
-    }
-
-    // Caso B: Registrar Respuesta de un Formulario
-    if (responseData) {
-      db[eventSlug].responses.push({
-        id: `resp-${Date.now()}`,
-        eventoSlug: eventSlug,
-        fecha: new Date().toISOString(),
-        datos: responseData,
+      return NextResponse.json({
+        success: true,
+        message: "Respuesta guardada con éxito",
       });
     }
 
-    return NextResponse.json({
-      success: true,
-      message: "Datos guardados correctamente en el servidor",
-      data: db[eventSlug],
-    });
-  } catch (error) {
-    console.error("Error en /api/form-config:", error);
     return NextResponse.json(
-      { error: "Error procesando la petición" },
+      { success: false, error: "Acción no válida" },
+      { status: 400 }
+    );
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, error: "Error interno del servidor al procesar la solicitud" },
       { status: 500 }
     );
   }

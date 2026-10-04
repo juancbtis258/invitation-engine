@@ -113,7 +113,7 @@ export default function EventPublicPage() {
     maxPases = config.maxPasses;
   }
 
-  // Genera exactamente 'count' campos de acompañantes sin restar 1
+  // Genera exactamente 'count' campos de acompañantes
   const handlePasesChange = (count: number) => {
     setPasesSeleccionados(count);
     const numAcompanantesNecesarios = count;

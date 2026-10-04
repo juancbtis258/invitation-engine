@@ -26,33 +26,53 @@ export default function FormEngine({ eventSlug = "demo" }: { eventSlug?: string 
   };
 
   const handleNextStep1 = () => {
-    if (!formData.nombre || !formData.asistira) {
-      alert("Por favor completa tu nombre y selecciona si asistirás.");
+    if (!formData.nombre.trim() || !formData.whatsapp.trim() || !formData.asistira) {
+      alert("Por favor completa tu nombre, WhatsApp y selecciona si asistirás.");
       return;
     }
     if (formData.asistira === "No") {
       submitForm();
     } else {
+      // Aseguramos que al menos haya un campo de asistente para el paso 3
+      if (formData.asistentes.length === 0) {
+        setFormData({ ...formData, asistentes: [formData.nombre] });
+      }
       setStep(2);
     }
+  };
+
+  const handleNextStep3 = () => {
+    const faltantes = formData.asistentes.some((nombre) => !nombre.trim());
+    if (faltantes) {
+      alert("Por favor completa los nombres de todos los asistentes.");
+      return;
+    }
+    setStep(4);
   };
 
   const submitForm = async () => {
     setLoading(true);
     try {
-      await fetch("/api/form-config", {
+      const res = await fetch("/api/form-config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "add_response",
-          eventSlug: eventSlug, // // Guarda la respuesta asociada al evento específico
-          response: formData,
+          eventSlug: eventSlug,
+          responseData: formData,
         }),
       });
-      setStep(5);
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        setStep(5);
+      } else {
+        alert(data.error || "Error al enviar la respuesta.");
+      }
     } catch (error) {
-      console.error(error);
-      alert("Error al enviar la respuesta.");
+      console.error("Error al enviar la respuesta:", error);
+      alert("Error de conexión al enviar la respuesta.");
     } finally {
       setLoading(false);
     }
@@ -63,9 +83,9 @@ export default function FormEngine({ eventSlug = "demo" }: { eventSlug?: string 
       {step > 1 && step < 5 && (
         <button
           onClick={() => setStep(step - 1)}
-          className="text-xs text-slate-500 hover:text-slate-800 mb-4 flex items-center gap-1 font-medium"
+          className="text-xs text-slate-500 hover:text-slate-800 mb-4 flex items-center gap-1 font-medium transition"
         >
-          ← Back
+          ← Regresar
         </button>
       )}
 
@@ -131,6 +151,7 @@ export default function FormEngine({ eventSlug = "demo" }: { eventSlug?: string 
             </div>
 
             <button
+              type="button"
               onClick={handleNextStep1}
               className="w-auto bg-black hover:bg-slate-800 text-white font-bold text-xs px-5 py-2.5 rounded-lg transition-all"
             >
@@ -155,6 +176,7 @@ export default function FormEngine({ eventSlug = "demo" }: { eventSlug?: string 
           </select>
 
           <button
+            type="button"
             onClick={() => setStep(3)}
             className="bg-black hover:bg-slate-800 text-white font-bold text-xs px-5 py-2.5 rounded-lg transition-all"
           >
@@ -167,7 +189,7 @@ export default function FormEngine({ eventSlug = "demo" }: { eventSlug?: string 
       {step === 3 && (
         <div className="space-y-5">
           <p className="text-xs text-slate-600 font-medium">
-            Por favor ingresa los nombres de las personas que asistirán con este pase
+            Por favor ingresa los nombres de las personas que asistirán con este pase:
           </p>
 
           <div className="space-y-3">
@@ -188,7 +210,8 @@ export default function FormEngine({ eventSlug = "demo" }: { eventSlug?: string 
           </div>
 
           <button
-            onClick={() => setStep(4)}
+            type="button"
+            onClick={handleNextStep3}
             className="bg-black hover:bg-slate-800 text-white font-bold text-xs px-5 py-2.5 rounded-lg transition-all"
           >
             Siguiente →
@@ -201,7 +224,7 @@ export default function FormEngine({ eventSlug = "demo" }: { eventSlug?: string 
         <div className="space-y-5">
           <div>
             <h2 className="text-sm font-bold text-slate-900">
-              Unas palabras siempre me alegran el corazón ❤️ deja tu mensaje
+              Unas palabras siempre me alegran el corazón ❤️️ deja tu mensaje
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">(este campo no es obligatorio)</p>
           </div>
@@ -215,11 +238,12 @@ export default function FormEngine({ eventSlug = "demo" }: { eventSlug?: string 
           />
 
           <button
+            type="button"
             onClick={submitForm}
             disabled={loading}
-            className="bg-black hover:bg-slate-800 text-white font-bold text-xs px-5 py-2.5 rounded-lg transition-all"
+            className="bg-black hover:bg-slate-800 text-white font-bold text-xs px-5 py-2.5 rounded-lg transition-all disabled:opacity-50"
           >
-            {loading ? "Enviando..." : "Siguiente →"}
+            {loading ? "Enviando..." : "Finalizar y Enviar →"}
           </button>
         </div>
       )}
@@ -228,10 +252,12 @@ export default function FormEngine({ eventSlug = "demo" }: { eventSlug?: string 
       {step === 5 && (
         <div className="text-center py-8 space-y-3">
           <p className="text-base font-bold text-slate-900">
-            ¡Perfecto! Tu asistencia ha quedado confirmada.
+            ¡Perfecto! Tu respuesta ha quedado registrada.
           </p>
           <p className="text-sm text-slate-600">
-            Te esperamos con mucha alegría 🎉
+            {formData.asistira === "Sí"
+              ? "Te esperamos con mucha alegría 🎉"
+              : "Lamentamos que no puedas asistir, ¡gracias por responder!"}
           </p>
         </div>
       )}

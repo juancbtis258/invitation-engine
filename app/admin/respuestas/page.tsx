@@ -14,38 +14,93 @@ interface ResponseItem {
   asistira?: boolean;
   pasesConfirmados?: number;
   asistentes?: string[];
+  customAnswers?: Record<string, string>;
   mensaje?: string;
   createdAt?: string;
 }
 
 export default function AdminRespuestasPage() {
   const searchParams = useSearchParams();
-  const slugParam = searchParams?.get("event") || searchParams?.get("slug") || "asdasd";
+  const slugParam = searchParams?.get("event") || searchParams?.get("slug") || "";
 
   const [loading, setLoading] = useState(true);
   const [respuestas, setRespuestas] = useState<ResponseItem[]>([]);
 
   useEffect(() => {
-    if (!slugParam) return;
+    if (!slugParam) {
+      setLoading(false);
+      return;
+    }
 
     const cargarRespuestas = async () => {
       setLoading(true);
-      let combinadas: ResponseItem[] = [];
+      const listaCombinada: ResponseItem[] = [];
+      const idsProcesados = new Set<string>();
 
-      // 1. Cargar desde localStorage
+      // 1. Cargar desde localStorage local
       try {
         const local = localStorage.getItem("app_respuestas_lista");
         if (local) {
           const parsed = JSON.parse(local);
           if (Array.isArray(parsed)) {
-            combinadas = parsed.filter(
-              (r) => (r.eventSlug || "").toLowerCase() === slugParam.toLowerCase()
-            );
+            parsed
+              .filter(
+                (r) => (r.eventSlug || r.slug || "").toLowerCase() === slugParam.toLowerCase()
+              )
+              .forEach((r) => {
+                const itemNormalizado: ResponseItem = {
+                  id: r.id || `local-${Math.random()}`,
+                  eventSlug: r.eventSlug || slugParam,
+                  nombre: r.name || r.nombre || "Sin Nombre",
+                  whatsapp: r.phone || r.whatsapp || "-",
+                  asistira: r.attending !== undefined ? Boolean(r.attending) : Boolean(r.asistira),
+                  pasesConfirmados: r.pasesConfirmados !== undefined ? Number(r.pasesConfirmados) : 1,
+                  asistentes: Array.isArray(r.asistentes) ? r.asistentes : [],
+                  customAnswers: r.customAnswers || {},
+                  mensaje: r.mensaje || "-",
+                  createdAt: r.createdAt,
+                };
+                listaCombinada.push(itemNormalizado);
+                if (r.id) idsProcesados.add(r.id);
+              });
           }
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error("Error al leer de localStorage:", e);
+      }
 
-      // 2. Cargar desde Google Sheets / API backend
+      // 2. Cargar desde la API interna
+      try {
+        const resApi = await fetch(`/api/form-config?action=get_responses&event=${slugParam}`);
+        if (resApi.ok) {
+          const dataApi = await resApi.json();
+          const itemsApi = dataApi.data || dataApi.responses || dataApi;
+          if (Array.isArray(itemsApi)) {
+            itemsApi.forEach((r: any, idx: number) => {
+              const id = r.id || `api-${idx}`;
+              if (!idsProcesados.has(id)) {
+                listaCombinada.push({
+                  id,
+                  eventSlug: r.eventSlug || slugParam,
+                  nombre: r.name || r.nombre || "Sin Nombre",
+                  whatsapp: r.phone || r.whatsapp || "-",
+                  asistira: r.attending !== undefined ? Boolean(r.attending) : Boolean(r.asistira),
+                  pasesConfirmados: r.pasesConfirmados !== undefined ? Number(r.pasesConfirmados) : 1,
+                  asistentes: Array.isArray(r.asistentes) ? r.asistentes : [],
+                  customAnswers: r.customAnswers || {},
+                  mensaje: r.mensaje || "-",
+                  createdAt: r.createdAt,
+                });
+                idsProcesados.add(id);
+              }
+            });
+          }
+        }
+      } catch (e) {
+        // Si falla la API local, continúa con los datos cargados de localStorage
+      }
+
+      // 3. Cargar desde Google Sheets (Webhook de lectura si está disponible)
       try {
         const resScript = await fetch(
           "https://script.google.com/macros/s/AKfycbwZ4jQVBC_Puii6O4pMMuPZr-8VnUzSo0tqnOdAyPFoEglrfPQJqRBdIR9zChCtyEOOmA/exec"
@@ -67,27 +122,32 @@ export default function AdminRespuestasPage() {
                 item.asistencia === true ||
                 item.attending === true;
 
-              combinadas.push({
-                id: `sheets-${idx}`,
-                nombre: item.nombre || item.name || "Sin Nombre",
-                whatsapp: item.whatsapp || item.phone || "-",
-                asistira: asiste,
-                pasesConfirmados: parseInt(item.pases || item.pasesConfirmados || "1", 10) || 1,
-                asistentes: Array.isArray(item.asistentes)
-                  ? item.asistentes
-                  : item.asistentes
-                  ? [item.asistentes]
-                  : [],
-                mensaje: item.mensaje || "-",
-              });
+              const sheetId = `sheets-${idx}`;
+              if (!idsProcesados.has(sheetId)) {
+                listaCombinada.push({
+                  id: sheetId,
+                  nombre: item.nombre || item.name || "Sin Nombre",
+                  whatsapp: item.whatsapp || item.phone || "-",
+                  asistira: asiste,
+                  pasesConfirmados: asiste
+                    ? parseInt(item.pases || item.pasesConfirmados || "1", 10) || 1
+                    : 0,
+                  asistentes: Array.isArray(item.asistentes)
+                    ? item.asistentes
+                    : item.asistentes
+                    ? [item.asistentes]
+                    : [],
+                  mensaje: item.mensaje || "-",
+                });
+              }
             }
           });
         }
       } catch (e) {
-        console.error("Error al cargar respuestas:", e);
+        // Ignorar si el webhook público falla o no está disponible
       }
 
-      setRespuestas(combinadas);
+      setRespuestas(listaCombinada);
       setLoading(false);
     };
 
@@ -96,8 +156,8 @@ export default function AdminRespuestasPage() {
 
   // Métricas
   const totalEnvios = respuestas.length;
-  const confirmados = respuestas.filter((r) => r.attending ?? r.asistira ?? true);
-  const cancelados = respuestas.filter((r) => !(r.attending ?? r.asistira ?? true));
+  const confirmados = respuestas.filter((r) => r.asistira === true);
+  const cancelados = respuestas.filter((r) => r.asistira === false);
   const totalPersonasAsistentes = confirmados.reduce(
     (acc, r) => acc + (r.pasesConfirmados || 1),
     0
@@ -110,10 +170,10 @@ export default function AdminRespuestasPage() {
     csvContent += "Nombre,WhatsApp,Asistira,Pases,Acompañantes,Mensaje\n";
 
     respuestas.forEach((r) => {
-      const nombre = `"${r.nombre || r.name || ""}"`;
-      const phone = `"${r.whatsapp || r.phone || ""}"`;
-      const asiste = (r.attending ?? r.asistira) ? "SI" : "NO";
-      const pases = r.pasesConfirmados || 1;
+      const nombre = `"${r.nombre || ""}"`;
+      const phone = `"${r.whatsapp || ""}"`;
+      const asiste = r.asistira ? "SI" : "NO";
+      const pases = r.asistira ? r.pasesConfirmados || 1 : 0;
       const acomp = `"${(r.asistentes || []).join(", ")}"`;
       const msg = `"${(r.mensaje || "").replace(/"/g, '""')}"`;
 
@@ -123,7 +183,7 @@ export default function AdminRespuestasPage() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `respuestas_${slugParam}.csv`);
+    link.setAttribute("download", `respuestas_${slugParam || "evento"}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -135,14 +195,17 @@ export default function AdminRespuestasPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-xl font-bold text-amber-500 uppercase flex items-center gap-2">
-            📊 RESPUESTAS DEL EVENTO: {slugParam.toUpperCase()}
+            📊 RESPUESTAS DEL EVENTO: {slugParam ? slugParam.toUpperCase() : "GENERAL"}
           </h1>
-          <p className="text-xs text-slate-400 mt-0.5">Enlace de respuestas: /{slugParam}</p>
+          <p className="text-xs text-slate-400 mt-0.5">
+            {slugParam ? `Enlace de respuestas: /${slugParam}` : "Selecciona un evento para ver detalles"}
+          </p>
         </div>
 
         <button
           onClick={exportarCSV}
-          className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs px-4 py-2.5 rounded-lg flex items-center gap-2 shadow-md transition-all"
+          disabled={respuestas.length === 0}
+          className="bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white font-bold text-xs px-4 py-2.5 rounded-lg flex items-center gap-2 shadow-md transition-all"
         >
           📥 Descargar Excel (CSV)
         </button>
@@ -205,12 +268,12 @@ export default function AdminRespuestasPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60 text-sm">
-                {respuestas.map((item, idx) => {
-                  const asiste = item.attending ?? item.asistira ?? true;
+                {respuestas.map((item) => {
+                  const asiste = item.asistira;
                   return (
-                    <tr key={item.id || idx} className="hover:bg-slate-800/30 transition-colors">
-                      <td className="p-3.5 font-bold text-white">{item.nombre || "Sin Nombre"}</td>
-                      <td className="p-3.5 text-slate-400">{item.whatsapp || "-"}</td>
+                    <tr key={item.id} className="hover:bg-slate-800/30 transition-colors">
+                      <td className="p-3.5 font-bold text-white">{item.nombre}</td>
+                      <td className="p-3.5 text-slate-400">{item.whatsapp}</td>
                       <td className="p-3.5">
                         <span
                           className={`px-2.5 py-1 rounded-md text-xs font-bold ${
@@ -226,11 +289,11 @@ export default function AdminRespuestasPage() {
                         {asiste ? item.pasesConfirmados || 1 : 0}
                       </td>
                       <td className="p-3.5 text-slate-300 text-xs">
-                        {(item.asistentes || []).length > 0
+                        {asiste && (item.asistentes || []).length > 0
                           ? item.asistentes?.join(", ")
                           : "Ninguno"}
                       </td>
-                      <td className="p-3.5 text-slate-400 text-xs">{item.mensaje || "-"}</td>
+                      <td className="p-3.5 text-slate-400 text-xs">{item.mensaje}</td>
                     </tr>
                   );
                 })}
