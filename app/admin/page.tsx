@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
@@ -86,40 +88,44 @@ export default function AdminPage() {
     setMounted(true);
 
     if (typeof window !== "undefined") {
-      const role = (localStorage.getItem("userRole") as "ADMINISTRADOR" | "CLIENTE") || "ADMINISTRADOR";
-      const slug = localStorage.getItem("userSlug") || "todos";
-      const name = localStorage.getItem("userName") || "Alejandro Mejía";
+      try {
+        const role = (localStorage.getItem("userRole") as "ADMINISTRADOR" | "CLIENTE") || "ADMINISTRADOR";
+        const slug = localStorage.getItem("userSlug") || "todos";
+        const name = localStorage.getItem("userName") || "Alejandro Mejía";
 
-      setRolUsuarioActual(role);
-      setSlugAsignado(slug);
-      setNombreSesion(name);
+        setRolUsuarioActual(role);
+        setSlugAsignado(slug);
+        setNombreSesion(name);
 
-      const eventosGuardados = localStorage.getItem("app_eventos_lista");
-      if (eventosGuardados) {
-        try {
-          const parsed = JSON.parse(eventosGuardados);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setEventos(parsed);
-            setSelectedSlug(parsed[0].slug);
-          } else {
+        const eventosGuardados = localStorage.getItem("app_eventos_lista");
+        if (eventosGuardados) {
+          try {
+            const parsed = JSON.parse(eventosGuardados);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setEventos(parsed);
+              setSelectedSlug(parsed[0].slug);
+            } else {
+              cargarEventoDemo();
+            }
+          } catch (err) {
             cargarEventoDemo();
           }
-        } catch (err) {
+        } else {
           cargarEventoDemo();
         }
-      } else {
-        cargarEventoDemo();
-      }
 
-      const usuariosGuardados = localStorage.getItem("app_usuarios_lista");
-      if (usuariosGuardados) {
-        try {
-          const parsedUsers = JSON.parse(usuariosGuardados);
-          if (Array.isArray(parsedUsers)) setUsuarios(parsedUsers);
-        } catch (err) {}
-      }
+        const usuariosGuardados = localStorage.getItem("app_usuarios_lista");
+        if (usuariosGuardados) {
+          try {
+            const parsedUsers = JSON.parse(usuariosGuardados);
+            if (Array.isArray(parsedUsers)) setUsuarios(parsedUsers);
+          } catch (err) {}
+        }
 
-      cargarRespuestasLocales();
+        cargarRespuestasLocales();
+      } catch (e) {
+        console.error("Error cargando configuración inicial:", e);
+      }
     }
     setCargandoSesion(false);
   }, []);
